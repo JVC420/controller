@@ -1,8 +1,10 @@
 import React from 'react';
-import { LayoutDashboard, History, Users, Settings, Activity, BarChart, UserCog } from 'lucide-react';
+import { LayoutDashboard, History, Users, Settings, Activity, BarChart, UserCog, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const Sidebar = ({ activeTab, setActiveTab, stats, sesionActual }) => {
     const isAdmin = sesionActual?.rol === 'admin';
+    const { logout } = useAuth();
     return (
         <aside className="w-20 lg:w-64 bg-dark-800 border-r border-slate-700 h-screen flex flex-col items-center lg:items-start py-6 transition-all duration-300">
             <div className="px-0 lg:px-6 mb-10 w-full flex justify-center lg:justify-start">
@@ -34,14 +36,23 @@ const Sidebar = ({ activeTab, setActiveTab, stats, sesionActual }) => {
                 </ul>
             </nav>
 
-            <div className="mt-auto px-0 lg:px-6 w-full flex justify-center lg:justify-start">
-                <div className="w-10 h-10 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center font-bold text-slate-300 uppercase">
-                    {sesionActual?.usuario?.charAt(0) || 'U'}
+            <div className="mt-auto px-0 lg:px-6 w-full space-y-4">
+                <div className="flex items-center justify-center lg:justify-start">
+                    <div className="w-10 h-10 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center font-bold text-slate-300 uppercase">
+                        {sesionActual?.usuario?.charAt(0) || 'U'}
+                    </div>
+                    <div className="hidden lg:block ml-3">
+                        <p className="text-sm font-semibold text-white">{sesionActual?.usuario || 'Usuario'}</p>
+                        <p className="text-xs text-slate-400 capitalize">{sesionActual?.rol || 'Rol Desconocido'}</p>
+                    </div>
                 </div>
-                <div className="hidden lg:block ml-3">
-                    <p className="text-sm font-semibold text-white">{sesionActual?.usuario || 'Usuario'}</p>
-                    <p className="text-xs text-slate-400 capitalize">{sesionActual?.rol || 'Rol Desconocido'}</p>
-                </div>
+                <button
+                    onClick={logout}
+                    className="w-full flex items-center justify-center lg:justify-start gap-2 px-0 lg:px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                >
+                    <LogOut size={20} />
+                    <span className="hidden lg:block text-sm font-medium">Cerrar sesión</span>
+                </button>
             </div>
         </aside>
     );
