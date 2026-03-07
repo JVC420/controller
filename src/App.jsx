@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
+import LoginPage from './components/LoginPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import TriageBoard from './components/TriageBoard';
 import FleetMonitor from './components/FleetMonitor';
@@ -12,8 +15,17 @@ import PersonnelView from './components/PersonnelView';
 import { useDashboardData } from './hooks/useDashboardData';
 import { Menu } from 'lucide-react';
 
+// Map route paths to tab names for sidebar highlighting
+const pathToTab = {
+  '/': 'dashboard',
+  '/historial': 'historial',
+  '/metricas': 'metricas',
+  '/directorio': 'directorio',
+  '/personal': 'personal',
+  '/configuracion': 'configuracion',
+};
 
-function App() {
+function AppLayout() {
   const {
     sesionActual,
     metricas,
@@ -43,12 +55,13 @@ function App() {
     updateTurno,
   } = useDashboardData();
 
+  const location = useLocation();
+  const activeTab = pathToTab[location.pathname] || 'dashboard';
+
   const [activeDragItem, setActiveDragItem] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Configure sensors for drag and drop — must be called before any conditional return
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -57,11 +70,9 @@ function App() {
     })
   );
 
-  // Loading guard — after all hooks
   if (loading) {
     return (
       <div className="flex flex-col h-screen bg-dark-900 p-4 gap-4 animate-pulse">
-        {/* Loading Header */}
         <div className="h-16 bg-dark-800 rounded-xl w-full flex items-center justify-between px-6 border border-slate-800">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-slate-700/50 rounded-lg"></div>
@@ -69,32 +80,20 @@ function App() {
           </div>
           <div className="w-24 h-8 bg-slate-700/50 rounded-lg"></div>
         </div>
-
-        {/* Loading Content Grid */}
         <div className="flex-1 flex gap-4 overflow-hidden">
-          {/* Loading Sidebar */}
           <div className="w-64 hidden lg:flex flex-col gap-3 h-full">
             {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-12 w-full bg-dark-800 rounded-lg border border-slate-800"></div>)}
           </div>
-
-          {/* Loading Main / Triage */}
           <div className="flex-1 flex flex-col lg:flex-row gap-4">
-            {/* Triage Column */}
             <div className="w-full lg:w-80 h-full bg-dark-800 rounded-xl border border-slate-800 p-4 space-y-4">
               <div className="w-1/2 h-6 bg-slate-700/50 rounded mb-6"></div>
               {[1, 2, 3].map(i => <div key={i} className="h-32 w-full bg-slate-800/50 rounded-lg"></div>)}
             </div>
-
-            {/* Main Content Area */}
             <div className="flex-1 h-full bg-dark-800 rounded-xl border border-slate-800 p-6 flex flex-col gap-6">
               <div className="w-64 h-8 bg-slate-700/50 rounded"></div>
-
-              {/* KPI Skeleton */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[1, 2, 3, 4].map(i => <div key={i} className="h-28 bg-slate-800/50 rounded-xl"></div>)}
               </div>
-
-              {/* List Skeleton */}
               <div className="flex-1 bg-slate-800/30 rounded-xl p-4 space-y-3 mt-4">
                 {[1, 2, 3, 4].map(i => <div key={i} className="h-16 w-full bg-slate-700/30 rounded-lg"></div>)}
               </div>
@@ -113,17 +112,17 @@ function App() {
     const { active, over } = event;
     setActiveDragItem(null);
 
-    // If dropped over a valid drop target
     if (over && active.data.current?.type === 'REQUEST' && over.data.current?.type === 'AMBULANCE') {
       const request = active.data.current.request;
       const ambulance = over.data.current.ambulance;
 
-      // Only assign if ambulance is available
       if (ambulance.estado === "Disponible") {
         assignAmbulance(request.id, ambulance.id);
       }
     }
   };
+
+  const isAdmin = sesionActual?.rol === 'admin';
 
   return (
     <DndContext
@@ -149,7 +148,6 @@ function App() {
           </button>
         </div>
 
-        {/* Sidebar Overlay for Mobile */}
         {isMobileMenuOpen && (
           <div
             className="lg:hidden fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50"
@@ -157,102 +155,101 @@ function App() {
           />
         )}
 
-        {/* Sidebar */}
         <div className={`fixed inset-y-0 left-0 z-[60] transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <Sidebar
             activeTab={activeTab}
-            setActiveTab={(tab) => {
-              setActiveTab(tab);
-              setIsMobileMenuOpen(false); // Close menu on mobile after selection
-            }}
+            onMobileClose={() => setIsMobileMenuOpen(false)}
             stats={{ activeRequests: solicitudesActivas.length }}
             sesionActual={sesionActual}
           />
         </div>
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col h-full pt-16 lg:pt-0">
-          {activeTab === 'dashboard' && (
-            <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
-              <TriageBoard
-                solicitudes={solicitudesPendientes}
-                getClienteById={getClienteById}
-                className="flex-none lg:h-full overflow-y-auto"
-              />
-
-              <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
-                <FleetMonitor
-                  flota={flota}
-                  onAddAmbulance={createRealAmbulance}
-                  onAddRequest={() => setIsModalOpen(true)}
-                  onStatusChange={updateAmbulanceStatus}
+          <Routes>
+            <Route path="/" element={
+              <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
+                <TriageBoard
+                  solicitudes={solicitudesPendientes}
+                  getClienteById={getClienteById}
+                  className="flex-none lg:h-full overflow-y-auto"
                 />
-              </main>
-            </div>
-          )}
-
-
-          {activeTab === 'directorio' && sesionActual?.rol === 'admin' && (
-            <ClientDirectory clientes={clientes} onCreateClient={createClient} onUpdateClient={updateClient} />
-
-          )}
-
-          {/* Admin Modules */}
-          {activeTab === 'metricas' && sesionActual?.rol === 'admin' && (
-            <MetricsDashboard
-              flota={flota}
-              solicitudes={solicitudes}
-              turnos={turnosHoy}
-            />
-          )}
-
-          {activeTab === 'personal' && sesionActual?.rol === 'admin' && (
-            <PersonnelView
-              empleados={empleados}
-              turnosHoy={turnosHoy}
-              prenominaMensual={prenominaMensual}
-              flota={flota}
-              addEmpleado={addEmpleado}
-              updateEmpleado={updateEmpleado}
-              addTurno={addTurno}
-              updateTurno={updateTurno}
-            />
-          )}
-          {/* Settings Route */}
-          {activeTab === 'configuracion' && sesionActual?.rol === 'admin' && (
-            <div className="flex-1 p-10 flex flex-col items-center justify-center bg-[#0B1121] text-slate-500">
-              <h2 className="text-2xl font-bold mb-4">Configuración del Sistema</h2>
-              <div className="bg-dark-800 border border-slate-700 p-6 rounded-xl max-w-md text-center space-y-4">
-                <h3 className="text-white font-semibold">Base de Datos (Firebase)</h3>
-                <p className="text-sm">Si tu dashboard aparece vacío, significa que tu base de datos de Firestore aún no tiene los registros iniciales de prueba.</p>
-                <button
-                  onClick={async () => {
-                    const { seedInitialData } = await import('./firebase/config');
-                    const success = await seedInitialData();
-                    if (success) alert('¡Datos inyectados a Firebase con éxito!');
-                    else alert('Error: Revisa la consola para más detalles.');
-                  }}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors"
-                >
-                  Inyectar Datos Iniciales
-                </button>
+                <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
+                  <FleetMonitor
+                    flota={flota}
+                    onAddAmbulance={createRealAmbulance}
+                    onAddRequest={() => setIsModalOpen(true)}
+                    onStatusChange={updateAmbulanceStatus}
+                  />
+                </main>
               </div>
-            </div>
-          )}
+            } />
 
-          {/* Historial Route */}
-          {activeTab === 'historial' && (
-            <HistoryView
-              historial={historialSolicitudes}
-              getClienteById={getClienteById}
-              updateServiceChecklist={updateServiceChecklist}
-              closeService={closeService}
-            />
-          )}
+            <Route path="/historial" element={
+              <HistoryView
+                historial={historialSolicitudes}
+                getClienteById={getClienteById}
+                updateServiceChecklist={updateServiceChecklist}
+                closeService={closeService}
+              />
+            } />
+
+            {/* Admin-only routes — redirect non-admin to dashboard */}
+            <Route path="/metricas" element={
+              isAdmin ? (
+                <MetricsDashboard flota={flota} solicitudes={solicitudes} turnos={turnosHoy} />
+              ) : <Navigate to="/" replace />
+            } />
+
+            <Route path="/directorio" element={
+              isAdmin ? (
+                <ClientDirectory clientes={clientes} onCreateClient={createClient} onUpdateClient={updateClient} />
+              ) : <Navigate to="/" replace />
+            } />
+
+            <Route path="/personal" element={
+              isAdmin ? (
+                <PersonnelView
+                  empleados={empleados}
+                  turnosHoy={turnosHoy}
+                  prenominaMensual={prenominaMensual}
+                  flota={flota}
+                  addEmpleado={addEmpleado}
+                  updateEmpleado={updateEmpleado}
+                  addTurno={addTurno}
+                  updateTurno={updateTurno}
+                />
+              ) : <Navigate to="/" replace />
+            } />
+
+            <Route path="/configuracion" element={
+              isAdmin ? (
+                <div className="flex-1 p-10 flex flex-col items-center justify-center bg-[#0B1121] text-slate-500">
+                  <h2 className="text-2xl font-bold mb-4">Configuración del Sistema</h2>
+                  <div className="bg-dark-800 border border-slate-700 p-6 rounded-xl max-w-md text-center space-y-4">
+                    <h3 className="text-white font-semibold">Base de Datos (Firebase)</h3>
+                    <p className="text-sm">Si tu dashboard aparece vacío, significa que tu base de datos de Firestore aún no tiene los registros iniciales de prueba.</p>
+                    <button
+                      onClick={async () => {
+                        const { seedInitialData } = await import('./firebase/config');
+                        const success = await seedInitialData();
+                        if (success) alert('¡Datos inyectados a Firebase con éxito!');
+                        else alert('Error: Revisa la consola para más detalles.');
+                      }}
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors"
+                    >
+                      Inyectar Datos Iniciales
+                    </button>
+                  </div>
+                </div>
+              ) : <Navigate to="/" replace />
+            } />
+
+            {/* Catch-all: redirect unknown routes to dashboard */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
       </div>
 
-      {/* Drag Overlay for smooth visual feedback */}
       <DragOverlay dropAnimation={{
         duration: 250,
         easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
@@ -277,6 +274,17 @@ function App() {
         />
       )}
     </DndContext>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/*" element={<AppLayout />} />
+      </Route>
+    </Routes>
   );
 }
 

@@ -1,10 +1,27 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, History, Users, Settings, Activity, BarChart, UserCog, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
-const Sidebar = ({ activeTab, setActiveTab, stats, sesionActual }) => {
+const tabToPath = {
+    dashboard: '/',
+    historial: '/historial',
+    metricas: '/metricas',
+    directorio: '/directorio',
+    personal: '/personal',
+    configuracion: '/configuracion',
+};
+
+const Sidebar = ({ activeTab, onMobileClose, stats, sesionActual }) => {
     const isAdmin = sesionActual?.rol === 'admin';
     const { logout } = useAuth();
+    const navigate = useNavigate();
+
+    const goTo = (tab) => {
+        navigate(tabToPath[tab]);
+        onMobileClose?.();
+    };
+
     return (
         <aside className="w-20 lg:w-64 bg-dark-800 border-r border-slate-700 h-screen flex flex-col items-center lg:items-start py-6 transition-all duration-300">
             <div className="px-0 lg:px-6 mb-10 w-full flex justify-center lg:justify-start">
@@ -20,17 +37,17 @@ const Sidebar = ({ activeTab, setActiveTab, stats, sesionActual }) => {
                         icon={<LayoutDashboard size={24} />}
                         label="Dashboard"
                         active={activeTab === 'dashboard'}
-                        onClick={() => setActiveTab('dashboard')}
+                        onClick={() => goTo('dashboard')}
                         badge={stats?.activeRequests}
                     />
-                    <NavItem icon={<History size={24} />} label="Historial" active={activeTab === 'historial'} onClick={() => setActiveTab('historial')} />
+                    <NavItem icon={<History size={24} />} label="Historial" active={activeTab === 'historial'} onClick={() => goTo('historial')} />
 
                     {isAdmin && (
                         <>
-                            <NavItem icon={<BarChart size={24} />} label="Métricas (KPI)" active={activeTab === 'metricas'} onClick={() => setActiveTab('metricas')} />
-                            <NavItem icon={<Users size={24} />} label="Directorio" active={activeTab === 'directorio'} onClick={() => setActiveTab('directorio')} />
-                            <NavItem icon={<UserCog size={24} />} label="Personal" active={activeTab === 'personal'} onClick={() => setActiveTab('personal')} />
-                            <NavItem icon={<Settings size={24} />} label="Configuración" active={activeTab === 'configuracion'} onClick={() => setActiveTab('configuracion')} />
+                            <NavItem icon={<BarChart size={24} />} label="Métricas (KPI)" active={activeTab === 'metricas'} onClick={() => goTo('metricas')} />
+                            <NavItem icon={<Users size={24} />} label="Directorio" active={activeTab === 'directorio'} onClick={() => goTo('directorio')} />
+                            <NavItem icon={<UserCog size={24} />} label="Personal" active={activeTab === 'personal'} onClick={() => goTo('personal')} />
+                            <NavItem icon={<Settings size={24} />} label="Configuración" active={activeTab === 'configuracion'} onClick={() => goTo('configuracion')} />
                         </>
                     )}
                 </ul>

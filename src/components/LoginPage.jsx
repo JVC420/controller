@@ -1,13 +1,21 @@
 import React, { useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
 import { Activity, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
 const LoginPage = () => {
+  const { user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // If already authenticated, redirect to dashboard
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
