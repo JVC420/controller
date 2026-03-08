@@ -53,7 +53,7 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(cliente => (
-                    <ClientCard key={cliente.id} cliente={cliente} onEdit={() => openEdit(cliente)} />
+                    <ClientCard key={cliente.id} cliente={cliente} onEdit={() => openEdit(cliente)} canEdit={canManageClients} />
                 ))}
                 {filtered.length === 0 && (
                     <div className="col-span-3 py-16 text-center text-slate-500">
@@ -73,7 +73,7 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
 };
 
 // ── Client Card ──────────────────────────────────────────────────────────────
-const ClientCard = ({ cliente, onEdit }) => {
+const ClientCard = ({ cliente, onEdit, canEdit }) => {
     const [showDocs, setShowDocs] = useState(false);
     const docs = cliente.documentos || [];
     const servicios = cliente.servicios || [];
@@ -95,10 +95,10 @@ const ClientCard = ({ cliente, onEdit }) => {
                             <h3 className="text-base font-bold text-white leading-snug">{cliente.nombre}</h3>
                         </div>
                     </div>
-                    <button onClick={onEdit}
+                    {canEdit && <button onClick={onEdit}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors shrink-0 ml-2">
                         <Edit2 size={14} />
-                    </button>
+                    </button>}
                 </div>
 
                 {/* Contact info */}

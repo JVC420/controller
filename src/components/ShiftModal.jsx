@@ -24,7 +24,14 @@ const ShiftModal = ({
                         <X size={20} />
                     </button>
                 </div>
-                <form onSubmit={onSubmit} className="p-6 space-y-4">
+                <form onSubmit={e => {
+                    e.preventDefault();
+                    if (newShift.horaInicioProgramada && newShift.horaFinProgramada && newShift.horaInicioProgramada >= newShift.horaFinProgramada) {
+                        alert('La hora de inicio no puede ser mayor o igual a la hora de finalización.');
+                        return;
+                    }
+                    onSubmit(e);
+                }} className="p-6 space-y-4">
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">
                             Empleado <span className="text-slate-500 font-normal">(solo activos)</span>
@@ -82,6 +89,7 @@ const ShiftModal = ({
                             <input
                                 type="time"
                                 required
+                                min={newShift.horaInicioProgramada || undefined}
                                 className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                                 value={newShift.horaFinProgramada}
                                 onChange={e => setNewShift({ ...newShift, horaFinProgramada: e.target.value })}

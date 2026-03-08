@@ -126,14 +126,24 @@ const PersonnelLiveShifts = ({
                                         <td className="py-3 px-4 font-mono text-slate-400">{turno.horaFin || '—'}</td>
                                         <td className="py-3 px-4">
                                             <input type="time" defaultValue={turno.inicioReal || ''}
+                                                disabled={isCancelled || isAbsent}
                                                 onBlur={e => e.target.value !== (turno.inicioReal || '') && handleSetShiftField(turno.id, 'inicioReal', e.target.value)}
-                                                className="bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-28" />
+                                                className={clsx("bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-28", (isCancelled || isAbsent) && 'opacity-50 cursor-not-allowed')} />
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-1.5">
                                                 <input type="time" defaultValue={turno.horaFinReal || ''}
-                                                    onBlur={e => e.target.value !== (turno.horaFinReal || '') && handleSetShiftField(turno.id, 'horaFinReal', e.target.value)}
-                                                    className={clsx("bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono w-28", overtime ? 'border-orange-500 focus:border-orange-400 text-orange-300' : 'border-slate-700 focus:border-blue-500')} />
+                                                    disabled={isCancelled || isAbsent}
+                                                    onBlur={e => {
+                                                        const val = e.target.value;
+                                                        if (val && turno.inicioReal && val < turno.inicioReal) {
+                                                            alert('La hora de salida real no puede ser menor a la hora de inicio real.');
+                                                            e.target.value = turno.horaFinReal || '';
+                                                            return;
+                                                        }
+                                                        if (val !== (turno.horaFinReal || '')) handleSetShiftField(turno.id, 'horaFinReal', val);
+                                                    }}
+                                                    className={clsx("bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono w-28", overtime ? 'border-orange-500 focus:border-orange-400 text-orange-300' : 'border-slate-700 focus:border-blue-500', (isCancelled || isAbsent) && 'opacity-50 cursor-not-allowed')} />
                                                 {overtime && <span title="Sobretiempo" className="text-orange-400 text-xs font-bold">+OT</span>}
                                             </div>
                                         </td>
@@ -200,8 +210,9 @@ const PersonnelLiveShifts = ({
                                         <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">Inicio (Prog: {turno.inicioProgramado})</p>
                                             <input type="time" defaultValue={turno.inicioReal || ''}
+                                                disabled={isCancelled || isAbsent}
                                                 onBlur={e => e.target.value !== (turno.inicioReal || '') && handleSetShiftField(turno.id, 'inicioReal', e.target.value)}
-                                                className="w-full bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono" />
+                                                className={clsx("w-full bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono", (isCancelled || isAbsent) && 'opacity-50 cursor-not-allowed')} />
                                         </div>
                                         <div className={clsx("p-2 rounded-lg border", overtime ? "bg-orange-950/20 border-orange-900/30" : "bg-slate-800/30 border-slate-700/50")}>
                                             <p className="flex justify-between text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">
@@ -209,8 +220,17 @@ const PersonnelLiveShifts = ({
                                                 {overtime && <span className="text-orange-400">+OT</span>}
                                             </p>
                                             <input type="time" defaultValue={turno.horaFinReal || ''}
-                                                onBlur={e => e.target.value !== (turno.horaFinReal || '') && handleSetShiftField(turno.id, 'horaFinReal', e.target.value)}
-                                                className={clsx("w-full bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono", overtime ? "border-orange-500 focus:border-orange-400 text-orange-300" : "border-slate-700 focus:border-blue-500")} />
+                                                disabled={isCancelled || isAbsent}
+                                                onBlur={e => {
+                                                    const val = e.target.value;
+                                                    if (val && turno.inicioReal && val < turno.inicioReal) {
+                                                        alert('La hora de salida real no puede ser menor a la hora de inicio real.');
+                                                        e.target.value = turno.horaFinReal || '';
+                                                        return;
+                                                    }
+                                                    if (val !== (turno.horaFinReal || '')) handleSetShiftField(turno.id, 'horaFinReal', val);
+                                                }}
+                                                className={clsx("w-full bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono", overtime ? "border-orange-500 focus:border-orange-400 text-orange-300" : "border-slate-700 focus:border-blue-500", (isCancelled || isAbsent) && 'opacity-50 cursor-not-allowed')} />
                                         </div>
                                     </div>
 
