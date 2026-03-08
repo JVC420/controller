@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
-import { Truck, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Truck, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
 
 const PersonnelLiveShifts = ({
     filteredTurnos,
@@ -28,6 +28,13 @@ const PersonnelLiveShifts = ({
             handleSetShiftField(turno.id, 'cancelado', true);
         }
     };
+
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+    const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     return (
         <div className="flex flex-col gap-4">
@@ -60,6 +67,10 @@ const PersonnelLiveShifts = ({
                     </button>
                 )}
                 <span className="md:ml-auto text-xs text-slate-500 w-full md:w-auto text-center md:text-right">{filteredTurnos.length} turno(s)</span>
+                <span className="flex items-center gap-1.5 bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-mono text-emerald-400 font-semibold w-full md:w-auto justify-center">
+                    <Clock size={14} className="text-emerald-500" />
+                    {timeStr}
+                </span>
             </div>
 
             <div className="bg-dark-800 border border-slate-700 rounded-xl shadow-md lg:shadow-2xl">

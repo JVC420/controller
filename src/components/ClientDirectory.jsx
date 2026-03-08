@@ -3,11 +3,13 @@ import { Building2, Search, Star, Clock, FileText, Stethoscope, Edit2, ChevronDo
 import { clsx } from 'clsx';
 import NewClientModal from './NewClientModal';
 import { useAuth } from '../contexts/AuthContext';
+import { ToastContainer, useToast } from './ui/Toast';
 
 const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
     const { role } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const canManageClients = role === 'administrador_general';
+    const { toasts, show: showToast, dismiss: dismissToast } = useToast();
     const [editTarget, setEditTarget] = useState(null); // client being edited
     const [search, setSearch] = useState('');
 
@@ -21,8 +23,10 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
     const handleSubmit = (payload) => {
         if (editTarget) {
             onUpdateClient?.(payload);
+            showToast('Cliente actualizado exitosamente', 'success');
         } else {
             onCreateClient?.(payload);
+            showToast('Cliente creado exitosamente', 'success');
         }
     };
 
@@ -68,6 +72,7 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
                 onSubmit={handleSubmit}
                 initialData={editTarget}
             />
+            <ToastContainer toasts={toasts} dismiss={dismissToast} />
         </div>
     );
 };

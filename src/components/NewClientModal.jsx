@@ -21,6 +21,15 @@ const EMPTY_FORM = {
     documentos: [],        // string[]
 };
 
+const Field = ({ label, children }) => (
+    <div className="space-y-1.5">
+        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</label>
+        {children}
+    </div>
+);
+
+const inputCls = "w-full bg-dark-900 border border-slate-600 rounded-lg py-2.5 px-3 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors";
+
 const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [newDoc, setNewDoc] = useState('');
@@ -74,15 +83,6 @@ const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         onClose();
     };
 
-    const Field = ({ label, children }) => (
-        <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{label}</label>
-            {children}
-        </div>
-    );
-
-    const inputCls = "w-full bg-dark-900 border border-slate-600 rounded-lg py-2.5 px-3 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors";
-
     return (
         <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-dark-800 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -107,6 +107,7 @@ const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                         {/* Basic info */}
                         <Field label="Razón Social / Nombre *">
                             <input required value={formData.nombre}
+                                maxLength={100}
                                 onChange={e => setFormData({ ...formData, nombre: e.target.value })}
                                 placeholder="Ej: Clínica Los Cobos" className={inputCls} />
                         </Field>
@@ -114,21 +115,29 @@ const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                         <div className="grid grid-cols-2 gap-4">
                             <Field label="NIT / Identificación">
                                 <input value={formData.nit}
+                                    maxLength={20}
                                     onChange={e => setFormData({ ...formData, nit: e.target.value })}
                                     placeholder="Opcional" className={inputCls} />
                             </Field>
                             <Field label="Teléfono">
                                 <input value={formData.telefono}
-                                    onChange={e => setFormData({ ...formData, telefono: e.target.value })}
+                                    maxLength={15}
+                                    inputMode="numeric"
+                                    onChange={e => {
+                                        const val = e.target.value.replace(/[^0-9]/g, '');
+                                        setFormData({ ...formData, telefono: val });
+                                    }}
                                     placeholder="Teléfono" className={inputCls} />
                             </Field>
                             <Field label="Dirección">
                                 <input value={formData.direccion}
+                                    maxLength={150}
                                     onChange={e => setFormData({ ...formData, direccion: e.target.value })}
                                     placeholder="Dirección principal" className={inputCls} />
                             </Field>
                             <Field label="Persona de Contacto">
                                 <input value={formData.contacto}
+                                    maxLength={80}
                                     onChange={e => setFormData({ ...formData, contacto: e.target.value })}
                                     placeholder="Ej: Dra. García" className={inputCls} />
                             </Field>
@@ -216,6 +225,7 @@ const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                             )}
                             <div className="flex gap-2">
                                 <input value={newDoc} onChange={e => setNewDoc(e.target.value)}
+                                    maxLength={80}
                                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addDoc())}
                                     placeholder="Ej: Historia Clínica, Remisión médica, RIPS..."
                                     className="flex-1 bg-dark-900 border border-slate-600 rounded-lg py-2 px-3 text-white text-sm focus:outline-none focus:border-emerald-500 transition-colors" />
