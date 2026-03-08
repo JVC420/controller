@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { DndContext, DragOverlay, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
+import { DndContext, DragOverlay, pointerWithin, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
@@ -122,7 +122,9 @@ function AppLayout() {
     const { active, over } = event;
     setActiveDragItem(null);
 
-    if (over && active.data.current?.type === 'REQUEST' && over.data.current?.type === 'AMBULANCE') {
+    if (!over) return;
+
+    if (active.data.current?.type === 'REQUEST' && over.data.current?.type === 'AMBULANCE') {
       const request = active.data.current.request;
       const ambulance = over.data.current.ambulance;
 
@@ -132,12 +134,17 @@ function AppLayout() {
     }
   };
 
+  const handleDragCancel = () => {
+    setActiveDragItem(null);
+  };
+
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
     >
       <div className="flex h-screen bg-dark-900 overflow-hidden font-sans text-slate-100 selection:bg-blue-500/30">
         {/* Mobile Header */}

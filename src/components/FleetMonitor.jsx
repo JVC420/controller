@@ -32,7 +32,7 @@ const FleetMonitor = ({ flota, onAddAmbulance, onAddRequest, onStatusChange }) =
                             onClick={() => setIsAmbulanceModalOpen(true)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm text-white font-bold transition-colors cursor-pointer shadow-lg shadow-emerald-900/20"
                         >
-                            + Nueva Ambulancia
+                            Nueva Ambulancia
                         </button>}
                     </div>
                     <div className="flex gap-2 lg:gap-4">
