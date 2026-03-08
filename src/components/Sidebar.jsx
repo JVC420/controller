@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, History, Users, Settings, Activity, BarChart, UserCog, LogOut } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, ROLES } from '../contexts/AuthContext';
 
 const tabToPath = {
     dashboard: '/',
@@ -12,10 +12,12 @@ const tabToPath = {
     configuracion: '/configuracion',
 };
 
-const Sidebar = ({ activeTab, onMobileClose, stats, sesionActual }) => {
-    const isAdmin = sesionActual?.rol === 'admin';
-    const { logout } = useAuth();
+const Sidebar = ({ activeTab, onMobileClose, stats }) => {
+    const { user, role, logout, hasAccess } = useAuth();
     const navigate = useNavigate();
+
+    const roleLabel = ROLES[role]?.label || 'Sin rol';
+    const displayName = user?.displayName || user?.email?.split('@')[0] || 'Usuario';
 
     const goTo = (tab) => {
         navigate(tabToPath[tab]);
@@ -33,22 +35,29 @@ const Sidebar = ({ activeTab, onMobileClose, stats, sesionActual }) => {
 
             <nav className="flex-1 w-full">
                 <ul className="space-y-2">
-                    <NavItem
-                        icon={<LayoutDashboard size={24} />}
-                        label="Dashboard"
-                        active={activeTab === 'dashboard'}
-                        onClick={() => goTo('dashboard')}
-                        badge={stats?.activeRequests}
-                    />
-                    <NavItem icon={<History size={24} />} label="Historial" active={activeTab === 'historial'} onClick={() => goTo('historial')} />
-
-                    {isAdmin && (
-                        <>
-                            <NavItem icon={<BarChart size={24} />} label="Métricas (KPI)" active={activeTab === 'metricas'} onClick={() => goTo('metricas')} />
-                            <NavItem icon={<Users size={24} />} label="Directorio" active={activeTab === 'directorio'} onClick={() => goTo('directorio')} />
-                            <NavItem icon={<UserCog size={24} />} label="Personal" active={activeTab === 'personal'} onClick={() => goTo('personal')} />
-                            <NavItem icon={<Settings size={24} />} label="Configuración" active={activeTab === 'configuracion'} onClick={() => goTo('configuracion')} />
-                        </>
+                    {hasAccess('/') && (
+                        <NavItem
+                            icon={<LayoutDashboard size={24} />}
+                            label="Dashboard"
+                            active={activeTab === 'dashboard'}
+                            onClick={() => goTo('dashboard')}
+                            badge={stats?.activeRequests}
+                        />
+                    )}
+                    {hasAccess('/historial') && (
+                        <NavItem icon={<History size={24} />} label="Historial" active={activeTab === 'historial'} onClick={() => goTo('historial')} />
+                    )}
+                    {hasAccess('/metricas') && (
+                        <NavItem icon={<BarChart size={24} />} label="Métricas (KPI)" active={activeTab === 'metricas'} onClick={() => goTo('metricas')} />
+                    )}
+                    {hasAccess('/directorio') && (
+                        <NavItem icon={<Users size={24} />} label="Directorio" active={activeTab === 'directorio'} onClick={() => goTo('directorio')} />
+                    )}
+                    {hasAccess('/personal') && (
+                        <NavItem icon={<UserCog size={24} />} label="Personal" active={activeTab === 'personal'} onClick={() => goTo('personal')} />
+                    )}
+                    {hasAccess('/configuracion') && (
+                        <NavItem icon={<Settings size={24} />} label="Configuración" active={activeTab === 'configuracion'} onClick={() => goTo('configuracion')} />
                     )}
                 </ul>
             </nav>
@@ -56,11 +65,11 @@ const Sidebar = ({ activeTab, onMobileClose, stats, sesionActual }) => {
             <div className="mt-auto px-0 lg:px-6 w-full space-y-4">
                 <div className="flex items-center justify-center lg:justify-start">
                     <div className="w-10 h-10 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center font-bold text-slate-300 uppercase">
-                        {sesionActual?.usuario?.charAt(0) || 'U'}
+                        {displayName.charAt(0)}
                     </div>
                     <div className="hidden lg:block ml-3">
-                        <p className="text-sm font-semibold text-white">{sesionActual?.usuario || 'Usuario'}</p>
-                        <p className="text-xs text-slate-400 capitalize">{sesionActual?.rol || 'Rol Desconocido'}</p>
+                        <p className="text-sm font-semibold text-white">{displayName}</p>
+                        <p className="text-xs text-slate-400">{roleLabel}</p>
                     </div>
                 </div>
                 <button

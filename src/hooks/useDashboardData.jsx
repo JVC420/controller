@@ -4,6 +4,7 @@ import {
     addDoc, updateDoc, setDoc, deleteDoc
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
 
 // ─── Fallback metrics (computed locally until analytics module is built) ──────
 const STATIC_METRICAS = { flotaOperativa: "85%", tiempoPromedioRespuesta: "18 min", serviciosHoy: 24 };
@@ -16,6 +17,7 @@ const PRENOMINA_MOCK = [
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export const useDashboardData = () => {
+    const { role } = useAuth();
     const [sesionActual] = useState(SESION_ACTUAL);
     const [metricas] = useState(STATIC_METRICAS);
     const [prenominaMensual] = useState(PRENOMINA_MOCK);
@@ -28,45 +30,56 @@ export const useDashboardData = () => {
 
     const [loading, setLoading] = useState(true);
 
+    // ── Role-based collection access ──────────────────────────────────────────
+    const canReadClientes = role === 'controlador' || role === 'administrador_general';
+    const canReadEmpleados = role === 'recurso_humano' || role === 'administrador_general';
+    const canReadTurnos = role === 'recurso_humano' || role === 'administrador_general';
+    // flota and solicitudes are accessible to all authenticated roles
+
     // ── Real-time Firestore listeners ─────────────────────────────────────────
     useEffect(() => {
+        if (!role) return;
+
         let resolved = 0;
-        const total = 5;
+        // flota + solicitudes always load; clientes, empleados, turnos are conditional
+        const total = 2 + (canReadClientes ? 1 : 0) + (canReadEmpleados ? 1 : 0) + (canReadTurnos ? 1 : 0);
         const tryResolve = () => { resolved++; if (resolved >= total) setLoading(false); };
 
-        const unsubClientes = onSnapshot(collection(db, 'clientes'), snap => {
-            setClientes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            tryResolve();
-        }, console.error);
+        const unsubs = [];
 
-        const unsubFlota = onSnapshot(collection(db, 'flota'), snap => {
+        if (canReadClientes) {
+            unsubs.push(onSnapshot(collection(db, 'clientes'), snap => {
+                setClientes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                tryResolve();
+            }, console.error));
+        }
+
+        unsubs.push(onSnapshot(collection(db, 'flota'), snap => {
             setFlota(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             tryResolve();
-        }, console.error);
+        }, console.error));
 
-        const unsubSolicitudes = onSnapshot(collection(db, 'solicitudes'), snap => {
+        unsubs.push(onSnapshot(collection(db, 'solicitudes'), snap => {
             setSolicitudes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
             tryResolve();
-        }, console.error);
+        }, console.error));
 
-        const unsubEmpleados = onSnapshot(collection(db, 'empleados'), snap => {
-            setEmpleados(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            tryResolve();
-        }, console.error);
+        if (canReadEmpleados) {
+            unsubs.push(onSnapshot(collection(db, 'empleados'), snap => {
+                setEmpleados(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                tryResolve();
+            }, console.error));
+        }
 
-        const unsubTurnos = onSnapshot(collection(db, 'turnos'), snap => {
-            setTurnos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-            tryResolve();
-        }, console.error);
+        if (canReadTurnos) {
+            unsubs.push(onSnapshot(collection(db, 'turnos'), snap => {
+                setTurnos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                tryResolve();
+            }, console.error));
+        }
 
-        return () => {
-            unsubClientes();
-            unsubFlota();
-            unsubSolicitudes();
-            unsubEmpleados();
-            unsubTurnos();
-        };
-    }, []);
+        return () => unsubs.forEach(fn => fn());
+    }, [role]);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const getClienteById = (id) => clientes.find(c => c.id === id);

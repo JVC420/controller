@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, closestCenter, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -13,6 +13,8 @@ import HistoryView from './components/HistoryView';
 import MetricsDashboard from './components/MetricsDashboard';
 import PersonnelView from './components/PersonnelView';
 import { useDashboardData } from './hooks/useDashboardData';
+import { useAuth, ROLES } from './contexts/AuthContext';
+import UnauthorizedPage from './components/UnauthorizedPage';
 import { Menu } from 'lucide-react';
 
 // Map route paths to tab names for sidebar highlighting
@@ -55,8 +57,12 @@ function AppLayout() {
     updateTurno,
   } = useDashboardData();
 
+  const { hasAccess, role, loading: authLoading } = useAuth();
   const location = useLocation();
   const activeTab = pathToTab[location.pathname] || 'dashboard';
+
+  // Compute the default landing page for this role
+  const defaultRoute = ROLES[role]?.routes[0] || '/login';
 
   const [activeDragItem, setActiveDragItem] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -70,7 +76,8 @@ function AppLayout() {
     })
   );
 
-  if (loading) {
+  // ── Wait for auth + data to resolve ──
+  if (authLoading || loading) {
     return (
       <div className="flex flex-col h-screen bg-dark-900 p-4 gap-4 animate-pulse">
         <div className="h-16 bg-dark-800 rounded-xl w-full flex items-center justify-between px-6 border border-slate-800">
@@ -104,6 +111,9 @@ function AppLayout() {
     );
   }
 
+  // Helper: wrap content with access check — shows UnauthorizedPage if denied
+  const guard = (path, content) => hasAccess(path) ? content : <UnauthorizedPage />;
+
   const handleDragStart = (event) => {
     setActiveDragItem(event.active.data.current);
   };
@@ -121,8 +131,6 @@ function AppLayout() {
       }
     }
   };
-
-  const isAdmin = sesionActual?.rol === 'admin';
 
   return (
     <DndContext
@@ -160,13 +168,12 @@ function AppLayout() {
             activeTab={activeTab}
             onMobileClose={() => setIsMobileMenuOpen(false)}
             stats={{ activeRequests: solicitudesActivas.length }}
-            sesionActual={sesionActual}
           />
         </div>
 
         <div className="flex-1 flex flex-col h-full pt-16 lg:pt-0">
           <Routes>
-            <Route path="/" element={
+            <Route path="/" element={guard('/',
               <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
                 <TriageBoard
                   solicitudes={solicitudesPendientes}
@@ -182,70 +189,61 @@ function AppLayout() {
                   />
                 </main>
               </div>
-            } />
+            )} />
 
-            <Route path="/historial" element={
+            <Route path="/historial" element={guard('/historial',
               <HistoryView
                 historial={historialSolicitudes}
                 getClienteById={getClienteById}
                 updateServiceChecklist={updateServiceChecklist}
                 closeService={closeService}
               />
-            } />
+            )} />
 
-            {/* Admin-only routes — redirect non-admin to dashboard */}
-            <Route path="/metricas" element={
-              isAdmin ? (
-                <MetricsDashboard flota={flota} solicitudes={solicitudes} turnos={turnosHoy} />
-              ) : <Navigate to="/" replace />
-            } />
+            <Route path="/metricas" element={guard('/metricas',
+              <MetricsDashboard flota={flota} solicitudes={solicitudes} turnos={turnosHoy} />
+            )} />
 
-            <Route path="/directorio" element={
-              isAdmin ? (
-                <ClientDirectory clientes={clientes} onCreateClient={createClient} onUpdateClient={updateClient} />
-              ) : <Navigate to="/" replace />
-            } />
+            <Route path="/directorio" element={guard('/directorio',
+              <ClientDirectory clientes={clientes} onCreateClient={createClient} onUpdateClient={updateClient} />
+            )} />
 
-            <Route path="/personal" element={
-              isAdmin ? (
-                <PersonnelView
-                  empleados={empleados}
-                  turnosHoy={turnosHoy}
-                  prenominaMensual={prenominaMensual}
-                  flota={flota}
-                  addEmpleado={addEmpleado}
-                  updateEmpleado={updateEmpleado}
-                  addTurno={addTurno}
-                  updateTurno={updateTurno}
-                />
-              ) : <Navigate to="/" replace />
-            } />
+            <Route path="/personal" element={guard('/personal',
+              <PersonnelView
+                empleados={empleados}
+                turnosHoy={turnosHoy}
+                prenominaMensual={prenominaMensual}
+                flota={flota}
+                addEmpleado={addEmpleado}
+                updateEmpleado={updateEmpleado}
+                addTurno={addTurno}
+                updateTurno={updateTurno}
+              />
+            )} />
 
-            <Route path="/configuracion" element={
-              isAdmin ? (
-                <div className="flex-1 p-10 flex flex-col items-center justify-center bg-[#0B1121] text-slate-500">
-                  <h2 className="text-2xl font-bold mb-4">Configuración del Sistema</h2>
-                  <div className="bg-dark-800 border border-slate-700 p-6 rounded-xl max-w-md text-center space-y-4">
-                    <h3 className="text-white font-semibold">Base de Datos (Firebase)</h3>
-                    <p className="text-sm">Si tu dashboard aparece vacío, significa que tu base de datos de Firestore aún no tiene los registros iniciales de prueba.</p>
-                    <button
-                      onClick={async () => {
-                        const { seedInitialData } = await import('./firebase/config');
-                        const success = await seedInitialData();
-                        if (success) alert('¡Datos inyectados a Firebase con éxito!');
-                        else alert('Error: Revisa la consola para más detalles.');
-                      }}
-                      className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors"
-                    >
-                      Inyectar Datos Iniciales
-                    </button>
-                  </div>
+            <Route path="/configuracion" element={guard('/configuracion',
+              <div className="flex-1 p-10 flex flex-col items-center justify-center bg-[#0B1121] text-slate-500">
+                <h2 className="text-2xl font-bold mb-4">Configuración del Sistema</h2>
+                <div className="bg-dark-800 border border-slate-700 p-6 rounded-xl max-w-md text-center space-y-4">
+                  <h3 className="text-white font-semibold">Base de Datos (Firebase)</h3>
+                  <p className="text-sm">Si tu dashboard aparece vacío, significa que tu base de datos de Firestore aún no tiene los registros iniciales de prueba.</p>
+                  <button
+                    onClick={async () => {
+                      const { seedInitialData } = await import('./firebase/config');
+                      const success = await seedInitialData();
+                      if (success) alert('¡Datos inyectados a Firebase con éxito!');
+                      else alert('Error: Revisa la consola para más detalles.');
+                    }}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors"
+                  >
+                    Inyectar Datos Iniciales
+                  </button>
                 </div>
-              ) : <Navigate to="/" replace />
-            } />
+              </div>
+            )} />
 
-            {/* Catch-all: redirect unknown routes to dashboard */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* Catch-all: unknown paths show unauthorized */}
+            <Route path="*" element={<UnauthorizedPage />} />
           </Routes>
         </div>
       </div>
