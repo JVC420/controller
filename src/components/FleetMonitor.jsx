@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import AmbulanceCard from './AmbulanceCard';
 import NewAmbulanceModal from './NewAmbulanceModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const FleetMonitor = ({ flota, onAddAmbulance, onAddRequest, onStatusChange }) => {
+    const { role } = useAuth();
     const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
+    const canManageFleet = role === 'administrador_general';
 
     // Group fleet by status
     const disponibles = flota.filter(a => a.estado === 'Disponible');
@@ -21,16 +24,16 @@ const FleetMonitor = ({ flota, onAddAmbulance, onAddRequest, onStatusChange }) =
                     <div className="flex gap-2">
                         <button
                             onClick={onAddRequest}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm text-white font-bold transition-colors cursor-pointer shadow-lg shadow-blue-900/20"
+                            className="px-3 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm text-white font-bold transition-colors cursor-pointer shadow-lg shadow-blue-900/20"
                         >
-                            + Solicitud Test
+                            Crear Solicitud
                         </button>
-                        <button
+                        {canManageFleet && <button
                             onClick={() => setIsAmbulanceModalOpen(true)}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm text-white font-bold transition-colors cursor-pointer shadow-lg shadow-emerald-900/20"
                         >
                             + Nueva Ambulancia
-                        </button>
+                        </button>}
                     </div>
                     <div className="flex gap-2 lg:gap-4">
                         <StatBox label="Disponibles" count={disponibles.length} color="text-emerald-400" />

@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { Building2, Search, Star, Clock, FileText, Stethoscope, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import { clsx } from 'clsx';
 import NewClientModal from './NewClientModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
+    const { role } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const canManageClients = role === 'administrador_general';
     const [editTarget, setEditTarget] = useState(null); // client being edited
     const [search, setSearch] = useState('');
 
@@ -30,10 +33,10 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
                     <h1 className="text-2xl font-bold text-white tracking-tight">Directorio de Clientes</h1>
                     <p className="text-slate-400 mt-1">Servicios contratados, documentación y SLA por cliente.</p>
                 </div>
-                <button onClick={openNew}
+                {canManageClients && <button onClick={openNew}
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-lg transition-colors flex items-center gap-2">
                     + Nuevo Cliente
-                </button>
+                </button>}
             </header>
 
             <div className="mb-6 flex gap-4 items-center">
