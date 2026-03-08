@@ -3,14 +3,24 @@ import { X, Save, Building2, Tag, ShieldAlert, Plus, Trash2, FileText, Stethosco
 
 // ── Catalog of available services ─────────────────────────────────────────────
 const SERVICIOS_CATALOGO = [
-    'Traslado Asistencial Básico (TAB)',
-    'Traslado Asistencial Medicalizado (TAM)',
-    'Urgencias y Emergencias',
-    'Transporte Programado',
-    'Apoyo en Eventos',
-    'Hospitalización Domiciliaria',
-    'UCI Móvil',
-    'Neonatal / Pediátrico',
+    'TAB SENCILLO',
+    'TAB REDONDO',
+    'TAB DE 25 HASTA 300K',
+    'TAB MAYOR A DE 300K',
+    'TAB HORA DE ESPERA',
+    'TAB FALLIDO',
+    'TAM SENCILLO',
+    'TAM REDONDO',
+    'TAM DE 25 HASTA 300K',
+    'TAM MAYOR A DE 300K',
+    'TAM HORA DE ESPERA',
+    'TAM FALLIDO',
+    'TAM NEONATAL SENCILLO',
+    'TAM NEONATAL REDONDO',
+    'TAM NEONATAL DE 25 HASTA 300K',
+    'TAM NEONATAL MAYOR A DE 300K',
+    'TAM NEONATAL HORA DE ESPERA',
+    'TAM NEONATAL FALLIDO',
 ];
 
 const EMPTY_FORM = {

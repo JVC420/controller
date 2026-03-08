@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { FileCheck, Search, Clock, AlertTriangle } from 'lucide-react';
 import { clsx } from 'clsx';
 import ServiceClosureModal from './ServiceClosureModal';
+import { ToastContainer, useToast } from './ui/Toast';
 
 const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeService }) => {
+    const { toasts, show: showToast, dismiss: dismissToast } = useToast();
     // Current time state to force re-evaluation of 2.5 hour SLAs
     const [now, setNow] = useState(Date.now());
 
@@ -208,9 +210,13 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     onClose={() => setClosureModalData({ isOpen: false, servicio: null, cliente: null })}
                     servicio={closureModalData.servicio}
                     cliente={closureModalData.cliente}
-                    onCerrarServicio={closeService}
+                    onCerrarServicio={(reqId, ambId) => {
+                        closeService(reqId, ambId);
+                        showToast('Servicio finalizado exitosamente', 'success');
+                    }}
                 />
             )}
+            <ToastContainer toasts={toasts} dismiss={dismissToast} />
         </div>
     );
 };

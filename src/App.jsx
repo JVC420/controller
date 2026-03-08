@@ -15,6 +15,7 @@ import PersonnelView from './components/PersonnelView';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useAuth, ROLES } from './contexts/AuthContext';
 import UnauthorizedPage from './components/UnauthorizedPage';
+import { ToastContainer, useToast } from './components/ui/Toast';
 import { Menu } from 'lucide-react';
 
 // Map route paths to tab names for sidebar highlighting
@@ -67,6 +68,7 @@ function AppLayout() {
   const [activeDragItem, setActiveDragItem] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -130,6 +132,7 @@ function AppLayout() {
 
       if (ambulance.estado === "Disponible") {
         assignAmbulance(request.id, ambulance.id);
+        showToast('Solicitud asignada exitosamente', 'success');
       }
     }
   };
@@ -278,6 +281,7 @@ function AppLayout() {
           onSubmit={createRealRequest}
         />
       )}
+      <ToastContainer toasts={toasts} dismiss={dismissToast} />
     </DndContext>
   );
 }
