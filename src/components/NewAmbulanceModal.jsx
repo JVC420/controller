@@ -45,7 +45,7 @@ const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
                             <Truck size={16} className="text-emerald-400" /> Placa o Indicativo
                         </label>
                         <input
-                            type="text" required
+                            type="text" required maxLength={40}
                             value={formData.placaBase}
                             onChange={e => setFormData({ ...formData, placaBase: e.target.value })}
                             placeholder="Ej: TAB-09"

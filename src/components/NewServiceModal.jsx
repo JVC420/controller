@@ -59,22 +59,17 @@ const NewServiceModal = ({ isOpen, onClose, clientes, onSubmit }) => {
                             <Building2 size={16} className="text-blue-400" />
                             Seleccionar Cliente
                         </label>
-                        <input
-                            list="client-options"
+                        <select
                             required
-                            placeholder="Buscar cliente por nombre..."
-                            onChange={(e) => {
-                                const selectedName = e.target.value;
-                                const matchingClient = clientes.find(c => `${c.nombre} (${c.ranking})` === selectedName);
-                                setFormData({ ...formData, clienteId: matchingClient ? matchingClient.id : '' });
-                            }}
-                            className="w-full bg-dark-900 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        />
-                        <datalist id="client-options">
+                            value={formData.clienteId}
+                            onChange={(e) => setFormData({ ...formData, clienteId: e.target.value })}
+                            className="w-full bg-dark-900 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 appearance-none cursor-pointer"
+                        >
+                            <option value="" disabled>Seleccione un cliente...</option>
                             {clientes.map(c => (
-                                <option key={c.id} value={`${c.nombre} (${c.ranking})`} />
+                                <option key={c.id} value={c.id}>{c.nombre} ({c.ranking})</option>
                             ))}
-                        </datalist>
+                        </select>
                     </div>
 
                     <div className="space-y-2">

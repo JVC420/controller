@@ -17,13 +17,13 @@ const EmployeeModal = ({ isOpen, onClose, onSubmit, empForm, setEmpForm, editing
                 <form onSubmit={onSubmit} className="p-6 space-y-4">
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">Cédula</label>
-                        <input type="text" required placeholder="Ej. 1234567890"
+                        <input type="text" required placeholder="Ej. 1234567890" maxLength={15} inputMode="numeric" pattern="[0-9]*"
                             className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                            value={empForm.cedula} onChange={e => setEmpForm({ ...empForm, cedula: e.target.value })} />
+                            value={empForm.cedula} onChange={e => setEmpForm({ ...empForm, cedula: e.target.value.replace(/\D/g, '') })} />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">Nombre Completo</label>
-                        <input type="text" required placeholder="Ej. María Gómez"
+                        <input type="text" required placeholder="Ej. María Gómez" maxLength={60}
                             className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                             value={empForm.nombre} onChange={e => setEmpForm({ ...empForm, nombre: e.target.value })} />
                     </div>

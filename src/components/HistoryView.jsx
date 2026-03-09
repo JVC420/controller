@@ -17,6 +17,9 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
     // 150 minutes in milliseconds for critical SLA alerts
     const SLA_LIMIT_MS = 150 * 60 * 1000;
 
+    // Search state
+    const [searchTerm, setSearchTerm] = useState('');
+
     // Modal state for dynamic closure checklists
     const [closureModalData, setClosureModalData] = useState({
         isOpen: false,
@@ -40,6 +43,8 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                     <input
                         type="text"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Buscar por ID, placa o cliente..."
                         className="w-full bg-dark-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-all"
                     />
@@ -59,7 +64,16 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
-                        {historial.sort((a, b) => new Date(b.asignadoAt) - new Date(a.asignadoAt)).map(servicio => {
+                        {historial.filter(s => {
+                            if (!searchTerm) return true;
+                            const term = searchTerm.toLowerCase();
+                            const cliente = getClienteById(s.clienteId);
+                            return (
+                                (s.id && s.id.toLowerCase().includes(term)) ||
+                                (s.ambulanciaAsignada && s.ambulanciaAsignada.toLowerCase().includes(term)) ||
+                                (cliente?.nombre && cliente.nombre.toLowerCase().includes(term))
+                            );
+                        }).sort((a, b) => new Date(b.asignadoAt) - new Date(a.asignadoAt)).map(servicio => {
                             const cliente = getClienteById(servicio.clienteId);
 
                             // Calculate SLA Breach
@@ -143,7 +157,16 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     {historial.length === 0 && (
                         <div className="py-10 text-center text-slate-500">No hay servicios en el historial todavía.</div>
                     )}
-                    {historial.sort((a, b) => new Date(b.asignadoAt) - new Date(a.asignadoAt)).map(servicio => {
+                    {historial.filter(s => {
+                        if (!searchTerm) return true;
+                        const term = searchTerm.toLowerCase();
+                        const cliente = getClienteById(s.clienteId);
+                        return (
+                            (s.id && s.id.toLowerCase().includes(term)) ||
+                            (s.ambulanciaAsignada && s.ambulanciaAsignada.toLowerCase().includes(term)) ||
+                            (cliente?.nombre && cliente.nombre.toLowerCase().includes(term))
+                        );
+                    }).sort((a, b) => new Date(b.asignadoAt) - new Date(a.asignadoAt)).map(servicio => {
                         const cliente = getClienteById(servicio.clienteId);
 
                         // Calculate SLA Breach
