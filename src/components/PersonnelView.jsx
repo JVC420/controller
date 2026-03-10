@@ -10,26 +10,46 @@ import PersonnelLiveShifts from './PersonnelLiveShifts';
 import PersonnelDirectory from './PersonnelDirectory';
 import PersonnelPayroll from './PersonnelPayroll';
 
-const getPunctualityStatus = (inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada) => {
+// Parses both "HH:mm" (legacy) and "YYYY-MM-DDTHH:mm" (new) into epoch ms
+const toMs = (val, fecha) => {
+    if (!val) return 0;
+    if (val.includes('T')) return new Date(val).getTime();
+    return new Date(`${fecha || '1970-01-01'}T${val}:00`).getTime();
+};
+// Returns "YYYY-MM-DDTHH:mm" for datetime-local inputs (handles legacy "HH:mm" too)
+const dtVal = (val, fecha) => {
+    if (!val) return '';
+    if (val.includes('T')) return val;
+    return `${fecha}T${val}`;
+};
+// Compact display: "09/03 22:00" for datetimes, plain "HH:mm" for legacy
+const fmtDT = (val) => {
+    if (!val) return '—';
+    if (val.includes('T')) {
+        const [date, time] = val.split('T');
+        const [, m, d] = date.split('-');
+        return `${d}/${m} ${time}`;
+    }
+    return val;
+};
+
+const getPunctualityStatus = (inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada, fecha) => {
     if (cancelado) return { label: 'Cancelado', styles: 'bg-red-500/10 text-red-400 border-red-500/20' };
     if (ausenciaConfirmada) return { label: 'Ausencia', styles: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
     if (horaFinReal) return { label: 'Finalizado', styles: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
     if (!inicioReal) return { label: 'Ausente', styles: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
-    const parse = t => { if (!t) return 0; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-    return parse(inicioReal) <= parse(inicioProgramado) + 15
+    return toMs(inicioReal, fecha) <= toMs(inicioProgramado, fecha) + 15 * 60000
         ? { label: 'En Turno', styles: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
         : { label: 'Tarde', styles: 'bg-orange-500/10 text-orange-400 border-orange-500/20' };
 };
 
-const getPunctualityStatusLabel = (inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada) => {
-    return getPunctualityStatus(inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada).label;
+const getPunctualityStatusLabel = (inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada, fecha) => {
+    return getPunctualityStatus(inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada, fecha).label;
 };
 
-const isOvertime = (progFinStr, realFinStr) => {
+const isOvertime = (progFinStr, realFinStr, fecha) => {
     if (!progFinStr || !realFinStr) return false;
-    const progMs = new Date(`1970-01-01T${progFinStr}:00`).getTime();
-    const realMs = new Date(`1970-01-01T${realFinStr}:00`).getTime();
-    return (realMs - progMs) > 1800000;
+    return (toMs(realFinStr, fecha) - toMs(progFinStr, fecha)) > 1800000;
 };
 
 const PersonnelView = ({
@@ -60,10 +80,10 @@ const PersonnelView = ({
     const [showInactive, setShowInactive] = useState(false);
 
     // Forms
+    const today = new Date().toISOString().split('T')[0];
     const [newShift, setNewShift] = useState({
         empleadoId: '', vehiculo: '',
-        fecha: new Date().toISOString().split('T')[0],
-        horaInicioProgramada: '06:00', horaFinProgramada: '18:00'
+        dtInicio: '', dtFin: ''
     });
     const [empForm, setEmpForm] = useState({ cedula: '', nombre: '', cargo: 'Paramédico', estado: 'Activo' });
 
@@ -72,7 +92,7 @@ const PersonnelView = ({
 
     const filteredTurnos = useMemo(() => {
         return turnosHoy.filter(t => {
-            const statusLabel = getPunctualityStatusLabel(t.inicioProgramado, t.inicioReal, t.horaFinReal, t.cancelado, t.ausenciaConfirmada);
+            const statusLabel = getPunctualityStatusLabel(t.inicioProgramado, t.inicioReal, t.horaFinReal, t.cancelado, t.ausenciaConfirmada, t.fecha);
             if (filters.fecha && t.fecha !== filters.fecha) return false;
             if (filters.estado && statusLabel !== filters.estado) return false;
             if (filters.cargo && t.cargo !== filters.cargo) return false;
@@ -116,9 +136,9 @@ const PersonnelView = ({
                 cedula: emp.cedula,
                 nombre: emp.nombre,
                 cargo: emp.cargo,
-                fecha: newShift.fecha,
-                inicioProgramado: newShift.horaInicioProgramada,
-                horaFin: newShift.horaFinProgramada,
+                fecha: newShift.dtInicio.split('T')[0],
+                inicioProgramado: newShift.dtInicio,
+                horaFin: newShift.dtFin,
                 movil: newShift.vehiculo || 'Sin Asignar',
                 estadoRegistro: 'Activo'
             };
@@ -253,6 +273,9 @@ const PersonnelView = ({
                     handleSetShiftField={handleSetShiftField}
                     isOvertime={isOvertime}
                     setChangeMobilTarget={setChangeMobilTarget}
+                    dtVal={dtVal}
+                    fmtDT={fmtDT}
+                    toMs={toMs}
                 />
             )}
             {activeTab === 'employees' && (

@@ -4,10 +4,18 @@ import { clsx } from 'clsx';
 
 const toH = (ms) => ms / 3600000;
 
-const isOvertime = (progFinStr, realFinStr) => {
+// Parses "HH:mm" (legacy) or "YYYY-MM-DDTHH:mm" (new) into epoch ms
+const parseDT = (val, fecha) => {
+    if (!val) return null;
+    if (val.includes('T')) return new Date(val).getTime();
+    return new Date(`${fecha}T${val}:00`).getTime();
+};
+
+const isOvertime = (progFinStr, realFinStr, fecha) => {
     if (!progFinStr || !realFinStr) return false;
-    const progMs = new Date(`1970-01-01T${progFinStr}:00`).getTime();
-    const realMs = new Date(`1970-01-01T${realFinStr}:00`).getTime();
+    const progMs = parseDT(progFinStr, fecha || '1970-01-01');
+    const realMs = parseDT(realFinStr, fecha || '1970-01-01');
+    if (progMs == null || realMs == null) return false;
     return (realMs - progMs) > 1800000; // >30 mins tolerance
 };
 
@@ -22,22 +30,37 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         };
     });
 
-    // Compute exactly how many hours fall strictly into
-    // Diurno (06:00-21:00) vs Nocturno (21:00-06:00)
-    const computeOverlap = (startMs, endMs, limitHour) => {
-        if (endMs <= startMs) endMs += 86400000; // crosses midnight
-        const ref = new Date(startMs);
-        ref.setHours(limitHour, 0, 0, 0);
-        let refMs = ref.getTime();
-
-        const s1 = startMs, e1 = Math.min(endMs, refMs);
-        const s2 = Math.max(startMs, refMs), e2 = endMs;
-        const dur1 = e1 > s1 ? e1 - s1 : 0;
-        const dur2 = e2 > s2 ? e2 - s2 : 0;
-        return { dur1, dur2 };
+    // Split any time range [startMs, endMs] into diurna (06:00-19:00) and nocturna (19:00-06:00) ms
+    const splitDiurnaNocturna = (startMs, endMs) => {
+        let diurna = 0, nocturna = 0;
+        let cursor = startMs;
+        while (cursor < endMs) {
+            const d = new Date(cursor);
+            const h = d.getHours();
+            if (h >= 6 && h < 19) {
+                // In diurna window → next boundary is 19:00 today
+                const nb = new Date(cursor);
+                nb.setHours(19, 0, 0, 0);
+                const segEnd = Math.min(endMs, nb.getTime());
+                diurna += segEnd - cursor;
+                cursor = segEnd;
+            } else {
+                // In nocturna window → next boundary is 06:00 (next day if h>=19)
+                const nb = new Date(cursor);
+                if (h >= 19) nb.setDate(nb.getDate() + 1);
+                nb.setHours(6, 0, 0, 0);
+                const segEnd = Math.min(endMs, nb.getTime());
+                nocturna += segEnd - cursor;
+                cursor = segEnd;
+            }
+        }
+        return { diurna, nocturna };
     };
 
-    // Computes 8-category hours for a single shift based on actual rules
+    // Computes 8-category hours for a single shift
+    // Jornada diurna: 06:00 - 19:00 | Jornada nocturna: 19:00 - 06:00
+    // Ordinarias = horas reales dentro de la ventana programada
+    // Extras = horas reales fuera de la ventana programada
     const computeHours = (t) => {
         const inicio = t.inicioReal || t.inicioProgramado;
         const fin = t.horaFinReal || t.horaFin;
@@ -45,58 +68,39 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
 
         const isSunday = new Date(t.fecha + 'T12:00:00').getDay() === 0;
 
-        let startMs = new Date(`1970-01-01T${inicio}:00`).getTime();
-        let endMs = new Date(`1970-01-01T${fin}:00`).getTime();
-        if (endMs <= startMs) endMs += 86400000; // cross mid
+        let startMs = parseDT(inicio, t.fecha);
+        let endMs = parseDT(fin, t.fecha);
+        if (endMs <= startMs) endMs += 86400000;
 
-        const baseStart = new Date(`1970-01-01T${t.inicioProgramado}:00`).getTime();
-        let baseEnd = new Date(`1970-01-01T${t.horaFin}:00`).getTime();
+        let baseStart = parseDT(t.inicioProgramado, t.fecha);
+        let baseEnd = parseDT(t.horaFin, t.fecha);
         if (baseEnd <= baseStart) baseEnd += 86400000;
-
-        // Actual span vs Standard 12h span
-        const totalWorkedMs = endMs - startMs;
-        const totalBaseMs = baseEnd - baseStart;
-
-        let ordinaryMs = Math.min(totalWorkedMs, totalBaseMs);
-        let extraMs = Math.max(0, totalWorkedMs - totalBaseMs);
 
         const res = { hod: 0, hon: 0, hed: 0, hen: 0, hdd: 0, hdn: 0, hedd: 0, hedn: 0 };
 
-        // 1. Process Ordinary hours
-        const ordEndMs = startMs + ordinaryMs;
-        if (startMs < new Date(`1970-01-01T21:00:00`).getTime()) {
-            // Started in the day (06:00 - 21:00)
-            const { dur1: diurnas, dur2: nocturnas } = computeOverlap(startMs, ordEndMs, 21);
-            if (isSunday) { res.hdd += diurnas; res.hdn += nocturnas; }
-            else { res.hod += diurnas; res.hon += nocturnas; }
-        } else {
-            // Started at night (21:00 - 06:00)
-            const { dur1: nocturnas, dur2: diurnas } = computeOverlap(startMs, ordEndMs, 6 + 24); // next day 6am
-            if (isSunday) { res.hdn += nocturnas; res.hdd += diurnas; }
-            else { res.hon += nocturnas; res.hod += diurnas; }
+        // 1. Ordinary hours: intersection of actual worked [startMs, endMs] with programmed [baseStart, baseEnd]
+        const ordStart = Math.max(startMs, baseStart);
+        const ordEnd = Math.min(endMs, baseEnd);
+        if (ordEnd > ordStart) {
+            const { diurna, nocturna } = splitDiurnaNocturna(ordStart, ordEnd);
+            if (isSunday) { res.hdd += diurna; res.hdn += nocturna; }
+            else { res.hod += diurna; res.hon += nocturna; }
         }
 
-        // 2. Process Extra/Overtime hours
-        if (extraMs > 0) {
-            const extStartMs = ordEndMs;
-            const extEndMs = extStartMs + extraMs;
-
-            // Re-normalize base to determine if extra happens in day or night window
-            const extStartObj = new Date(extStartMs);
-            const hours = extStartObj.getHours();
-
-            if (hours >= 6 && hours < 21) {
-                // Starts in day
-                const { dur1: edu, dur2: eno } = computeOverlap(extStartMs, extEndMs, 21);
-                if (isSunday) { res.hedd += edu; res.hedn += eno; }
-                else { res.hed += edu; res.hen += eno; }
-            } else {
-                // Starts at night
-                let limitHour = hours >= 21 ? 6 + 24 : 6;
-                const { dur1: eno, dur2: edu } = computeOverlap(extStartMs, extEndMs, limitHour);
-                if (isSunday) { res.hedn += eno; res.hedd += edu; }
-                else { res.hen += eno; res.hed += edu; }
-            }
+        // 2. Extra hours: actual worked time outside the programmed window
+        // Before programmed start
+        const extraBeforeEnd = Math.min(startMs < baseStart ? baseStart : startMs, endMs);
+        if (startMs < baseStart && extraBeforeEnd > startMs) {
+            const { diurna, nocturna } = splitDiurnaNocturna(startMs, Math.min(baseStart, endMs));
+            if (isSunday) { res.hedd += diurna; res.hedn += nocturna; }
+            else { res.hed += diurna; res.hen += nocturna; }
+        }
+        // After programmed end
+        if (endMs > baseEnd) {
+            const extraStart = Math.max(startMs, baseEnd);
+            const { diurna, nocturna } = splitDiurnaNocturna(extraStart, endMs);
+            if (isSunday) { res.hedd += diurna; res.hedn += nocturna; }
+            else { res.hed += diurna; res.hen += nocturna; }
         }
 
         return {

@@ -16,7 +16,10 @@ const PersonnelLiveShifts = ({
     handleAssignVehicle,
     handleSetShiftField,
     isOvertime,
-    setChangeMobilTarget
+    setChangeMobilTarget,
+    dtVal,
+    fmtDT,
+    toMs
 }) => {
     const onAusenciaClick = (turno) => {
         if (window.confirm(`¿Confirmar ausencia de ${turno.nombre}?`)) {
@@ -99,9 +102,9 @@ const PersonnelLiveShifts = ({
                                 <tr><td colSpan="11" className="py-12 text-center text-slate-500 text-sm">No hay turnos que coincidan con los filtros.</td></tr>
                             )}
                             {filteredTurnos.map(turno => {
-                                const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada);
+                                const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada, turno.fecha);
                                 const sinMovil = !turno.movil || turno.movil === 'Sin Asignar';
-                                const overtime = isOvertime(turno.horaFin, turno.horaFinReal);
+                                const overtime = isOvertime(turno.horaFin, turno.horaFinReal, turno.fecha);
                                 const isCancelled = turno.cancelado;
                                 const isAbsent = turno.ausenciaConfirmada;
                                 return (
@@ -133,48 +136,48 @@ const PersonnelLiveShifts = ({
                                             )}
                                         </td>
                                         <td className="py-3 px-4 font-mono text-xs text-slate-400">{turno.fecha || '—'}</td>
-                                        <td className="py-3 px-4 font-mono text-slate-300">{turno.inicioProgramado}</td>
-                                        <td className="py-3 px-4 font-mono text-slate-400">{turno.horaFin || '—'}</td>
+                                        <td className="py-3 px-4 font-mono text-slate-300 text-xs">{fmtDT(turno.inicioProgramado)}</td>
+                                        <td className="py-3 px-4 font-mono text-slate-400 text-xs">{fmtDT(turno.horaFin)}</td>
                                         <td className="py-3 px-4">
-                                            <input type="time" defaultValue={turno.inicioReal || ''}
+                                            <input type="datetime-local" defaultValue={dtVal(turno.inicioReal, turno.fecha)}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                min={turno.inicioProgramado || undefined}
                                                 onBlur={e => {
                                                     const val = e.target.value;
-                                                    if (val && turno.inicioProgramado && val < turno.inicioProgramado) {
-                                                        alert('La hora de inicio real no puede ser menor a la hora de inicio programada.');
-                                                        e.target.value = turno.inicioReal || '';
+                                                    if (val && turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
+                                                        alert('La fecha/hora de inicio real no puede ser menor a la programada.');
+                                                        e.target.value = dtVal(turno.inicioReal, turno.fecha);
                                                         return;
                                                     }
-                                                    if (val !== (turno.inicioReal || '')) handleSetShiftField(turno.id, 'inicioReal', val);
+                                                    if (val !== dtVal(turno.inicioReal, turno.fecha)) handleSetShiftField(turno.id, 'inicioReal', val);
                                                 }}
-                                                className={clsx("bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-28", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
+                                                className={clsx("bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-44", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-1.5">
-                                                <input type="time" defaultValue={turno.horaFinReal || ''}
+                                                <input type="datetime-local" defaultValue={dtVal(turno.horaFinReal, turno.fecha)}
                                                     disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
                                                     onBlur={e => {
                                                         const val = e.target.value;
-                                                        if (!val || val === (turno.horaFinReal || '')) return;
+                                                        if (!val || val === dtVal(turno.horaFinReal, turno.fecha)) return;
                                                         if (!turno.inicioReal) {
-                                                            alert('Debe ingresar la hora de inicio real antes de registrar la hora de salida.');
-                                                            e.target.value = turno.horaFinReal || '';
+                                                            alert('Debe ingresar la fecha/hora de inicio real antes de registrar la salida.');
+                                                            e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                             return;
                                                         }
-                                                        if (val < turno.inicioReal) {
-                                                            alert('La hora de salida real no puede ser menor a la hora de inicio real.');
-                                                            e.target.value = turno.horaFinReal || '';
+                                                        if (toMs(val, turno.fecha) < toMs(turno.inicioReal, turno.fecha)) {
+                                                            alert('La salida real no puede ser menor a la hora de inicio real.');
+                                                            e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                             return;
                                                         }
-                                                        const confirmado = window.confirm(`¿Confirmar hora de salida ${val}?\nInicio real: ${turno.inicioReal}\n\nEsta acción finalizará el turno.`);
+                                                        const fmtIni = fmtDT(turno.inicioReal);
+                                                        const confirmado = window.confirm(`¿Confirmar salida ${fmtDT(val)}?\nInicio real: ${fmtIni}\n\nEsta acción finalizará el turno.`);
                                                         if (!confirmado) {
-                                                            e.target.value = turno.horaFinReal || '';
+                                                            e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                             return;
                                                         }
                                                         handleSetShiftField(turno.id, 'horaFinReal', val);
                                                     }}
-                                                    className={clsx("bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono w-28", overtime ? 'border-orange-500 focus:border-orange-400 text-orange-300' : 'border-slate-700 focus:border-blue-500', (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
+                                                    className={clsx("bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono w-44", overtime ? 'border-orange-500 focus:border-orange-400 text-orange-300' : 'border-slate-700 focus:border-blue-500', (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                                 {overtime && <span title="Sobretiempo" className="text-orange-400 text-xs font-bold">+OT</span>}
                                             </div>
                                         </td>
@@ -212,9 +215,9 @@ const PersonnelLiveShifts = ({
                             <div className="py-12 text-center text-slate-500 text-sm">No hay turnos que coincidan con los filtros.</div>
                         )}
                         {filteredTurnos.map(turno => {
-                            const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada);
+                            const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada, turno.fecha);
                             const sinMovil = !turno.movil || turno.movil === 'Sin Asignar';
-                            const overtime = isOvertime(turno.horaFin, turno.horaFinReal);
+                            const overtime = isOvertime(turno.horaFin, turno.horaFinReal, turno.fecha);
                             const isCancelled = turno.cancelado;
                             const isAbsent = turno.ausenciaConfirmada;
 
@@ -239,44 +242,44 @@ const PersonnelLiveShifts = ({
                                     {/* Inputs row */}
                                     <div className="grid grid-cols-2 gap-3 mb-3">
                                         <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
-                                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">Inicio (Prog: {turno.inicioProgramado})</p>
-                                            <input type="time" defaultValue={turno.inicioReal || ''}
+                                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">Inicio (Prog: {fmtDT(turno.inicioProgramado)})</p>
+                                            <input type="datetime-local" defaultValue={dtVal(turno.inicioReal, turno.fecha)}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                min={turno.inicioProgramado || undefined}
                                                 onBlur={e => {
                                                     const val = e.target.value;
-                                                    if (val && turno.inicioProgramado && val < turno.inicioProgramado) {
-                                                        alert('La hora de inicio real no puede ser menor a la hora de inicio programada.');
-                                                        e.target.value = turno.inicioReal || '';
+                                                    if (val && turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
+                                                        alert('La fecha/hora de inicio real no puede ser menor a la programada.');
+                                                        e.target.value = dtVal(turno.inicioReal, turno.fecha);
                                                         return;
                                                     }
-                                                    if (val !== (turno.inicioReal || '')) handleSetShiftField(turno.id, 'inicioReal', val);
+                                                    if (val !== dtVal(turno.inicioReal, turno.fecha)) handleSetShiftField(turno.id, 'inicioReal', val);
                                                 }}
                                                 className={clsx("w-full bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </div>
                                         <div className={clsx("p-2 rounded-lg border", overtime ? "bg-orange-950/20 border-orange-900/30" : "bg-slate-800/30 border-slate-700/50")}>
                                             <p className="flex justify-between text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">
-                                                <span>Fin (Prog: {turno.horaFin || '—'})</span>
+                                                <span>Fin (Prog: {fmtDT(turno.horaFin)})</span>
                                                 {overtime && <span className="text-orange-400">+OT</span>}
                                             </p>
-                                            <input type="time" defaultValue={turno.horaFinReal || ''}
+                                            <input type="datetime-local" defaultValue={dtVal(turno.horaFinReal, turno.fecha)}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
                                                 onBlur={e => {
                                                     const val = e.target.value;
-                                                    if (!val || val === (turno.horaFinReal || '')) return;
+                                                    if (!val || val === dtVal(turno.horaFinReal, turno.fecha)) return;
                                                     if (!turno.inicioReal) {
-                                                        alert('Debe ingresar la hora de inicio real antes de registrar la hora de salida.');
-                                                        e.target.value = turno.horaFinReal || '';
+                                                        alert('Debe ingresar la fecha/hora de inicio real antes de registrar la salida.');
+                                                        e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                         return;
                                                     }
-                                                    if (val < turno.inicioReal) {
-                                                        alert('La hora de salida real no puede ser menor a la hora de inicio real.');
-                                                        e.target.value = turno.horaFinReal || '';
+                                                    if (toMs(val, turno.fecha) < toMs(turno.inicioReal, turno.fecha)) {
+                                                        alert('La salida real no puede ser menor a la hora de inicio real.');
+                                                        e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                         return;
                                                     }
-                                                    const confirmado = window.confirm(`¿Confirmar hora de salida ${val}?\nInicio real: ${turno.inicioReal}\n\nEsta acción finalizará el turno.`);
+                                                    const fmtIni = fmtDT(turno.inicioReal);
+                                                    const confirmado = window.confirm(`¿Confirmar salida ${fmtDT(val)}?\nInicio real: ${fmtIni}\n\nEsta acción finalizará el turno.`);
                                                     if (!confirmado) {
-                                                        e.target.value = turno.horaFinReal || '';
+                                                        e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                         return;
                                                     }
                                                     handleSetShiftField(turno.id, 'horaFinReal', val);

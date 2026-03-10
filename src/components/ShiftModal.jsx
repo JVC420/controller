@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, X } from 'lucide-react';
 
 const ShiftModal = ({
@@ -11,6 +11,33 @@ const ShiftModal = ({
     getAvailableVehiclesForDate,
     submitting
 }) => {
+    const today = new Date().toISOString().split('T')[0];
+    const [fechaInicio, setFechaInicio] = useState(today);
+    const [horaInicio, setHoraInicio] = useState('');
+    const [fechaFin, setFechaFin] = useState(today);
+    const [horaFin, setHoraFin] = useState('');
+
+    // Reset to today with empty hours when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            const t = new Date().toISOString().split('T')[0];
+            setFechaInicio(t);
+            setHoraInicio('');
+            setFechaFin(t);
+            setHoraFin('');
+            setNewShift(s => ({ ...s, dtInicio: '', dtFin: '' }));
+        }
+    }, [isOpen]);
+
+    // Sync combined datetime to parent
+    const syncParent = (fi, hi, ff, hf) => {
+        setNewShift(s => ({
+            ...s,
+            dtInicio: fi && hi ? `${fi}T${hi}` : '',
+            dtFin: ff && hf ? `${ff}T${hf}` : ''
+        }));
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -26,9 +53,16 @@ const ShiftModal = ({
                 </div>
                 <form onSubmit={e => {
                     e.preventDefault();
-                    if (newShift.horaInicioProgramada && newShift.horaFinProgramada && newShift.horaInicioProgramada >= newShift.horaFinProgramada) {
-                        alert('La hora de inicio no puede ser mayor o igual a la hora de finalización.');
+                    if (newShift.dtInicio && newShift.dtFin && newShift.dtInicio >= newShift.dtFin) {
+                        alert('La fecha/hora de inicio no puede ser mayor o igual a la de finalización.');
                         return;
+                    }
+                    if (newShift.dtInicio && newShift.dtFin) {
+                        const diffMs = new Date(newShift.dtFin).getTime() - new Date(newShift.dtInicio).getTime();
+                        if (diffMs > 12 * 3600000) {
+                            alert('No se pueden programar más de 12 horas laborales en un turno.');
+                            return;
+                        }
                     }
                     onSubmit(e);
                 }} className="p-6 space-y-4">
@@ -58,41 +92,47 @@ const ShiftModal = ({
                             onChange={e => setNewShift({ ...newShift, vehiculo: e.target.value })}
                         >
                             <option value="">Sin Asignar (Retén / Base)</option>
-                            {getAvailableVehiclesForDate(newShift.fecha).map(v => (
+                            {getAvailableVehiclesForDate(fechaInicio || new Date().toISOString().split('T')[0]).map(v => (
                                 <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
                             ))}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-slate-300 mb-1.5">Fecha del Turno</label>
-                        <input
-                            type="date"
-                            required
-                            className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                            value={newShift.fecha}
-                            onChange={e => setNewShift({ ...newShift, fecha: e.target.value })}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Hora Inicio</label>
+                    <div className="space-y-3">
+                        <p className="text-sm font-semibold text-slate-300">Inicio Programado</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                type="date"
+                                required
+                                className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                                value={fechaInicio}
+                                onChange={e => { setFechaInicio(e.target.value); syncParent(e.target.value, horaInicio, fechaFin, horaFin); }}
+                            />
                             <input
                                 type="time"
                                 required
                                 className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                value={newShift.horaInicioProgramada}
-                                onChange={e => setNewShift({ ...newShift, horaInicioProgramada: e.target.value })}
+                                value={horaInicio}
+                                onChange={e => { setHoraInicio(e.target.value); syncParent(fechaInicio, e.target.value, fechaFin, horaFin); }}
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-300 mb-1.5">Hora Fin</label>
+                    </div>
+                    <div className="space-y-3">
+                        <p className="text-sm font-semibold text-slate-300">Fin Programado</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <input
+                                type="date"
+                                required
+                                min={fechaInicio || undefined}
+                                className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                                value={fechaFin}
+                                onChange={e => { setFechaFin(e.target.value); syncParent(fechaInicio, horaInicio, e.target.value, horaFin); }}
+                            />
                             <input
                                 type="time"
                                 required
-                                min={newShift.horaInicioProgramada || undefined}
                                 className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-                                value={newShift.horaFinProgramada}
-                                onChange={e => setNewShift({ ...newShift, horaFinProgramada: e.target.value })}
+                                value={horaFin}
+                                onChange={e => { setHoraFin(e.target.value); syncParent(fechaInicio, horaInicio, fechaFin, e.target.value); }}
                             />
                         </div>
                     </div>
