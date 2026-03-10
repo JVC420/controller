@@ -3,7 +3,7 @@ import AmbulanceCard from './AmbulanceCard';
 import NewAmbulanceModal from './NewAmbulanceModal';
 import { useAuth } from '../contexts/AuthContext';
 
-const FleetMonitor = ({ flota, onAddAmbulance, onAddRequest, onStatusChange }) => {
+const FleetMonitor = ({ flota, turnosHoy = [], onAddAmbulance, onAddRequest, onStatusChange }) => {
     const { role } = useAuth();
     const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
     const canManageFleet = role === 'administrador_general';
@@ -46,7 +46,7 @@ const FleetMonitor = ({ flota, onAddAmbulance, onAddRequest, onStatusChange }) =
             <div className="flex-1 space-y-8">
                 <FleetSection title="Ambulancias Disponibles" color="text-emerald-400" count={disponibles.length}>
                     {disponibles.map(amb => (
-                        <AmbulanceCard key={amb.id} ambulance={amb} onStatusChange={onStatusChange} />
+                        <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
                     ))}
                     {disponibles.length === 0 && (
                         <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-700 rounded-xl text-slate-400">
@@ -57,13 +57,13 @@ const FleetMonitor = ({ flota, onAddAmbulance, onAddRequest, onStatusChange }) =
 
                 <FleetSection title="En Servicio" color="text-blue-400" count={enServicio.length}>
                     {enServicio.map(amb => (
-                        <AmbulanceCard key={amb.id} ambulance={amb} onStatusChange={onStatusChange} />
+                        <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
                     ))}
                 </FleetSection>
 
                 <FleetSection title="Fuera de Servicio / Mantenimiento" color="text-slate-500" count={fueraDeServicio.length}>
                     {fueraDeServicio.map(amb => (
-                        <AmbulanceCard key={amb.id} ambulance={amb} onStatusChange={onStatusChange} />
+                        <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
                     ))}
                 </FleetSection>
             </div>

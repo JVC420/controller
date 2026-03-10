@@ -68,7 +68,6 @@ const PersonnelView = ({
     updateEmpleado,
     addTurno,
     updateTurno,
-    updateFlota,
 }) => {
     const [activeTab, setActiveTab] = useState('live');
     const { toasts, show: showToast, dismiss: dismissToast } = useToast();
@@ -168,27 +167,6 @@ const PersonnelView = ({
         });
     }, [turnosHoy, flota, getActiveCrewForVehicle]);
 
-    // Helper: update fleet tripulación array and status from active shifts
-    const syncFleetTripulacion = useCallback(async (vehicleId) => {
-        if (!vehicleId || vehicleId === 'Sin Asignar' || !updateFlota) return;
-        const veh = flota.find(f => f.id === vehicleId);
-        if (!veh) return;
-        const activeCrew = turnosHoy.filter(t =>
-            t.movil === vehicleId &&
-            t.movil !== 'Sin Asignar' &&
-            !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
-        );
-        const tripulacion = activeCrew.map(t => ({ id_empleado: t.id_empleado, nombre: t.nombre, cargo: t.cargo }));
-        const rules = CREW_RULES[veh.tipo] || [];
-        const allRolesFilled = rules.every(role => tripulacion.some(c => c.cargo === role));
-        // Only change to Completa/Disponible if not En Servicio or Fuera de Servicio
-        let newEstado = veh.estado;
-        if (veh.estado !== 'En Servicio' && veh.estado !== 'Fuera de Servicio') {
-            newEstado = allRolesFilled && rules.length > 0 ? 'Completa' : 'Disponible';
-        }
-        await updateFlota(vehicleId, { tripulacion, estado: newEstado });
-    }, [flota, turnosHoy, updateFlota]);
-
     // --- Handlers ---
     const handleScheduleSubmit = async (e) => {
         e.preventDefault();
@@ -232,10 +210,6 @@ const PersonnelView = ({
                 estadoRegistro: 'Activo'
             };
             await addTurno(turnoData);
-            // Sync tripulación after a small delay to let Firestore listener update turnosHoy
-            if (newShift.vehiculo) {
-                setTimeout(() => syncFleetTripulacion(newShift.vehiculo), 1000);
-            }
             showToast('Turno programado exitosamente', 'success');
             setIsShiftModalOpen(false);
             setNewShift({ ...newShift, empleadoId: '' });
@@ -272,11 +246,6 @@ const PersonnelView = ({
             }
             await updateTurno(turno.id, { movil: newVehicleId || 'Sin Asignar' });
             showToast(`Móvil actualizado a ${newVehicleId || 'Sin Asignar'}`, 'success');
-            // Sync both old and new vehicle tripulación
-            setTimeout(() => {
-                if (oldVehicleId && oldVehicleId !== 'Sin Asignar') syncFleetTripulacion(oldVehicleId);
-                if (newVehicleId && newVehicleId !== 'Sin Asignar') syncFleetTripulacion(newVehicleId);
-            }, 1000);
         } catch (error) {
             showToast('Error asignando móvil', 'error');
         }
@@ -296,14 +265,6 @@ const PersonnelView = ({
             if (field === 'ausenciaConfirmada' && value) updates.estadoRegistro = 'Ausencia';
             await updateTurno(turnoId, updates);
             showToast(`Registro actualizado (${field})`, 'success');
-            // If shift ended/cancelled/absent, sync vehicle tripulación
-            const shiftEnded = (field === 'horaFinReal' && value) || (field === 'cancelado' && value) || (field === 'ausenciaConfirmada' && value);
-            if (shiftEnded) {
-                const turno = turnosHoy.find(t => t.id === turnoId);
-                if (turno?.movil && turno.movil !== 'Sin Asignar') {
-                    setTimeout(() => syncFleetTripulacion(turno.movil), 1000);
-                }
-            }
         } catch (error) {
             showToast('Error al actualizar registro', 'error');
         }

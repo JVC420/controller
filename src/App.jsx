@@ -194,6 +194,7 @@ function AppLayout() {
                 <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
                   <FleetMonitor
                     flota={flota}
+                    turnosHoy={turnosHoy}
                     onAddAmbulance={createRealAmbulance}
                     onAddRequest={() => setIsModalOpen(true)}
                     onStatusChange={updateAmbulanceStatus}
@@ -229,7 +230,6 @@ function AppLayout() {
                 updateEmpleado={updateEmpleado}
                 addTurno={addTurno}
                 updateTurno={updateTurno}
-                updateFlota={updateFlota}
               />
             )} />
 

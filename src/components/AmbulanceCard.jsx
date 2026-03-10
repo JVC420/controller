@@ -3,7 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { clsx } from 'clsx';
 import { Stethoscope, Activity, FileWarning } from 'lucide-react';
 
-const AmbulanceCard = ({ ambulance, onStatusChange }) => {
+const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
     const { isOver, setNodeRef } = useDroppable({
         id: ambulance.id,
         data: {
@@ -15,6 +15,12 @@ const AmbulanceCard = ({ ambulance, onStatusChange }) => {
     const isAvailable = ambulance.estado === "Disponible";
     const inService = ambulance.estado === "En Servicio";
     const outOfService = ambulance.estado === "Fuera de Servicio";
+
+    // Derive crew from active shifts instead of fleet document
+    const tripulacion = turnosHoy.filter(t =>
+        t.movil === ambulance.id &&
+        !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
+    );
 
     // Calculate Idle Time
     const [idleMinutes, setIdleMinutes] = React.useState(0);
@@ -87,13 +93,13 @@ const AmbulanceCard = ({ ambulance, onStatusChange }) => {
             <div className="mt-auto space-y-3">
                 {isAvailable && (
                     <div className="bg-dark-900/50 p-3 rounded-lg border border-slate-700/50 space-y-2">
-                        {ambulance.tripulacion && (
+                        {tripulacion.length > 0 && (
                             <div className="flex items-start gap-2 text-sm text-slate-300">
                                 <Stethoscope size={14} className="text-emerald-500 mt-1 shrink-0" />
                                 <div className="leading-tight">
                                     <span className="text-xs text-slate-500 font-bold block mb-0.5">TRIPULACIÓN</span>
-                                    {ambulance.tripulacion.map((m, i) => (
-                                        <span key={i} className="block">{m.nombre} – {m.cargo}</span>
+                                    {tripulacion.map((t, i) => (
+                                        <span key={i} className="block">{t.nombre} – {t.cargo}</span>
                                     ))}
                                 </div>
                             </div>
