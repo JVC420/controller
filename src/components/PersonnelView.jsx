@@ -335,9 +335,11 @@ const PersonnelView = ({
                         <span className="text-sm font-bold text-slate-300">Estado de Tripulación</span>
                     </div>
                     <div className="flex gap-3 overflow-x-auto pb-1 hide-scrollbar">
-                        {flota.filter(f => f.estado !== 'Fuera de Servicio').map(veh => {
+                        {flota.filter(f => f.estado !== 'Fuera de Servicio')
+                            .map(veh => ({ veh, crew: getActiveCrewForVehicle(veh.id) }))
+                            .sort((a, b) => b.crew.length - a.crew.length)
+                            .map(({ veh, crew }) => {
                             const rules = CREW_RULES[veh.tipo] || [];
-                            const crew = getActiveCrewForVehicle(veh.id);
                             const isFull = rules.length > 0 && rules.every(role => crew.some(c => c.cargo === role));
                             return (
                                 <div key={veh.id} className={clsx(
