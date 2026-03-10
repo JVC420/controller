@@ -156,12 +156,23 @@ const PersonnelLiveShifts = ({
                                                     disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
                                                     onBlur={e => {
                                                         const val = e.target.value;
-                                                        if (val && turno.inicioReal && val < turno.inicioReal) {
+                                                        if (!val || val === (turno.horaFinReal || '')) return;
+                                                        if (!turno.inicioReal) {
+                                                            alert('Debe ingresar la hora de inicio real antes de registrar la hora de salida.');
+                                                            e.target.value = turno.horaFinReal || '';
+                                                            return;
+                                                        }
+                                                        if (val < turno.inicioReal) {
                                                             alert('La hora de salida real no puede ser menor a la hora de inicio real.');
                                                             e.target.value = turno.horaFinReal || '';
                                                             return;
                                                         }
-                                                        if (val !== (turno.horaFinReal || '')) handleSetShiftField(turno.id, 'horaFinReal', val);
+                                                        const confirmado = window.confirm(`¿Confirmar hora de salida ${val}?\nInicio real: ${turno.inicioReal}\n\nEsta acción finalizará el turno.`);
+                                                        if (!confirmado) {
+                                                            e.target.value = turno.horaFinReal || '';
+                                                            return;
+                                                        }
+                                                        handleSetShiftField(turno.id, 'horaFinReal', val);
                                                     }}
                                                     className={clsx("bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono w-28", overtime ? 'border-orange-500 focus:border-orange-400 text-orange-300' : 'border-slate-700 focus:border-blue-500', (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                                 {overtime && <span title="Sobretiempo" className="text-orange-400 text-xs font-bold">+OT</span>}
@@ -252,12 +263,23 @@ const PersonnelLiveShifts = ({
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
                                                 onBlur={e => {
                                                     const val = e.target.value;
-                                                    if (val && turno.inicioReal && val < turno.inicioReal) {
+                                                    if (!val || val === (turno.horaFinReal || '')) return;
+                                                    if (!turno.inicioReal) {
+                                                        alert('Debe ingresar la hora de inicio real antes de registrar la hora de salida.');
+                                                        e.target.value = turno.horaFinReal || '';
+                                                        return;
+                                                    }
+                                                    if (val < turno.inicioReal) {
                                                         alert('La hora de salida real no puede ser menor a la hora de inicio real.');
                                                         e.target.value = turno.horaFinReal || '';
                                                         return;
                                                     }
-                                                    if (val !== (turno.horaFinReal || '')) handleSetShiftField(turno.id, 'horaFinReal', val);
+                                                    const confirmado = window.confirm(`¿Confirmar hora de salida ${val}?\nInicio real: ${turno.inicioReal}\n\nEsta acción finalizará el turno.`);
+                                                    if (!confirmado) {
+                                                        e.target.value = turno.horaFinReal || '';
+                                                        return;
+                                                    }
+                                                    handleSetShiftField(turno.id, 'horaFinReal', val);
                                                 }}
                                                 className={clsx("w-full bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono", overtime ? "border-orange-500 focus:border-orange-400 text-orange-300" : "border-slate-700 focus:border-blue-500", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </div>

@@ -130,11 +130,14 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
             byEmp[key].turnos.push(t.fecha);
             if (t.cancelado) {
                 // Cancelled shifts: don't count hours or absences
+            } else if (t.ausenciaConfirmada) {
+                // Confirmed absences: count as absence, no hours
+                byEmp[key].ausencias++;
             } else if (!t.inicioReal && !t.horaFin && !t.inicioProgramado) {
                 // No planned times at all → mark as absence
                 byEmp[key].ausencias++;
-            } else {
-                // Compute hours: uses real times if present, falls back to planned
+            } else if (t.horaFinReal) {
+                // Only count hours for finalized shifts (with real end time)
                 const h = computeHours(t);
                 if (h) {
                     byEmp[key].hod += h.hod; byEmp[key].hon += h.hon;
@@ -142,8 +145,9 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                     byEmp[key].hdd += h.hdd; byEmp[key].hdn += h.hdn;
                     byEmp[key].hedd += h.hedd; byEmp[key].hedn += h.hedn;
                 }
-                // Only count as absence if no real start AND the shift date is in the past
-                if (!t.inicioReal && !t.horaFinReal) {
+            } else {
+                // Shift not yet finalized: check if past date → absence
+                if (!t.inicioReal) {
                     const shiftDate = new Date(t.fecha + 'T23:59:00');
                     if (shiftDate < new Date()) byEmp[key].ausencias++;
                 }
