@@ -92,7 +92,9 @@ const AmbulanceCard = ({ ambulance, onStatusChange }) => {
                                 <Stethoscope size={14} className="text-emerald-500 mt-1 shrink-0" />
                                 <div className="leading-tight">
                                     <span className="text-xs text-slate-500 font-bold block mb-0.5">TRIPULACIÓN</span>
-                                    {ambulance.tripulacion.join(", ")}
+                                    {ambulance.tripulacion.map((m, i) => (
+                                        <span key={i} className="block">{m.nombre} – {m.cargo}</span>
+                                    ))}
                                 </div>
                             </div>
                         )}
