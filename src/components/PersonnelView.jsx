@@ -190,11 +190,11 @@ const PersonnelView = ({
     };
 
     return (
-        <div className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden bg-[#0B1121] h-full flex flex-col">
+        <div className="flex-1 p-4 md:p-6 overflow-hidden bg-[#0B1121] h-full flex flex-col">
             <ToastContainer toasts={toasts} dismiss={dismissToast} />
 
             {/* Header */}
-            <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">Gestión Operativa y RRHH</h1>
                     <p className="text-slate-400 mt-1">Datos Linea Medica de Ambulancias</p>
@@ -214,7 +214,7 @@ const PersonnelView = ({
             </header>
 
             {/* Tabs */}
-            <div className="flex gap-1 mb-6 border-b border-slate-700/50 pb-px overflow-x-auto hide-scrollbar">
+            <div className="flex gap-1 mb-6 border-b border-slate-700/50 pb-px overflow-x-auto hide-scrollbar shrink-0">
                 {[
                     { id: 'live', icon: <Clock size={15} />, label: 'Turnos en Vivo' },
                     { id: 'employees', icon: <User size={15} />, label: 'Directorio' },
@@ -230,6 +230,7 @@ const PersonnelView = ({
             </div>
 
             {/* Active Views */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
             {activeTab === 'live' && (
                 <PersonnelLiveShifts
                     filteredTurnos={filteredTurnos}
@@ -265,6 +266,7 @@ const PersonnelView = ({
                     showToast={showToast}
                 />
             )}
+            </div>
 
             {/* Reusable Modals */}
             <ShiftModal

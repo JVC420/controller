@@ -64,7 +64,6 @@ const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
                         >
                             <option value="Básica">Básica (TAB)</option>
                             <option value="Medicalizada">Medicalizada (TAM)</option>
-                            <option value="Neonatal">Neonatal</option>
                         </select>
                     </div>
 
