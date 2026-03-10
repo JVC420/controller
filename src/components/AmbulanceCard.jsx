@@ -93,17 +93,35 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
             <div className="mt-auto space-y-3">
                 {isAvailable && (
                     <div className="bg-dark-900/50 p-3 rounded-lg border border-slate-700/50 space-y-2">
-                        {tripulacion.length > 0 && (
-                            <div className="flex items-start gap-2 text-sm text-slate-300">
-                                <Stethoscope size={14} className="text-emerald-500 mt-1 shrink-0" />
-                                <div className="leading-tight">
-                                    <span className="text-xs text-slate-500 font-bold block mb-0.5">TRIPULACIÓN</span>
-                                    {tripulacion.map((t, i) => (
-                                        <span key={i} className="block">{t.nombre} – {t.cargo}</span>
-                                    ))}
+                        {(() => {
+                            const CREW_RULES = { 'Básica': ['Conductor', 'Paramédico'], 'Medicalizada': ['Médico', 'Conductor', 'Paramédico'] };
+                            const rules = CREW_RULES[ambulance.tipo] || [];
+                            const isFull = rules.length > 0 && rules.every(role => tripulacion.some(c => c.cargo === role));
+                            return (
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Stethoscope size={14} className="text-emerald-500 shrink-0" />
+                                        <span className="text-xs text-slate-500 font-bold">TRIPULACIÓN</span>
+                                        {isFull
+                                            ? <span className="text-[10px] font-bold text-emerald-400 ml-auto">● Completa</span>
+                                            : <span className="text-[10px] font-bold text-slate-500 ml-auto">{tripulacion.length}/{rules.length}</span>
+                                        }
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {rules.map(role => {
+                                            const member = tripulacion.find(c => c.cargo === role);
+                                            return (
+                                                <span key={role} className={clsx("text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                                                    member ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-800 text-slate-500"
+                                                )}>
+                                                    {member ? `${role}: ${member.nombre.split(' ')[0]}` : `${role}: —`}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                         <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
                             <span className="text-xs text-slate-500 font-bold">TIEMPO MUERTO</span>
                             <span className={clsx(
