@@ -11,16 +11,16 @@ const ShiftModal = ({
     getAvailableVehiclesForDate,
     submitting
 }) => {
-    const today = new Date().toISOString().split('T')[0];
-    const [fechaInicio, setFechaInicio] = useState(today);
+    const getColombiaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const [fechaInicio, setFechaInicio] = useState(getColombiaToday);
     const [horaInicio, setHoraInicio] = useState('');
-    const [fechaFin, setFechaFin] = useState(today);
+    const [fechaFin, setFechaFin] = useState(getColombiaToday);
     const [horaFin, setHoraFin] = useState('');
 
     // Reset to today with empty hours when modal opens
     useEffect(() => {
         if (isOpen) {
-            const t = new Date().toISOString().split('T')[0];
+            const t = getColombiaToday();
             setFechaInicio(t);
             setHoraInicio('');
             setFechaFin(t);

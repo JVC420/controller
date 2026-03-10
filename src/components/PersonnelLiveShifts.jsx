@@ -37,7 +37,7 @@ const PersonnelLiveShifts = ({
         const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
-    const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const timeStr = now.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     return (
         <div className="flex flex-col gap-4">
@@ -143,12 +143,13 @@ const PersonnelLiveShifts = ({
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
                                                 onBlur={e => {
                                                     const val = e.target.value;
-                                                    if (val && turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
+                                                    if (!val || val === dtVal(turno.inicioReal, turno.fecha)) return;
+                                                    if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
                                                         alert('La fecha/hora de inicio real no puede ser menor a la programada.');
                                                         e.target.value = dtVal(turno.inicioReal, turno.fecha);
                                                         return;
                                                     }
-                                                    if (val !== dtVal(turno.inicioReal, turno.fecha)) handleSetShiftField(turno.id, 'inicioReal', val);
+                                                    handleSetShiftField(turno.id, 'inicioReal', val);
                                                 }}
                                                 className={clsx("bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-44", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </td>
@@ -247,12 +248,13 @@ const PersonnelLiveShifts = ({
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
                                                 onBlur={e => {
                                                     const val = e.target.value;
-                                                    if (val && turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
+                                                    if (!val || val === dtVal(turno.inicioReal, turno.fecha)) return;
+                                                    if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
                                                         alert('La fecha/hora de inicio real no puede ser menor a la programada.');
                                                         e.target.value = dtVal(turno.inicioReal, turno.fecha);
                                                         return;
                                                     }
-                                                    if (val !== dtVal(turno.inicioReal, turno.fecha)) handleSetShiftField(turno.id, 'inicioReal', val);
+                                                    handleSetShiftField(turno.id, 'inicioReal', val);
                                                 }}
                                                 className={clsx("w-full bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </div>

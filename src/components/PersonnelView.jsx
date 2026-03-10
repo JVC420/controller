@@ -10,6 +10,13 @@ import PersonnelLiveShifts from './PersonnelLiveShifts';
 import PersonnelDirectory from './PersonnelDirectory';
 import PersonnelPayroll from './PersonnelPayroll';
 
+// Colombia timezone helper — returns YYYY-MM-DD in America/Bogota
+const getColombiaTodayISO = () => {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+    return parts; // en-CA gives YYYY-MM-DD
+};
+
 // Parses both "HH:mm" (legacy) and "YYYY-MM-DDTHH:mm" (new) into epoch ms
 const toMs = (val, fecha) => {
     if (!val) return 0;
@@ -80,7 +87,7 @@ const PersonnelView = ({
     const [showInactive, setShowInactive] = useState(false);
 
     // Forms
-    const today = new Date().toISOString().split('T')[0];
+    const colombiaToday = getColombiaTodayISO();
     const [newShift, setNewShift] = useState({
         empleadoId: '', vehiculo: '',
         dtInicio: '', dtFin: ''
