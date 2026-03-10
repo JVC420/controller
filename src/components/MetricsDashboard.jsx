@@ -2,20 +2,24 @@ import React, { useMemo, useState } from 'react';
 import { Activity, Clock, FileCheck, Truck, Users, AlertTriangle, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
 
+const getColombiaToday = () =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
 const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
     // ─── State: Selected Date ──────────────────────────────────────────────
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getColombiaToday);
 
     // ─── 1. Core Computations (Real-time and Historical) ───────────────────
     const metrics = useMemo(() => {
         const now = Date.now();
+        const todayColombia = getColombiaToday();
 
         // Define boundaries for the selected day in local time
         const startOfDay = new Date(selectedDate + 'T00:00:00');
         const endOfDay = new Date(selectedDate + 'T23:59:59.999');
 
-        // Check if selected date is today
-        const isToday = new Date().toISOString().split('T')[0] === selectedDate;
+        // Check if selected date is today (in Colombia timezone)
+        const isToday = todayColombia === selectedDate;
 
         // --- Fleet Metrics (Always live) ---
         const totalAmbulancias = flota.length || 1; // avoid division by zero
@@ -67,14 +71,12 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
 
         // --- Personnel (Filtered by Date) ---
         const activeStaff = turnos.filter(t => {
-            if (!t.inicioReal) return false;
-            const start = new Date(t.inicioReal).getTime();
-            // If viewing history, how many shifts started on that date?
-            if (!isToday) {
-                return start >= startOfDay.getTime() && start <= endOfDay.getTime();
-            }
-            // If viewing today, how many are ACTIVE right now?
-            return !t.horaFinReal;
+            if (t.cancelado || t.ausenciaConfirmada) return false;
+            if (t.fecha !== selectedDate) return false;
+            // If viewing today, count shifts not yet finalized
+            if (isToday) return !t.horaFinReal;
+            // If viewing history, count all shifts on that date
+            return true;
         }).length;
 
         // --- Per-Ambulance Stats (Services closed on Date) ---
@@ -127,7 +129,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
                         className="bg-transparent border-none text-white font-medium focus:ring-0 focus:outline-none cursor-pointer"
-                        max={new Date().toISOString().split('T')[0]}
+                        max={getColombiaToday()}
                     />
                 </div>
             </header>
