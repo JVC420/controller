@@ -57,6 +57,26 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         return { diurna, nocturna };
     };
 
+    // Split a time range into Sunday vs non-Sunday segments, then into diurna/nocturna
+    const splitByDayType = (startMs, endMs) => {
+        const result = { ordD: 0, ordN: 0, domD: 0, domN: 0 };
+        let cursor = startMs;
+        while (cursor < endMs) {
+            // Next midnight boundary
+            const d = new Date(cursor);
+            const nextMidnight = new Date(d);
+            nextMidnight.setDate(nextMidnight.getDate() + 1);
+            nextMidnight.setHours(0, 0, 0, 0);
+            const segEnd = Math.min(endMs, nextMidnight.getTime());
+            const isSun = d.getDay() === 0;
+            const { diurna, nocturna } = splitDiurnaNocturna(cursor, segEnd);
+            if (isSun) { result.domD += diurna; result.domN += nocturna; }
+            else { result.ordD += diurna; result.ordN += nocturna; }
+            cursor = segEnd;
+        }
+        return result;
+    };
+
     // Computes 8-category hours for a single shift
     // Jornada diurna: 06:00 - 19:00 | Jornada nocturna: 19:00 - 06:00
     // Ordinarias = horas reales dentro de la ventana programada
@@ -65,8 +85,6 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         const inicio = t.inicioReal || t.inicioProgramado;
         const fin = t.horaFinReal || t.horaFin;
         if (!inicio || !fin) return null;
-
-        const isSunday = new Date(t.fecha + 'T12:00:00').getDay() === 0;
 
         let startMs = parseDT(inicio, t.fecha);
         let endMs = parseDT(fin, t.fecha);
@@ -82,25 +100,25 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         const ordStart = Math.max(startMs, baseStart);
         const ordEnd = Math.min(endMs, baseEnd);
         if (ordEnd > ordStart) {
-            const { diurna, nocturna } = splitDiurnaNocturna(ordStart, ordEnd);
-            if (isSunday) { res.hdd += diurna; res.hdn += nocturna; }
-            else { res.hod += diurna; res.hon += nocturna; }
+            const s = splitByDayType(ordStart, ordEnd);
+            res.hod += s.ordD; res.hon += s.ordN;
+            res.hdd += s.domD; res.hdn += s.domN;
         }
 
         // 2. Extra hours: actual worked time outside the programmed window
         // Before programmed start
-        const extraBeforeEnd = Math.min(startMs < baseStart ? baseStart : startMs, endMs);
-        if (startMs < baseStart && extraBeforeEnd > startMs) {
-            const { diurna, nocturna } = splitDiurnaNocturna(startMs, Math.min(baseStart, endMs));
-            if (isSunday) { res.hedd += diurna; res.hedn += nocturna; }
-            else { res.hed += diurna; res.hen += nocturna; }
+        if (startMs < baseStart) {
+            const segEnd = Math.min(baseStart, endMs);
+            const s = splitByDayType(startMs, segEnd);
+            res.hed += s.ordD; res.hen += s.ordN;
+            res.hedd += s.domD; res.hedn += s.domN;
         }
         // After programmed end
         if (endMs > baseEnd) {
-            const extraStart = Math.max(startMs, baseEnd);
-            const { diurna, nocturna } = splitDiurnaNocturna(extraStart, endMs);
-            if (isSunday) { res.hedd += diurna; res.hedn += nocturna; }
-            else { res.hed += diurna; res.hen += nocturna; }
+            const segStart = Math.max(startMs, baseEnd);
+            const s = splitByDayType(segStart, endMs);
+            res.hed += s.ordD; res.hen += s.ordN;
+            res.hedd += s.domD; res.hedn += s.domN;
         }
 
         return {
