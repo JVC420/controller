@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { clsx } from 'clsx';
 import { Truck, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
+import ShiftTimeInput from './ui/ShiftTimeInput';
 
 const PersonnelLiveShifts = ({
     filteredTurnos,
@@ -139,46 +140,41 @@ const PersonnelLiveShifts = ({
                                         <td className="py-3 px-4 font-mono text-slate-300 text-xs">{fmtDT(turno.inicioProgramado)}</td>
                                         <td className="py-3 px-4 font-mono text-slate-400 text-xs">{fmtDT(turno.horaFin)}</td>
                                         <td className="py-3 px-4">
-                                            <input type="datetime-local" defaultValue={dtVal(turno.inicioReal, turno.fecha)}
+                                            <ShiftTimeInput
+                                                value={dtVal(turno.inicioReal, turno.fecha)}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                onBlur={e => {
-                                                    const val = e.target.value;
-                                                    if (!val || val === dtVal(turno.inicioReal, turno.fecha)) return;
+                                                label="Inicio real"
+                                                onSave={val => {
                                                     if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
                                                         alert('La fecha/hora de inicio real no puede ser menor a la programada.');
-                                                        e.target.value = dtVal(turno.inicioReal, turno.fecha);
                                                         return;
                                                     }
                                                     handleSetShiftField(turno.id, 'inicioReal', val);
                                                 }}
-                                                className={clsx("bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-44", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
+                                            />
                                         </td>
                                         <td className="py-3 px-4">
                                             <div className="flex items-center gap-1.5">
-                                                <input type="datetime-local" defaultValue={dtVal(turno.horaFinReal, turno.fecha)}
+                                                <ShiftTimeInput
+                                                    value={dtVal(turno.horaFinReal, turno.fecha)}
                                                     disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                    onBlur={e => {
-                                                        const val = e.target.value;
-                                                        if (!val || val === dtVal(turno.horaFinReal, turno.fecha)) return;
+                                                    overtime={overtime}
+                                                    label="Salida real"
+                                                    onSave={val => {
                                                         if (!turno.inicioReal) {
                                                             alert('Debe ingresar la fecha/hora de inicio real antes de registrar la salida.');
-                                                            e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                             return;
                                                         }
                                                         if (toMs(val, turno.fecha) < toMs(turno.inicioReal, turno.fecha)) {
                                                             alert('La salida real no puede ser menor a la hora de inicio real.');
-                                                            e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                             return;
                                                         }
                                                         const fmtIni = fmtDT(turno.inicioReal);
                                                         const confirmado = window.confirm(`¿Confirmar salida ${fmtDT(val)}?\nInicio real: ${fmtIni}\n\nEsta acción finalizará el turno.`);
-                                                        if (!confirmado) {
-                                                            e.target.value = dtVal(turno.horaFinReal, turno.fecha);
-                                                            return;
-                                                        }
+                                                        if (!confirmado) return;
                                                         handleSetShiftField(turno.id, 'horaFinReal', val);
                                                     }}
-                                                    className={clsx("bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono w-44", overtime ? 'border-orange-500 focus:border-orange-400 text-orange-300' : 'border-slate-700 focus:border-blue-500', (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
+                                                />
                                                 {overtime && <span title="Sobretiempo" className="text-orange-400 text-xs font-bold">+OT</span>}
                                             </div>
                                         </td>
@@ -244,49 +240,44 @@ const PersonnelLiveShifts = ({
                                     <div className="grid grid-cols-2 gap-3 mb-3">
                                         <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">Inicio (Prog: {fmtDT(turno.inicioProgramado)})</p>
-                                            <input type="datetime-local" defaultValue={dtVal(turno.inicioReal, turno.fecha)}
+                                            <ShiftTimeInput
+                                                value={dtVal(turno.inicioReal, turno.fecha)}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                onBlur={e => {
-                                                    const val = e.target.value;
-                                                    if (!val || val === dtVal(turno.inicioReal, turno.fecha)) return;
+                                                label="Inicio real"
+                                                onSave={val => {
                                                     if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
                                                         alert('La fecha/hora de inicio real no puede ser menor a la programada.');
-                                                        e.target.value = dtVal(turno.inicioReal, turno.fecha);
                                                         return;
                                                     }
                                                     handleSetShiftField(turno.id, 'inicioReal', val);
                                                 }}
-                                                className={clsx("w-full bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
+                                            />
                                         </div>
                                         <div className={clsx("p-2 rounded-lg border", overtime ? "bg-orange-950/20 border-orange-900/30" : "bg-slate-800/30 border-slate-700/50")}>
                                             <p className="flex justify-between text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">
                                                 <span>Fin (Prog: {fmtDT(turno.horaFin)})</span>
                                                 {overtime && <span className="text-orange-400">+OT</span>}
                                             </p>
-                                            <input type="datetime-local" defaultValue={dtVal(turno.horaFinReal, turno.fecha)}
+                                            <ShiftTimeInput
+                                                value={dtVal(turno.horaFinReal, turno.fecha)}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                onBlur={e => {
-                                                    const val = e.target.value;
-                                                    if (!val || val === dtVal(turno.horaFinReal, turno.fecha)) return;
+                                                overtime={overtime}
+                                                label="Salida real"
+                                                onSave={val => {
                                                     if (!turno.inicioReal) {
                                                         alert('Debe ingresar la fecha/hora de inicio real antes de registrar la salida.');
-                                                        e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                         return;
                                                     }
                                                     if (toMs(val, turno.fecha) < toMs(turno.inicioReal, turno.fecha)) {
                                                         alert('La salida real no puede ser menor a la hora de inicio real.');
-                                                        e.target.value = dtVal(turno.horaFinReal, turno.fecha);
                                                         return;
                                                     }
                                                     const fmtIni = fmtDT(turno.inicioReal);
                                                     const confirmado = window.confirm(`¿Confirmar salida ${fmtDT(val)}?\nInicio real: ${fmtIni}\n\nEsta acción finalizará el turno.`);
-                                                    if (!confirmado) {
-                                                        e.target.value = dtVal(turno.horaFinReal, turno.fecha);
-                                                        return;
-                                                    }
+                                                    if (!confirmado) return;
                                                     handleSetShiftField(turno.id, 'horaFinReal', val);
                                                 }}
-                                                className={clsx("w-full bg-dark-900 border rounded px-2 py-1 focus:outline-none text-sm font-mono", overtime ? "border-orange-500 focus:border-orange-400 text-orange-300" : "border-slate-700 focus:border-blue-500", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
+                                            />
                                         </div>
                                     </div>
 
