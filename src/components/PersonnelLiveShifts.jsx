@@ -99,7 +99,7 @@ const PersonnelLiveShifts = ({
                                 <tr><td colSpan="11" className="py-12 text-center text-slate-500 text-sm">No hay turnos que coincidan con los filtros.</td></tr>
                             )}
                             {filteredTurnos.map(turno => {
-                                const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal);
+                                const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada);
                                 const sinMovil = !turno.movil || turno.movil === 'Sin Asignar';
                                 const overtime = isOvertime(turno.horaFin, turno.horaFinReal);
                                 const isCancelled = turno.cancelado;
@@ -138,7 +138,16 @@ const PersonnelLiveShifts = ({
                                         <td className="py-3 px-4">
                                             <input type="time" defaultValue={turno.inicioReal || ''}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                onBlur={e => e.target.value !== (turno.inicioReal || '') && handleSetShiftField(turno.id, 'inicioReal', e.target.value)}
+                                                min={turno.inicioProgramado || undefined}
+                                                onBlur={e => {
+                                                    const val = e.target.value;
+                                                    if (val && turno.inicioProgramado && val < turno.inicioProgramado) {
+                                                        alert('La hora de inicio real no puede ser menor a la hora de inicio programada.');
+                                                        e.target.value = turno.inicioReal || '';
+                                                        return;
+                                                    }
+                                                    if (val !== (turno.inicioReal || '')) handleSetShiftField(turno.id, 'inicioReal', val);
+                                                }}
                                                 className={clsx("bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono w-28", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </td>
                                         <td className="py-3 px-4">
@@ -166,7 +175,7 @@ const PersonnelLiveShifts = ({
                                             </span>
                                         </td>
                                         <td className="py-3 px-4 text-center">
-                                            {!isCancelled && !isAbsent && (
+                                            {!isCancelled && !isAbsent && status.label !== 'Finalizado' && (
                                                 <div className="flex items-center justify-center gap-1">
                                                     <button onClick={() => setChangeMobilTarget(turno)} className="text-blue-400 hover:bg-blue-900/40 p-1.5 rounded-lg transition-colors border border-transparent hover:border-blue-700/50" title="Cambiar Móvil">
                                                         <Truck size={16} />
@@ -192,7 +201,7 @@ const PersonnelLiveShifts = ({
                             <div className="py-12 text-center text-slate-500 text-sm">No hay turnos que coincidan con los filtros.</div>
                         )}
                         {filteredTurnos.map(turno => {
-                            const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal);
+                            const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada);
                             const sinMovil = !turno.movil || turno.movil === 'Sin Asignar';
                             const overtime = isOvertime(turno.horaFin, turno.horaFinReal);
                             const isCancelled = turno.cancelado;
@@ -222,7 +231,16 @@ const PersonnelLiveShifts = ({
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">Inicio (Prog: {turno.inicioProgramado})</p>
                                             <input type="time" defaultValue={turno.inicioReal || ''}
                                                 disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
-                                                onBlur={e => e.target.value !== (turno.inicioReal || '') && handleSetShiftField(turno.id, 'inicioReal', e.target.value)}
+                                                min={turno.inicioProgramado || undefined}
+                                                onBlur={e => {
+                                                    const val = e.target.value;
+                                                    if (val && turno.inicioProgramado && val < turno.inicioProgramado) {
+                                                        alert('La hora de inicio real no puede ser menor a la hora de inicio programada.');
+                                                        e.target.value = turno.inicioReal || '';
+                                                        return;
+                                                    }
+                                                    if (val !== (turno.inicioReal || '')) handleSetShiftField(turno.id, 'inicioReal', val);
+                                                }}
                                                 className={clsx("w-full bg-dark-900 border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-500 text-sm font-mono", (isCancelled || isAbsent || status.label === 'Finalizado') && 'opacity-50 cursor-not-allowed')} />
                                         </div>
                                         <div className={clsx("p-2 rounded-lg border", overtime ? "bg-orange-950/20 border-orange-900/30" : "bg-slate-800/30 border-slate-700/50")}>
@@ -267,13 +285,13 @@ const PersonnelLiveShifts = ({
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {!isCancelled && !isAbsent && !sinMovil && (
+                                            {!isCancelled && !isAbsent && status.label !== 'Finalizado' && !sinMovil && (
                                                 <button onClick={() => setChangeMobilTarget(turno)}
                                                     className="flex items-center justify-center text-blue-400 hover:bg-blue-900/40 p-2 rounded-lg border border-transparent hover:border-blue-700/50 transition-colors" title="Cambiar Móvil">
                                                     <Truck size={16} />
                                                 </button>
                                             )}
-                                            {!isCancelled && !isAbsent && (
+                                            {!isCancelled && !isAbsent && status.label !== 'Finalizado' && (
                                                 <>
                                                     <button onClick={() => onAusenciaClick(turno)}
                                                         className="flex items-center justify-center text-orange-400 hover:bg-orange-900/40 p-2 rounded-lg border border-transparent hover:border-orange-700/50 transition-colors" title="Marcar Ausencia">

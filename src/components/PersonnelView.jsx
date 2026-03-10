@@ -10,7 +10,9 @@ import PersonnelLiveShifts from './PersonnelLiveShifts';
 import PersonnelDirectory from './PersonnelDirectory';
 import PersonnelPayroll from './PersonnelPayroll';
 
-const getPunctualityStatus = (inicioProgramado, inicioReal, horaFinReal) => {
+const getPunctualityStatus = (inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada) => {
+    if (cancelado) return { label: 'Cancelado', styles: 'bg-red-500/10 text-red-400 border-red-500/20' };
+    if (ausenciaConfirmada) return { label: 'Ausencia', styles: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
     if (horaFinReal) return { label: 'Finalizado', styles: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
     if (!inicioReal) return { label: 'Ausente', styles: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
     const parse = t => { if (!t) return 0; const [h, m] = t.split(':').map(Number); return h * 60 + m; };
@@ -19,8 +21,8 @@ const getPunctualityStatus = (inicioProgramado, inicioReal, horaFinReal) => {
         : { label: 'Tarde', styles: 'bg-orange-500/10 text-orange-400 border-orange-500/20' };
 };
 
-const getPunctualityStatusLabel = (inicioProgramado, inicioReal, horaFinReal) => {
-    return getPunctualityStatus(inicioProgramado, inicioReal, horaFinReal).label;
+const getPunctualityStatusLabel = (inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada) => {
+    return getPunctualityStatus(inicioProgramado, inicioReal, horaFinReal, cancelado, ausenciaConfirmada).label;
 };
 
 const isOvertime = (progFinStr, realFinStr) => {
@@ -70,7 +72,7 @@ const PersonnelView = ({
 
     const filteredTurnos = useMemo(() => {
         return turnosHoy.filter(t => {
-            const statusLabel = getPunctualityStatusLabel(t.inicioProgramado, t.inicioReal, t.horaFinReal);
+            const statusLabel = getPunctualityStatusLabel(t.inicioProgramado, t.inicioReal, t.horaFinReal, t.cancelado, t.ausenciaConfirmada);
             if (filters.fecha && t.fecha !== filters.fecha) return false;
             if (filters.estado && statusLabel !== filters.estado) return false;
             if (filters.cargo && t.cargo !== filters.cargo) return false;
@@ -91,7 +93,7 @@ const PersonnelView = ({
 
     // Live Shifts Dropdowns
     const uniqueFechas = useMemo(() => [...new Set(turnosHoy.map(t => t.fecha).filter(Boolean))].sort((a, b) => b.localeCompare(a)), [turnosHoy]);
-    const allEstados = ['En Turno', 'Tarde', 'Ausente', 'Finalizado'];
+    const allEstados = ['En Turno', 'Tarde', 'Ausente', 'Ausencia', 'Cancelado', 'Finalizado'];
     const uniqueCargos = useMemo(() => [...new Set(turnosHoy.map(t => t.cargo))], [turnosHoy]);
     const uniqueMoviles = useMemo(() => [...new Set(turnosHoy.map(t => t.movil).filter(Boolean))], [turnosHoy]);
     const hasFilters = Boolean(filters.fecha || filters.estado || filters.cargo || filters.movil);
@@ -149,7 +151,11 @@ const PersonnelView = ({
 
     const handleSetShiftField = async (turnoId, field, value) => {
         try {
-            await updateTurno(turnoId, { [field]: value });
+            const updates = { [field]: value };
+            if (field === 'horaFinReal' && value) updates.estadoRegistro = 'Finalizado';
+            if (field === 'cancelado' && value) updates.estadoRegistro = 'Cancelado';
+            if (field === 'ausenciaConfirmada' && value) updates.estadoRegistro = 'Ausencia';
+            await updateTurno(turnoId, updates);
             showToast(`Registro actualizado (${field})`, 'success');
         } catch (error) {
             showToast('Error al actualizar registro', 'error');
