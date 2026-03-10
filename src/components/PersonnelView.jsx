@@ -68,6 +68,7 @@ const PersonnelView = ({
     updateEmpleado,
     addTurno,
     updateTurno,
+    updateFlota,
 }) => {
     const [activeTab, setActiveTab] = useState('live');
     const { toasts, show: showToast, dismiss: dismissToast } = useToast();
@@ -125,12 +126,68 @@ const PersonnelView = ({
     const uniqueMoviles = useMemo(() => [...new Set(turnosHoy.map(t => t.movil).filter(Boolean))], [turnosHoy]);
     const hasFilters = Boolean(filters.fecha || filters.estado || filters.cargo || filters.movil);
 
-    const getAvailableVehiclesForDate = useCallback((fecha, excludeTurnoId = null) => {
-        const counts = turnosHoy
-            .filter(t => t.fecha === fecha && t.id_turno !== excludeTurnoId && t.movil && t.movil !== 'Sin Asignar')
-            .reduce((acc, t) => { acc[t.movil] = (acc[t.movil] || 0) + 1; return acc; }, {});
-        return flota.filter(f => (counts[f.id] || 0) < 3); // Max 3 crew per ambulance
-    }, [turnosHoy, flota]);
+    // ── Crew rules per ambulance type ──
+    const CREW_RULES = {
+        'Básica': ['Conductor', 'Paramédico'],
+        'Medicalizada': ['Médico', 'Conductor', 'Paramédico']
+    };
+
+    // Active (non-finalized, non-cancelled, non-absent) shifts for a given vehicle
+    const getActiveCrewForVehicle = useCallback((vehicleId, excludeTurnoId = null) => {
+        return turnosHoy.filter(t =>
+            t.movil === vehicleId &&
+            t.movil !== 'Sin Asignar' &&
+            t.id !== excludeTurnoId &&
+            !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
+        );
+    }, [turnosHoy]);
+
+    // Check if employee already has any active shift (not finalized/cancelled/absent)
+    const isEmployeeOnActiveShift = useCallback((empleadoId, excludeTurnoId = null) => {
+        return turnosHoy.some(t =>
+            t.id_empleado === empleadoId &&
+            t.id !== excludeTurnoId &&
+            !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
+        );
+    }, [turnosHoy]);
+
+    // Returns vehicles that have room for the given cargo role
+    const getAvailableVehiclesForDate = useCallback((fecha, cargo, excludeTurnoId = null) => {
+        return flota.filter(f => {
+            if (f.estado === 'Fuera de Servicio') return false;
+            const rules = CREW_RULES[f.tipo];
+            if (!rules) return false;
+            // Cargo must be one of the allowed roles for this vehicle type
+            if (!rules.includes(cargo)) return false;
+            // Count active crew for this vehicle (all dates — active shift = not finalized)
+            const activeCrew = getActiveCrewForVehicle(f.id, excludeTurnoId);
+            // Check if this specific cargo slot is already taken
+            const sameCargoCount = activeCrew.filter(t => t.cargo === cargo).length;
+            const maxForCargo = rules.filter(r => r === cargo).length; // always 1
+            return sameCargoCount < maxForCargo;
+        });
+    }, [turnosHoy, flota, getActiveCrewForVehicle]);
+
+    // Helper: update fleet tripulación array and status from active shifts
+    const syncFleetTripulacion = useCallback(async (vehicleId) => {
+        if (!vehicleId || vehicleId === 'Sin Asignar' || !updateFlota) return;
+        const veh = flota.find(f => f.id === vehicleId);
+        if (!veh) return;
+        const activeCrew = turnosHoy.filter(t =>
+            t.movil === vehicleId &&
+            t.movil !== 'Sin Asignar' &&
+            !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
+        );
+        const tripulacion = activeCrew.map(t => ({ id_empleado: t.id_empleado, nombre: t.nombre, cargo: t.cargo }));
+        const rules = CREW_RULES[veh.tipo] || [];
+        const allRolesFilled = rules.every(role => tripulacion.some(c => c.cargo === role));
+        // Only change to Completa/Disponible if not En Servicio or Fuera de Servicio
+        let newEstado = veh.estado;
+        if (veh.estado !== 'En Servicio' && veh.estado !== 'Fuera de Servicio') {
+            newEstado = allRolesFilled && rules.length > 0 ? 'Completa' : 'Disponible';
+        }
+        await updateFlota(vehicleId, { tripulacion, estado: newEstado });
+    }, [flota, turnosHoy, updateFlota]);
 
     // --- Handlers ---
     const handleScheduleSubmit = async (e) => {
@@ -138,6 +195,31 @@ const PersonnelView = ({
         setSubmitting(true);
         try {
             const emp = empleados.find(e => e.id === newShift.empleadoId);
+            // Block if employee already has an active shift
+            if (isEmployeeOnActiveShift(emp.id)) {
+                showToast(`${emp.nombre} ya tiene un turno activo. Finalice o cancele el turno actual antes de asignar otro.`, 'error');
+                return;
+            }
+            // Validate vehicle crew capacity
+            if (newShift.vehiculo) {
+                const veh = flota.find(f => f.id === newShift.vehiculo);
+                if (veh) {
+                    const rules = CREW_RULES[veh.tipo] || [];
+                    if (!rules.includes(emp.cargo)) {
+                        showToast(`Un ${emp.cargo} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${rules.join(', ')}.`, 'error');
+                        return;
+                    }
+                    const activeCrew = getActiveCrewForVehicle(veh.id);
+                    if (activeCrew.some(t => t.cargo === emp.cargo)) {
+                        showToast(`La móvil ${veh.id} ya tiene un ${emp.cargo} asignado.`, 'error');
+                        return;
+                    }
+                    if (activeCrew.length >= rules.length) {
+                        showToast(`La móvil ${veh.id} ya está completa.`, 'error');
+                        return;
+                    }
+                }
+            }
             const turnoData = {
                 id_empleado: emp.id,
                 cedula: emp.cedula,
@@ -150,6 +232,10 @@ const PersonnelView = ({
                 estadoRegistro: 'Activo'
             };
             await addTurno(turnoData);
+            // Sync tripulación after a small delay to let Firestore listener update turnosHoy
+            if (newShift.vehiculo) {
+                setTimeout(() => syncFleetTripulacion(newShift.vehiculo), 1000);
+            }
             showToast('Turno programado exitosamente', 'success');
             setIsShiftModalOpen(false);
             setNewShift({ ...newShift, empleadoId: '' });
@@ -163,8 +249,34 @@ const PersonnelView = ({
 
     const handleAssignVehicle = async (turno, newVehicleId) => {
         try {
+            const oldVehicleId = turno.movil;
+            // Validate new vehicle if assigning
+            if (newVehicleId && newVehicleId !== 'Sin Asignar') {
+                const veh = flota.find(f => f.id === newVehicleId);
+                if (veh) {
+                    const rules = CREW_RULES[veh.tipo] || [];
+                    if (!rules.includes(turno.cargo)) {
+                        showToast(`Un ${turno.cargo} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${rules.join(', ')}.`, 'error');
+                        return;
+                    }
+                    const activeCrew = getActiveCrewForVehicle(veh.id, turno.id);
+                    if (activeCrew.some(t => t.cargo === turno.cargo)) {
+                        showToast(`La móvil ${veh.id} ya tiene un ${turno.cargo} asignado.`, 'error');
+                        return;
+                    }
+                    if (activeCrew.length >= rules.length) {
+                        showToast(`La móvil ${veh.id} ya está completa.`, 'error');
+                        return;
+                    }
+                }
+            }
             await updateTurno(turno.id, { movil: newVehicleId || 'Sin Asignar' });
             showToast(`Móvil actualizado a ${newVehicleId || 'Sin Asignar'}`, 'success');
+            // Sync both old and new vehicle tripulación
+            setTimeout(() => {
+                if (oldVehicleId && oldVehicleId !== 'Sin Asignar') syncFleetTripulacion(oldVehicleId);
+                if (newVehicleId && newVehicleId !== 'Sin Asignar') syncFleetTripulacion(newVehicleId);
+            }, 1000);
         } catch (error) {
             showToast('Error asignando móvil', 'error');
         }
@@ -184,6 +296,14 @@ const PersonnelView = ({
             if (field === 'ausenciaConfirmada' && value) updates.estadoRegistro = 'Ausencia';
             await updateTurno(turnoId, updates);
             showToast(`Registro actualizado (${field})`, 'success');
+            // If shift ended/cancelled/absent, sync vehicle tripulación
+            const shiftEnded = (field === 'horaFinReal' && value) || (field === 'cancelado' && value) || (field === 'ausenciaConfirmada' && value);
+            if (shiftEnded) {
+                const turno = turnosHoy.find(t => t.id === turnoId);
+                if (turno?.movil && turno.movil !== 'Sin Asignar') {
+                    setTimeout(() => syncFleetTripulacion(turno.movil), 1000);
+                }
+            }
         } catch (error) {
             showToast('Error al actualizar registro', 'error');
         }
@@ -245,6 +365,60 @@ const PersonnelView = ({
                     )}
                 </div>
             </header>
+
+            {/* Fleet Crew Status */}
+            {activeTab === 'live' && flota.length > 0 && (
+                <div className="mb-4 shrink-0">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Truck size={16} className="text-blue-400" />
+                        <span className="text-sm font-bold text-slate-300">Estado de Tripulación</span>
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto pb-1 hide-scrollbar">
+                        {flota.filter(f => f.estado !== 'Fuera de Servicio').map(veh => {
+                            const rules = CREW_RULES[veh.tipo] || [];
+                            const crew = getActiveCrewForVehicle(veh.id);
+                            const isFull = rules.length > 0 && rules.every(role => crew.some(c => c.cargo === role));
+                            return (
+                                <div key={veh.id} className={clsx(
+                                    "flex-shrink-0 rounded-xl border px-4 py-3 min-w-[200px] space-y-1.5",
+                                    isFull
+                                        ? "bg-emerald-500/10 border-emerald-500/30"
+                                        : crew.length > 0
+                                            ? "bg-amber-500/10 border-amber-500/30"
+                                            : "bg-dark-800 border-slate-700"
+                                )}>
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-mono font-bold text-sm text-white">{veh.id}</span>
+                                        <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                            isFull ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-700 text-slate-400"
+                                        )}>
+                                            {veh.tipo === 'Medicalizada' ? 'TAM' : 'TAB'}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {rules.map(role => {
+                                            const member = crew.find(c => c.cargo === role);
+                                            return (
+                                                <span key={role} className={clsx("text-[10px] px-1.5 py-0.5 rounded font-semibold",
+                                                    member ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-800 text-slate-500"
+                                                )}>
+                                                    {member ? `${role}: ${member.nombre.split(' ')[0]}` : `${role}: —`}
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="text-[10px] font-bold">
+                                        {isFull
+                                            ? <span className="text-emerald-400">● Completa</span>
+                                            : <span className="text-slate-500">{crew.length}/{rules.length} tripulantes</span>
+                                        }
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Tabs */}
             <div className="flex gap-1 mb-6 border-b border-slate-700/50 pb-px overflow-x-auto hide-scrollbar shrink-0">
@@ -346,7 +520,7 @@ const PersonnelView = ({
                                 <select id="nuevo-movil-select"
                                     className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
                                     <option value="">Sin Asignar</option>
-                                    {getAvailableVehiclesForDate(changeMobilTarget.fecha, changeMobilTarget.id).map(v => (
+                                    {getAvailableVehiclesForDate(changeMobilTarget.fecha, changeMobilTarget.cargo, changeMobilTarget.id).map(v => (
                                         <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
                                     ))}
                                 </select>

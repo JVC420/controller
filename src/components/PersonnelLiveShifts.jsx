@@ -127,7 +127,7 @@ const PersonnelLiveShifts = ({
                                                     defaultValue=""
                                                     onChange={e => handleAssignVehicle(turno, e.target.value)}>
                                                     <option value="">Sin Asignar</option>
-                                                    {getAvailableVehiclesForDate(turno.fecha).map(v => (
+                                                    {getAvailableVehiclesForDate(turno.fecha, turno.cargo).map(v => (
                                                         <option key={v.id} value={v.id}>{v.id} – {v.tipo}</option>
                                                     ))}
                                                 </select>
@@ -300,7 +300,7 @@ const PersonnelLiveShifts = ({
                                                     defaultValue=""
                                                     onChange={e => handleAssignVehicle(turno, e.target.value)}>
                                                     <option value="">Sin Asignar (Asignar Móvil)</option>
-                                                    {getAvailableVehiclesForDate(turno.fecha).map(v => (
+                                                    {getAvailableVehiclesForDate(turno.fecha, turno.cargo).map(v => (
                                                         <option key={v.id} value={v.id}>{v.id} – {v.tipo}</option>
                                                     ))}
                                                 </select>

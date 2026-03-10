@@ -191,6 +191,10 @@ export const useDashboardData = () => {
         await updateDoc(doc(db, 'turnos', turnoId), changes);
     };
 
+    const updateFlota = async (flotaId, changes) => {
+        await updateDoc(doc(db, 'flota', flotaId), changes);
+    };
+
     // ── Deprecated stubs (kept for API compatibility) ─────────────────────────
     const updateRequestStatus = async () => { };
     const addMockAmbulance = async () => { };
@@ -239,5 +243,6 @@ export const useDashboardData = () => {
         // Shift actions
         addTurno,
         updateTurno,
+        updateFlota,
     };
 };

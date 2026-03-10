@@ -56,6 +56,7 @@ function AppLayout() {
     updateEmpleado,
     addTurno,
     updateTurno,
+    updateFlota,
   } = useDashboardData();
 
   const { hasAccess, role, loading: authLoading } = useAuth();
@@ -228,6 +229,7 @@ function AppLayout() {
                 updateEmpleado={updateEmpleado}
                 addTurno={addTurno}
                 updateTurno={updateTurno}
+                updateFlota={updateFlota}
               />
             )} />
 

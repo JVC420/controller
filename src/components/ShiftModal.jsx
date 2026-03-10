@@ -84,7 +84,7 @@ const ShiftModal = ({
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">
-                            Vehículo <span className="text-slate-500 font-normal">(Opcional — máx. 3/vehículo)</span>
+                            Vehículo <span className="text-slate-500 font-normal">(según tipo y cargo)</span>
                         </label>
                         <select
                             className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
@@ -92,10 +92,15 @@ const ShiftModal = ({
                             onChange={e => setNewShift({ ...newShift, vehiculo: e.target.value })}
                         >
                             <option value="">Sin Asignar (Retén / Base)</option>
-                            {getAvailableVehiclesForDate(fechaInicio || new Date().toISOString().split('T')[0]).map(v => (
-                                <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
-                            ))}
+                            {(() => {
+                                const selEmp = activeEmpleados.find(e => e.id === newShift.empleadoId);
+                                const cargo = selEmp ? selEmp.cargo : '';
+                                return cargo ? getAvailableVehiclesForDate(fechaInicio || new Date().toISOString().split('T')[0], cargo).map(v => (
+                                    <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
+                                )) : [];
+                            })()}
                         </select>
+                        {!newShift.empleadoId && <p className="text-xs text-slate-500 mt-1">Seleccione un empleado primero para ver vehículos disponibles</p>}
                     </div>
                     <div className="space-y-3">
                         <p className="text-sm font-semibold text-slate-300">Inicio Programado</p>
