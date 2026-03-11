@@ -5,6 +5,16 @@ import { clsx } from 'clsx';
 const getColombiaToday = () =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
+// Devuelve [startUTC, endUTC] para un día Colombia (YYYY-MM-DD)
+function getColombiaDayRangeUTC(dateStr) {
+    // dateStr: 'YYYY-MM-DD' (en zona Colombia)
+    // 00:00 COT = 05:00 UTC
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const startUTC = Date.UTC(y, m - 1, d, 5, 0, 0, 0); // 05:00:00.000Z
+    const endUTC = startUTC + 24 * 60 * 60 * 1000 - 1; // 04:59:59.999Z del día siguiente
+    return [startUTC, endUTC];
+}
+
 const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
     // ─── State: Selected Date ──────────────────────────────────────────────
     const [selectedDate, setSelectedDate] = useState(getColombiaToday);
@@ -14,9 +24,8 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         const now = Date.now();
         const todayColombia = getColombiaToday();
 
-        // Define boundaries for the selected day in local time
-        const startOfDay = new Date(selectedDate + 'T00:00:00');
-        const endOfDay = new Date(selectedDate + 'T23:59:59.999');
+        // Define boundaries for the selected day in Colombia timezone (UTC-5)
+        const [startOfDay, endOfDay] = getColombiaDayRangeUTC(selectedDate);
 
         // Check if selected date is today (in Colombia timezone)
         const isToday = todayColombia === selectedDate;
@@ -40,12 +49,18 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         });
         const avgIdleMins = idleCount > 0 ? Math.floor((totalIdleMs / idleCount) / 60000) : 0;
 
-        // --- Services Metrics (Filtered by Date) ---
+        // --- Services Metrics (Filtered by Date, by fecha Colombia) ---
+        function toColombiaDateStr(isoStr) {
+            if (!isoStr) return '';
+            const date = new Date(isoStr);
+            // Convierte a fecha Colombia (UTC-5)
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+        }
         const closedOnDate = solicitudes.filter(s => {
             if (s.estado !== 'Finalizado' || !s.finalizadoAt) return false;
-            const finTime = new Date(s.finalizadoAt).getTime();
-            return finTime >= startOfDay.getTime() && finTime <= endOfDay.getTime();
+            return toColombiaDateStr(s.finalizadoAt) === selectedDate;
         });
+        console.log('[DEBUG] closedOnDate:', closedOnDate.length);
 
         // Active services only make sense if viewing "today", otherwise 0.
         const activeServices = isToday ? solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado') : [];
