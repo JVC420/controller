@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Send, Building2, MapPin } from 'lucide-react';
 
-const NewServiceModal = ({ isOpen, onClose, clientes, onSubmit }) => {
+const NewServiceModal = ({ isOpen, onClose, clientes, onSubmit, getNextReqId }) => {
     const [formData, setFormData] = useState({
         clienteId: '',
         origen: '',
@@ -14,8 +14,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes, onSubmit }) => {
         e.preventDefault();
         if (!formData.clienteId || !formData.origen || !formData.destino) return;
 
-        // Simulate backend processing time
-        const id = `REQ-${Math.floor(Math.random() * 900) + 100}`;
+        const id = getNextReqId();
         const newRequest = {
             id,
             clienteId: formData.clienteId,
@@ -23,7 +22,6 @@ const NewServiceModal = ({ isOpen, onClose, clientes, onSubmit }) => {
             destino: formData.destino,
             estado: "Pendiente",
             tiempoEsperaMin: 0,
-            creadoAt: new Date().toISOString()
         };
 
         onSubmit(newRequest);

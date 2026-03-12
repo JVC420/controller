@@ -29,8 +29,9 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
         let interval;
         if (isAvailable && ambulance.lastAvailableAt) {
             const calculateIdle = () => {
-                const diff = Date.now() - new Date(ambulance.lastAvailableAt).getTime();
-                setIdleMinutes(Math.floor(diff / 60000));
+                const ms = new Date(ambulance.lastAvailableAt).getTime();
+                const diff = Number.isFinite(ms) ? Date.now() - ms : 0;
+                setIdleMinutes(Math.max(0, Math.floor(diff / 60000)));
             };
             calculateIdle();
             interval = setInterval(calculateIdle, 60000);

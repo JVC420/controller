@@ -1,10 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     collection, doc, onSnapshot,
-    addDoc, updateDoc, setDoc, deleteDoc
+    addDoc, updateDoc, setDoc, deleteDoc,
+    writeBatch, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
+
+// ─── Normalize Firestore Timestamps to ISO strings on read ───────────────────
+const normalizeDoc = (data) => {
+    const result = { ...data };
+    for (const key of Object.keys(result)) {
+        if (result[key] && typeof result[key].toDate === 'function') {
+            result[key] = result[key].toDate().toISOString();
+        }
+    }
+    return result;
+};
 
 // ─── Fallback metrics (computed locally until analytics module is built) ──────
 const STATIC_METRICAS = { flotaOperativa: "85%", tiempoPromedioRespuesta: "18 min", serviciosHoy: 24 };
@@ -49,31 +61,31 @@ export const useDashboardData = () => {
 
         if (canReadClientes) {
             unsubs.push(onSnapshot(collection(db, 'clientes'), snap => {
-                setClientes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setClientes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
                 tryResolve();
             }, console.error));
         }
 
         unsubs.push(onSnapshot(collection(db, 'flota'), snap => {
-            setFlota(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setFlota(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
             tryResolve();
         }, console.error));
 
         unsubs.push(onSnapshot(collection(db, 'solicitudes'), snap => {
-            setSolicitudes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+            setSolicitudes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
             tryResolve();
         }, console.error));
 
         if (canReadEmpleados) {
             unsubs.push(onSnapshot(collection(db, 'empleados'), snap => {
-                setEmpleados(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setEmpleados(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
                 tryResolve();
             }, console.error));
         }
 
         if (canReadTurnos) {
             unsubs.push(onSnapshot(collection(db, 'turnos'), snap => {
-                setTurnos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                setTurnos(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
                 tryResolve();
             }, console.error));
         }
@@ -115,16 +127,26 @@ export const useDashboardData = () => {
         const update = { estado: newStatus };
         if (newStatus === 'Disponible') {
             update.destino = null;
-            update.lastAvailableAt = new Date().toISOString();
+            update.lastAvailableAt = serverTimestamp();
         } else if (newStatus === 'Fuera de Servicio') {
             update.destino = null;
         }
         await updateDoc(ref, update);
     };
 
+    // ── Sequential REQ-ID generator ────────────────────────────────────────────
+    const getNextReqId = useCallback(() => {
+        const maxNum = solicitudes.reduce((max, s) => {
+            const m = (s.id || '').match(/^REQ-(\d+)$/);
+            return m ? Math.max(max, parseInt(m[1], 10)) : max;
+        }, 0);
+        return `REQ-${String(maxNum + 1).padStart(3, '0')}`;
+    }, [solicitudes]);
+
     // ── SERVICE Operations ────────────────────────────────────────────────────
     const createRealRequest = async (requestObj) => {
         const { id, ...data } = requestObj;
+        data.creadoAt = serverTimestamp();
         if (id) {
             await setDoc(doc(db, 'solicitudes', id), data);
         } else {
@@ -133,29 +155,33 @@ export const useDashboardData = () => {
     };
 
     const assignAmbulance = async (reqId, ambulanceId) => {
-        await updateDoc(doc(db, 'solicitudes', reqId), {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'solicitudes', reqId), {
             estado: 'Asignado',
             ambulanciaAsignada: ambulanceId,
-            asignadoAt: new Date().toISOString()
+            asignadoAt: serverTimestamp()
         });
-        await updateDoc(doc(db, 'flota', ambulanceId), {
+        batch.update(doc(db, 'flota', ambulanceId), {
             estado: 'En Servicio',
             destino: 'Solicitud Asignada'
         });
+        await batch.commit();
     };
 
     const closeService = async (reqId, ambulanceId) => {
-        await updateDoc(doc(db, 'solicitudes', reqId), {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'solicitudes', reqId), {
             estado: 'Finalizado',
-            finalizadoAt: new Date().toISOString()
+            finalizadoAt: serverTimestamp()
         });
         if (ambulanceId) {
-            await updateDoc(doc(db, 'flota', ambulanceId), {
+            batch.update(doc(db, 'flota', ambulanceId), {
                 estado: 'Disponible',
                 destino: null,
-                lastAvailableAt: new Date().toISOString()
+                lastAvailableAt: serverTimestamp()
             });
         }
+        await batch.commit();
     };
 
     const updateServiceChecklist = async (reqId, checklist) => {
@@ -179,6 +205,7 @@ export const useDashboardData = () => {
     // ── SHIFT Operations ──────────────────────────────────────────────────────
     const addTurno = async (turnoObj) => {
         const { id, ...data } = turnoObj;
+        data.creadoAt = serverTimestamp();
         if (id) {
             await setDoc(doc(db, 'turnos', id), data);
         } else {
@@ -219,6 +246,7 @@ export const useDashboardData = () => {
 
         // Helpers
         getClienteById,
+        getNextReqId,
 
         // Client actions
         createClient,

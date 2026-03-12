@@ -43,6 +43,7 @@ function AppLayout() {
     flota,
     loading,
     getClienteById,
+    getNextReqId,
     assignAmbulance,
     addMockAmbulance,
     createRealRequest,
@@ -281,6 +282,7 @@ function AppLayout() {
           onClose={() => setIsModalOpen(false)}
           clientes={clientes}
           onSubmit={createRealRequest}
+          getNextReqId={getNextReqId}
         />
       )}
       <ToastContainer toasts={toasts} dismiss={dismissToast} />

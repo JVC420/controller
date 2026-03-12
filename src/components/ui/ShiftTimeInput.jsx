@@ -10,6 +10,14 @@ const getColombiaDateTime = () => {
     return { date, time };
 };
 
+const getDateBounds = () => {
+    const now = new Date();
+    const past = new Date(now); past.setDate(past.getDate() - 90);
+    const future = new Date(now); future.setDate(future.getDate() + 7);
+    const fmt = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    return { min: fmt(past), max: fmt(future) };
+};
+
 const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
     const [editing, setEditing] = useState(false);
     const [date, setDate] = useState('');
@@ -187,6 +195,8 @@ const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
                             <input
                                 type="date"
                                 value={date}
+                                min={getDateBounds().min}
+                                max={getDateBounds().max}
                                 onChange={e => setDate(e.target.value)}
                                 className="w-full bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-mono focus:outline-none focus:border-blue-500"
                             />

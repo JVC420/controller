@@ -73,12 +73,16 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                 (s.ambulanciaAsignada && s.ambulanciaAsignada.toLowerCase().includes(term)) ||
                                 (cliente?.nombre && cliente.nombre.toLowerCase().includes(term))
                             );
-                        }).sort((a, b) => new Date(b.asignadoAt) - new Date(a.asignadoAt)).map(servicio => {
+                        }).sort((a, b) => {
+                            const ta = a.asignadoAt ? new Date(a.asignadoAt).getTime() : 0;
+                            const tb = b.asignadoAt ? new Date(b.asignadoAt).getTime() : 0;
+                            return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+                        }).map(servicio => {
                             const cliente = getClienteById(servicio.clienteId);
 
                             // Calculate SLA Breach
-                            const assignedAtDate = new Date(servicio.asignadoAt);
-                            const elapsedMs = now - assignedAtDate.getTime();
+                            const assignedMs = servicio.asignadoAt ? new Date(servicio.asignadoAt).getTime() : NaN;
+                            const elapsedMs = Number.isFinite(assignedMs) ? now - assignedMs : 0;
                             const isAlert = elapsedMs > SLA_LIMIT_MS && servicio.estado !== 'Finalizado';
 
                             // Format Elapsed Time

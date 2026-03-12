@@ -19,9 +19,10 @@ const getColombiaTodayISO = () => {
 
 // Parses both "HH:mm" (legacy) and "YYYY-MM-DDTHH:mm" (new) into epoch ms
 const toMs = (val, fecha) => {
-    if (!val) return 0;
+    if (!val) return null;
     if (val.includes('T')) return new Date(val).getTime();
-    return new Date(`${fecha || '1970-01-01'}T${val}:00`).getTime();
+    if (!fecha) return null;
+    return new Date(`${fecha}T${val}:00`).getTime();
 };
 // Returns "YYYY-MM-DDTHH:mm" for datetime-local inputs (handles legacy "HH:mm" too)
 const dtVal = (val, fecha) => {
@@ -45,7 +46,12 @@ const getPunctualityStatus = (inicioProgramado, inicioReal, horaFinReal, cancela
     if (ausenciaConfirmada) return { label: 'Ausencia', styles: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
     if (horaFinReal) return { label: 'Finalizado', styles: 'bg-blue-500/10 text-blue-400 border-blue-500/20' };
     if (!inicioReal) return { label: 'Ausente', styles: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
-    return toMs(inicioReal, fecha) <= toMs(inicioProgramado, fecha) + 15 * 60000
+    const realMs = toMs(inicioReal, fecha);
+    const progMs = toMs(inicioProgramado, fecha);
+    if (realMs == null || progMs == null) {
+        return { label: 'En Turno', styles: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' };
+    }
+    return realMs <= progMs + 15 * 60000
         ? { label: 'En Turno', styles: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
         : { label: 'Tarde', styles: 'bg-orange-500/10 text-orange-400 border-orange-500/20' };
 };
@@ -56,7 +62,10 @@ const getPunctualityStatusLabel = (inicioProgramado, inicioReal, horaFinReal, ca
 
 const isOvertime = (progFinStr, realFinStr, fecha) => {
     if (!progFinStr || !realFinStr) return false;
-    return (toMs(realFinStr, fecha) - toMs(progFinStr, fecha)) > 1800000;
+    const progMs = toMs(progFinStr, fecha);
+    const realMs = toMs(realFinStr, fecha);
+    if (progMs == null || realMs == null) return false;
+    return (realMs - progMs) > 1800000;
 };
 
 const PersonnelView = ({
@@ -115,7 +124,7 @@ const PersonnelView = ({
                 if (a.creadoAt) return -1;
                 if (b.creadoAt) return 1;
                 // Fallback: por fecha de turno y hora programada
-                return new Date(b.fecha || 0) - new Date(a.fecha || 0) || (a.inicioProgramado || '').localeCompare(b.inicioProgramado || '');
+                return (b.fecha || '').localeCompare(a.fecha || '') || (a.inicioProgramado || '').localeCompare(b.inicioProgramado || '');
             });
     }, [turnosHoy, filters]);
 
@@ -218,7 +227,6 @@ const PersonnelView = ({
                 horaFin: newShift.dtFin,
                 movil: newShift.vehiculo || 'Sin Asignar',
                 estadoRegistro: 'Activo',
-                creadoAt: new Date().toISOString()
             };
             await addTurno(turnoData);
             showToast('Turno programado exitosamente', 'success');
@@ -277,8 +285,12 @@ const PersonnelView = ({
             if (field === 'inicioReal' && value) {
                 const turno = turnosHoy.find(t => t.id === turnoId);
                 if (turno && turno.inicioProgramado) {
-                    const isLate = toMs(value, turno.fecha) > toMs(turno.inicioProgramado, turno.fecha) + 15 * 60000;
-                    updates.estadoRegistro = isLate ? 'Tarde' : 'En Turno';
+                    const realMs = toMs(value, turno.fecha);
+                    const progMs = toMs(turno.inicioProgramado, turno.fecha);
+                    if (realMs != null && progMs != null) {
+                        const isLate = realMs > progMs + 15 * 60000;
+                        updates.estadoRegistro = isLate ? 'Tarde' : 'En Turno';
+                    }
                 }
             }
             await updateTurno(turnoId, updates);

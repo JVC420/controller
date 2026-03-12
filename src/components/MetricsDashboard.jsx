@@ -5,15 +5,22 @@ import { clsx } from 'clsx';
 const getColombiaToday = () =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-// Devuelve [startUTC, endUTC] para un día Colombia (YYYY-MM-DD)
-function getColombiaDayRangeUTC(dateStr) {
-    // dateStr: 'YYYY-MM-DD' (en zona Colombia)
-    // 00:00 COT = 05:00 UTC
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const startUTC = Date.UTC(y, m - 1, d, 5, 0, 0, 0); // 05:00:00.000Z
-    const endUTC = startUTC + 24 * 60 * 60 * 1000 - 1; // 04:59:59.999Z del día siguiente
-    return [startUTC, endUTC];
-}
+// Safely parse any timestamp (ISO string or Firestore Timestamp) to ms
+const safeToMs = (val) => {
+    if (!val) return null;
+    if (typeof val === 'number') return val;
+    if (val.toDate) return val.toDate().getTime();
+    const ms = new Date(val).getTime();
+    return isNaN(ms) ? null : ms;
+};
+
+// Converts a date string in Colombia timezone to Colombia date string (handles ISO strings)
+const toColombiaDateStr = (isoStr) => {
+    if (!isoStr) return '';
+    const ms = safeToMs(isoStr);
+    if (ms == null) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+};
 
 const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
     // ─── State: Date Range ─────────────────────────────────────────────────
@@ -44,20 +51,15 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         let totalIdleMs = 0;
         let idleCount = 0;
         disponibles.forEach(a => {
-            if (a.lastAvailableAt) {
-                totalIdleMs += (now - new Date(a.lastAvailableAt).getTime());
+            const idleStart = safeToMs(a.lastAvailableAt);
+            if (idleStart != null) {
+                totalIdleMs += (now - idleStart);
                 idleCount++;
             }
         });
         const avgIdleMins = idleCount > 0 ? Math.floor((totalIdleMs / idleCount) / 60000) : 0;
 
         // --- Services Metrics (Filtered by Date, by fecha Colombia) ---
-        function toColombiaDateStr(isoStr) {
-            if (!isoStr) return '';
-            const date = new Date(isoStr);
-            // Convierte a fecha Colombia (UTC-5)
-            return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
-        }
         const closedOnDate = solicitudes.filter(s => {
             if (s.estado !== 'Finalizado' || !s.finalizadoAt) return false;
             const d = toColombiaDateStr(s.finalizadoAt);
@@ -73,8 +75,10 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         let slaBreaches = 0; // >10 min to assign
 
         closedOnDate.forEach(s => {
-            if (s.creadoAt && s.asignadoAt) {
-                const waitMs = new Date(s.asignadoAt).getTime() - new Date(s.creadoAt).getTime();
+            const creadoMs = safeToMs(s.creadoAt);
+            const asignadoMs = safeToMs(s.asignadoAt);
+            if (creadoMs != null && asignadoMs != null) {
+                const waitMs = asignadoMs - creadoMs;
                 if (waitMs > 0) {
                     totalResponseMs += waitMs;
                     responseCount++;
@@ -103,7 +107,10 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
             // Current idle calculation for this specific vehicle ONLY if viewing today
             let currentIdle = null;
             if (isToday && amb.estado === 'Disponible' && amb.lastAvailableAt) {
-                currentIdle = Math.floor((now - new Date(amb.lastAvailableAt).getTime()) / 60000);
+                const idleStart = safeToMs(amb.lastAvailableAt);
+                if (idleStart != null) {
+                    currentIdle = Math.floor((now - idleStart) / 60000);
+                }
             }
 
             return {

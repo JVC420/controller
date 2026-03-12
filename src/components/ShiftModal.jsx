@@ -12,6 +12,11 @@ const ShiftModal = ({
     submitting
 }) => {
     const getColombiaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const getMaxDate = () => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    };
     const [fechaInicio, setFechaInicio] = useState(getColombiaToday);
     const [horaInicio, setHoraInicio] = useState('');
     const [fechaFin, setFechaFin] = useState(getColombiaToday);
@@ -95,7 +100,7 @@ const ShiftModal = ({
                             {(() => {
                                 const selEmp = activeEmpleados.find(e => e.id === newShift.empleadoId);
                                 const cargo = selEmp ? selEmp.cargo : '';
-                                return cargo ? getAvailableVehiclesForDate(fechaInicio || new Date().toISOString().split('T')[0], cargo).map(v => (
+                                return cargo ? getAvailableVehiclesForDate(fechaInicio || getColombiaToday(), cargo).map(v => (
                                     <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
                                 )) : [];
                             })()}
@@ -108,6 +113,8 @@ const ShiftModal = ({
                             <input
                                 type="date"
                                 required
+                                min={getColombiaToday()}
+                                max={getMaxDate()}
                                 className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                                 value={fechaInicio}
                                 onChange={e => { setFechaInicio(e.target.value); syncParent(e.target.value, horaInicio, fechaFin, horaFin); }}
@@ -127,7 +134,8 @@ const ShiftModal = ({
                             <input
                                 type="date"
                                 required
-                                min={fechaInicio || undefined}
+                                min={fechaInicio || getColombiaToday()}
+                                max={getMaxDate()}
                                 className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                                 value={fechaFin}
                                 onChange={e => { setFechaFin(e.target.value); syncParent(fechaInicio, horaInicio, e.target.value, horaFin); }}

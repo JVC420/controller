@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Save, Truck } from 'lucide-react';
+import { serverTimestamp } from 'firebase/firestore';
 
 const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
     const [formData, setFormData] = useState({
@@ -19,7 +20,7 @@ const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
             tipo: formData.tipo,
             estado: 'Disponible',
             tripulacion: [],
-            lastAvailableAt: new Date().toISOString(),
+            lastAvailableAt: serverTimestamp(),
         });
         setFormData({ placaBase: '', tipo: 'Básica' });
         onClose();

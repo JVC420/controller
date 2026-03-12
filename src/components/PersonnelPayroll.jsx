@@ -117,26 +117,53 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         };
     });
 
-    // Split any time range [startMs, endMs] into diurna (06:00-19:00) and nocturna (19:00-06:00) ms
+    // Get hour in Colombia timezone (0-23)
+    const getColombiaHour = (ms) => {
+        return parseInt(new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Bogota', hour: 'numeric', hour12: false
+        }).format(new Date(ms)));
+    };
+
+    // Get next boundary time in Colombia timezone
+    const getNextBoundary = (ms, targetHour) => {
+        const d = new Date(ms);
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(d);
+        const colH = getColombiaHour(ms);
+        // If current hour >= targetHour and target is 6 (morning), go to next day
+        // If current hour >= targetHour and target is 19, go to next day 19:00
+        let dateStr = parts;
+        if ((targetHour === 6 && colH >= 6) || (targetHour === 19 && colH >= 19)) {
+            // advance the date by 1 day
+            const next = new Date(d);
+            next.setDate(next.getDate() + 1);
+            dateStr = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).format(next);
+        }
+        // Build target datetime in Colombia → convert to UTC ms
+        // Colombia is UTC-5, so boundary in UTC = boundary_local + 5h
+        const [y, m, dd] = dateStr.split('-').map(Number);
+        return Date.UTC(y, m - 1, dd, targetHour + 5, 0, 0, 0);
+    };
+
+    // Split any time range [startMs, endMs] into diurna (06:00-19:00 COT) and nocturna (19:00-06:00 COT) ms
     const splitDiurnaNocturna = (startMs, endMs) => {
         let diurna = 0, nocturna = 0;
         let cursor = startMs;
         while (cursor < endMs) {
-            const d = new Date(cursor);
-            const h = d.getHours();
+            const h = getColombiaHour(cursor);
             if (h >= 6 && h < 19) {
-                // In diurna window → next boundary is 19:00 today
-                const nb = new Date(cursor);
-                nb.setHours(19, 0, 0, 0);
-                const segEnd = Math.min(endMs, nb.getTime());
+                // In diurna window → next boundary is 19:00 COT today
+                const nb = getNextBoundary(cursor, 19);
+                const segEnd = Math.min(endMs, nb);
                 diurna += segEnd - cursor;
                 cursor = segEnd;
             } else {
-                // In nocturna window → next boundary is 06:00 (next day if h>=19)
-                const nb = new Date(cursor);
-                if (h >= 19) nb.setDate(nb.getDate() + 1);
-                nb.setHours(6, 0, 0, 0);
-                const segEnd = Math.min(endMs, nb.getTime());
+                // In nocturna window → next boundary is 06:00 COT
+                const nb = getNextBoundary(cursor, 6);
+                const segEnd = Math.min(endMs, nb);
                 nocturna += segEnd - cursor;
                 cursor = segEnd;
             }
@@ -149,13 +176,18 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         const result = { ordD: 0, ordN: 0, domD: 0, domN: 0 };
         let cursor = startMs;
         while (cursor < endMs) {
-            // Next midnight boundary
+            // Get Colombia date for this cursor
             const d = new Date(cursor);
-            const nextMidnight = new Date(d);
-            nextMidnight.setDate(nextMidnight.getDate() + 1);
-            nextMidnight.setHours(0, 0, 0, 0);
-            const segEnd = Math.min(endMs, nextMidnight.getTime());
-            const isDom = isDominicalOrFestivo(d);
+            const colDateStr = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit'
+            }).format(d);
+            // Next midnight in Colombia = next day 00:00 COT = 05:00 UTC
+            const [y, m, dd] = colDateStr.split('-').map(Number);
+            const nextMidnightUTC = Date.UTC(y, m - 1, dd + 1, 5, 0, 0, 0);
+            const segEnd = Math.min(endMs, nextMidnightUTC);
+            // Check day type using Colombia date
+            const colDate = new Date(y, m - 1, dd);
+            const isDom = isDominicalOrFestivo(colDate);
             const { diurna, nocturna } = splitDiurnaNocturna(cursor, segEnd);
             if (isDom) { result.domD += diurna; result.domN += nocturna; }
             else { result.ordD += diurna; result.ordN += nocturna; }
@@ -254,10 +286,10 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                     byEmp[key].hedd += h.hedd; byEmp[key].hedn += h.hedn;
                 }
             } else {
-                // Shift not yet finalized: check if past date → absence
+                // Shift not yet finalized: check if past date → absence (Colombia timezone)
                 if (!t.inicioReal) {
-                    const shiftDate = new Date(t.fecha + 'T23:59:00');
-                    if (shiftDate < new Date()) byEmp[key].ausencias++;
+                    const todayCO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                    if (t.fecha < todayCO) byEmp[key].ausencias++;
                 }
             }
         });

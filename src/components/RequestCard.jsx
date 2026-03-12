@@ -10,7 +10,8 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
     // ── Live wait-time counter ────────────────────────────────────────────────
     const getElapsedMin = () => {
         if (request.creadoAt) {
-            return Math.floor((Date.now() - new Date(request.creadoAt).getTime()) / 60000);
+            const ms = new Date(request.creadoAt).getTime();
+            if (Number.isFinite(ms)) return Math.max(0, Math.floor((Date.now() - ms) / 60000));
         }
         return request.tiempoEsperaMin ?? 0;
     };
@@ -26,7 +27,7 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
     const isSlaBreached = request.estado === 'Pendiente'
         ? elapsedMin > 10
         : request.asignadoAt
-            ? Math.floor((Date.now() - new Date(request.asignadoAt).getTime()) / 60000) > 150
+            ? (() => { const ms = new Date(request.asignadoAt).getTime(); return Number.isFinite(ms) ? Math.floor((Date.now() - ms) / 60000) > 150 : false; })()
             : false;
 
     // Display
