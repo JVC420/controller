@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    collection, doc, onSnapshot,
-    addDoc, updateDoc, setDoc, deleteDoc,
+    collection, doc, onSnapshot, query, where,
+    addDoc, updateDoc, setDoc, deleteDoc, getDocs,
     writeBatch, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -27,20 +27,68 @@ const PRENOMINA_MOCK = [
     { id_empleado: "EMP-02", nombre: "Juan Pérez", ordinariasDiurnas: 130, ordinariasNocturnas: 10, hed: 2, hen: 0, dominicalesFestivos: 8, ausencias: 1 }
 ];
 
+// ─── Optimization: only these states use a real-time listener ─────────────────
+const ACTIVE_STATES = ['Pendiente', 'Asignado', 'En Traslado', 'En Punto'];
+// How many days of turnos to keep in real-time listener
+const TURNOS_LOOKBACK_DAYS = 90;
+
+// ─── localStorage cache helpers ──────────────────────────────────────────────
+const CACHE_PREFIX = 'lma_cache_';
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+const readCache = (key) => {
+    try {
+        const raw = localStorage.getItem(CACHE_PREFIX + key);
+        if (!raw) return null;
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts > CACHE_TTL_MS) { localStorage.removeItem(CACHE_PREFIX + key); return null; }
+        return data;
+    } catch { return null; }
+};
+
+const writeCache = (key, data) => {
+    try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data, ts: Date.now() })); }
+    catch { /* quota exceeded — ignore */ }
+};
+
+// ─── Route → required collections mapping ────────────────────────────────────
+// Each route declares which Firestore collections it needs active listeners for.
+const ROUTE_NEEDS = {
+    '/':            { flota: true, solicitudes: true, clientes: true, turnos: true, empleados: false },
+    '/historial':   { flota: false, solicitudes: true, clientes: true, turnos: false, empleados: false },
+    '/metricas':    { flota: true, solicitudes: true, clientes: false, turnos: true, empleados: false },
+    '/directorio':  { flota: false, solicitudes: false, clientes: true, turnos: false, empleados: false },
+    '/personal':    { flota: true, solicitudes: false, clientes: false, turnos: true, empleados: true },
+    '/configuracion': { flota: false, solicitudes: false, clientes: false, turnos: false, empleados: false },
+};
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
-export const useDashboardData = () => {
+export const useDashboardData = (activeRoute = '/') => {
     const { role } = useAuth();
+    const needs = ROUTE_NEEDS[activeRoute] || ROUTE_NEEDS['/'];
     const [sesionActual] = useState(SESION_ACTUAL);
     const [metricas] = useState(STATIC_METRICAS);
     const [prenominaMensual] = useState(PRENOMINA_MOCK);
 
-    const [clientes, setClientes] = useState([]);
+    const [clientes, setClientes] = useState(() => readCache('clientes') || []);
     const [flota, setFlota] = useState([]);
-    const [solicitudes, setSolicitudes] = useState([]);
+    // Solicitudes: active (real-time) + historical (one-time fetch) + session-closed
+    const [activeSolicitudes, setActiveSolicitudes] = useState([]);
+    const [historicalSolicitudes, setHistoricalSolicitudes] = useState([]);
+    const [sessionFinalized, setSessionFinalized] = useState([]);
     const [empleados, setEmpleados] = useState([]);
     const [turnos, setTurnos] = useState([]);
 
     const [loading, setLoading] = useState(true);
+
+    // ── Merge all solicitudes sources into a single list ──────────────────────
+    const solicitudes = useMemo(() => {
+        const map = new Map();
+        activeSolicitudes.forEach(s => map.set(s.id, s));
+        sessionFinalized.forEach(s => { if (!map.has(s.id)) map.set(s.id, s); });
+        historicalSolicitudes.forEach(s => { if (!map.has(s.id)) map.set(s.id, s); });
+        return Array.from(map.values());
+    }, [activeSolicitudes, sessionFinalized, historicalSolicitudes]);
 
     // ── Role-based collection access ──────────────────────────────────────────
     const canReadClientes = role === 'controlador' || role === 'administrador_general';
@@ -48,53 +96,95 @@ export const useDashboardData = () => {
     const canReadTurnos = role === 'recurso_humano' || role === 'administrador_general';
     // flota and solicitudes are accessible to all authenticated roles
 
-    // ── Real-time Firestore listeners ─────────────────────────────────────────
+    // ── Route-aware Firestore listeners ─────────────────────────────────────────
+    // Listeners subscribe/unsubscribe as the user navigates between routes.
+    // This dramatically reduces reads when the user is on a route that doesn't need
+    // certain collections (e.g. /personal doesn't need solicitudes).
     useEffect(() => {
         if (!role) return;
 
+        const unsubs = [];
         let resolved = 0;
-        // flota + solicitudes always load; clientes, empleados, turnos are conditional
-        const total = 2 + (canReadClientes ? 1 : 0) + (canReadEmpleados ? 1 : 0) + (canReadTurnos ? 1 : 0);
+
+        // Count how many async sources we expect before marking loading=false
+        const wantClientes   = canReadClientes && needs.clientes;
+        const wantFlota       = needs.flota;
+        const wantSol         = needs.solicitudes;
+        const wantEmpleados   = canReadEmpleados && needs.empleados;
+        const wantTurnos      = canReadTurnos && needs.turnos;
+        const total = (wantFlota ? 1 : 0) + (wantSol ? 2 : 0) + (wantClientes ? 1 : 0)
+                    + (wantEmpleados ? 1 : 0) + (wantTurnos ? 1 : 0);
+        // If nothing is needed (e.g. /configuracion), resolve immediately
+        if (total === 0) { setLoading(false); return; }
         const tryResolve = () => { resolved++; if (resolved >= total) setLoading(false); };
 
-        const unsubs = [];
-
-        if (canReadClientes) {
+        // Clientes — small & stable, cached in localStorage
+        if (wantClientes) {
             unsubs.push(onSnapshot(collection(db, 'clientes'), snap => {
-                setClientes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
+                const data = snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) }));
+                setClientes(data);
+                writeCache('clientes', data);
                 tryResolve();
             }, console.error));
         }
 
-        unsubs.push(onSnapshot(collection(db, 'flota'), snap => {
-            setFlota(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
-            tryResolve();
-        }, console.error));
+        // Flota — small & stable
+        if (wantFlota) {
+            unsubs.push(onSnapshot(collection(db, 'flota'), snap => {
+                setFlota(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
+                tryResolve();
+            }, console.error));
+        }
 
-        unsubs.push(onSnapshot(collection(db, 'solicitudes'), snap => {
-            setSolicitudes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
-            tryResolve();
-        }, console.error));
+        // Solicitudes ACTIVE — real-time for non-finalized states only
+        if (wantSol) {
+            unsubs.push(onSnapshot(
+                query(collection(db, 'solicitudes'), where('estado', 'in', ACTIVE_STATES)),
+                snap => {
+                    setActiveSolicitudes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
+                    tryResolve();
+                }, console.error));
 
-        if (canReadEmpleados) {
+            // Solicitudes FINALIZED — one-time fetch
+            getDocs(query(collection(db, 'solicitudes'), where('estado', '==', 'Finalizado')))
+                .then(snap => {
+                    setHistoricalSolicitudes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
+                    tryResolve();
+                })
+                .catch(err => { console.error('Error fetching historical solicitudes:', err); tryResolve(); });
+        }
+
+        // Empleados
+        if (wantEmpleados) {
             unsubs.push(onSnapshot(collection(db, 'empleados'), snap => {
                 setEmpleados(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
                 tryResolve();
             }, console.error));
         }
 
-        if (canReadTurnos) {
-            unsubs.push(onSnapshot(collection(db, 'turnos'), snap => {
-                setTurnos(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
-                tryResolve();
-            }, console.error));
+        // Turnos — date-filtered: only last TURNOS_LOOKBACK_DAYS days
+        if (wantTurnos) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - TURNOS_LOOKBACK_DAYS);
+            const cutoffStr = cutoff.toISOString().split('T')[0];
+            unsubs.push(onSnapshot(
+                query(collection(db, 'turnos'), where('fecha', '>=', cutoffStr)),
+                snap => {
+                    setTurnos(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
+                    tryResolve();
+                }, console.error));
         }
 
         return () => unsubs.forEach(fn => fn());
-    }, [role]);
+    }, [role, activeRoute]);
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    const getClienteById = (id) => clientes.find(c => c.id === id);
+    // ── Helpers (memoized) ────────────────────────────────────────────────────
+    const clientesMap = useMemo(() => {
+        const m = new Map();
+        clientes.forEach(c => m.set(c.id, c));
+        return m;
+    }, [clientes]);
+    const getClienteById = useCallback((id) => clientesMap.get(id), [clientesMap]);
 
     // ── CLIENT Operations ─────────────────────────────────────────────────────
     const createClient = async (clientObj) => {
@@ -169,6 +259,9 @@ export const useDashboardData = () => {
     };
 
     const closeService = async (reqId, ambulanceId) => {
+        // Capture current state before Firestore removes it from active listener
+        const currentSol = activeSolicitudes.find(s => s.id === reqId);
+
         const batch = writeBatch(db);
         batch.update(doc(db, 'solicitudes', reqId), {
             estado: 'Finalizado',
@@ -182,6 +275,15 @@ export const useDashboardData = () => {
             });
         }
         await batch.commit();
+
+        // Track locally for instant UI feedback (service stays visible as Finalizado)
+        if (currentSol) {
+            setSessionFinalized(prev => [...prev, {
+                ...currentSol,
+                estado: 'Finalizado',
+                finalizadoAt: new Date().toISOString()
+            }]);
+        }
     };
 
     const updateServiceChecklist = async (reqId, checklist) => {
@@ -226,6 +328,12 @@ export const useDashboardData = () => {
     const updateRequestStatus = async () => { };
     const addMockAmbulance = async () => { };
 
+    // ── Memoized derived lists ────────────────────────────────────────────────
+    const solicitudesPendientes = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente'), [solicitudes]);
+    const solicitudesAsignadas = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado'), [solicitudes]);
+    const solicitudesActivas = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado'), [solicitudes]);
+    const historialSolicitudesDerived = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado' || s.estado === 'Finalizado'), [solicitudes]);
+
     return {
         // State
         sesionActual,
@@ -237,11 +345,11 @@ export const useDashboardData = () => {
         turnosHoy: turnos,   // alias kept so PersonnelView doesn't need changes
         loading,
 
-        // Derived
-        solicitudesPendientes: solicitudes.filter(s => s.estado === 'Pendiente'),
-        solicitudesAsignadas: solicitudes.filter(s => s.estado === 'Asignado'),
-        solicitudesActivas: solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado'),
-        historialSolicitudes: solicitudes.filter(s => s.estado === 'Asignado' || s.estado === 'Finalizado'),
+        // Derived (memoized via useMemo below)
+        solicitudesPendientes,
+        solicitudesAsignadas,
+        solicitudesActivas,
+        historialSolicitudes: historialSolicitudesDerived,
         solicitudes, // Raw list for accurate dashboard metrics
 
         // Helpers

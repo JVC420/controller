@@ -29,6 +29,8 @@ const pathToTab = {
 };
 
 function AppLayout() {
+  const location = useLocation();
+  const activeRoute = location.pathname;
   const {
     sesionActual,
     metricas,
@@ -58,10 +60,9 @@ function AppLayout() {
     addTurno,
     updateTurno,
     updateFlota,
-  } = useDashboardData();
+  } = useDashboardData(activeRoute);
 
   const { hasAccess, role, loading: authLoading } = useAuth();
-  const location = useLocation();
   const activeTab = pathToTab[location.pathname] || 'dashboard';
 
   // Compute the default landing page for this role

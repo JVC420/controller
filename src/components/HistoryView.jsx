@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FileCheck, Search, Clock, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileCheck, Search, Clock, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import ServiceClosureModal from './ServiceClosureModal';
 import { ToastContainer, useToast } from './ui/Toast';
@@ -19,6 +19,9 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
 
     // Search state
     const [searchTerm, setSearchTerm] = useState('');
+    // Pagination
+    const PAGE_SIZE = 25;
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Modal state for dynamic closure checklists
     const [closureModalData, setClosureModalData] = useState({
@@ -30,6 +33,33 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
     const openClosureModal = (servicio, cliente) => {
         setClosureModalData({ isOpen: true, servicio, cliente });
     };
+
+    // ── Memoized filtered + sorted list ────────────────────────────────────────
+    const processedHistorial = useMemo(() => {
+        const filtered = historial.filter(s => {
+            if (!searchTerm) return true;
+            const term = searchTerm.toLowerCase();
+            const cliente = getClienteById(s.clienteId);
+            return (
+                (s.id && s.id.toLowerCase().includes(term)) ||
+                (s.ambulanciaAsignada && s.ambulanciaAsignada.toLowerCase().includes(term)) ||
+                (cliente?.nombre && cliente.nombre.toLowerCase().includes(term))
+            );
+        });
+        filtered.sort((a, b) => {
+            const ta = a.asignadoAt ? new Date(a.asignadoAt).getTime() : 0;
+            const tb = b.asignadoAt ? new Date(b.asignadoAt).getTime() : 0;
+            return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+        });
+        return filtered;
+    }, [historial, searchTerm, getClienteById]);
+
+    const totalPages = Math.max(1, Math.ceil(processedHistorial.length / PAGE_SIZE));
+    const safePage = Math.min(currentPage, totalPages);
+    const paginatedHistorial = processedHistorial.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+    // Reset to page 1 when search changes
+    useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
     return (
         <div className="flex-1 p-6 overflow-y-auto bg-dark-900 h-screen flex flex-col">
@@ -49,6 +79,9 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                         className="w-full bg-dark-800 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-white focus:outline-none focus:border-blue-500 transition-all"
                     />
                 </div>
+                <div className="bg-dark-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-300 hidden md:block">
+                    {processedHistorial.length} servicio(s)
+                </div>
             </div>
 
             <div className="overflow-x-auto bg-dark-800 border border-slate-700 rounded-xl max-h-[70vh]">
@@ -64,20 +97,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
-                        {historial.filter(s => {
-                            if (!searchTerm) return true;
-                            const term = searchTerm.toLowerCase();
-                            const cliente = getClienteById(s.clienteId);
-                            return (
-                                (s.id && s.id.toLowerCase().includes(term)) ||
-                                (s.ambulanciaAsignada && s.ambulanciaAsignada.toLowerCase().includes(term)) ||
-                                (cliente?.nombre && cliente.nombre.toLowerCase().includes(term))
-                            );
-                        }).sort((a, b) => {
-                            const ta = a.asignadoAt ? new Date(a.asignadoAt).getTime() : 0;
-                            const tb = b.asignadoAt ? new Date(b.asignadoAt).getTime() : 0;
-                            return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
-                        }).map(servicio => {
+                        {paginatedHistorial.map(servicio => {
                             const cliente = getClienteById(servicio.clienteId);
 
                             // Calculate SLA Breach
@@ -161,16 +181,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     {historial.length === 0 && (
                         <div className="py-10 text-center text-slate-500">No hay servicios en el historial todavía.</div>
                     )}
-                    {historial.filter(s => {
-                        if (!searchTerm) return true;
-                        const term = searchTerm.toLowerCase();
-                        const cliente = getClienteById(s.clienteId);
-                        return (
-                            (s.id && s.id.toLowerCase().includes(term)) ||
-                            (s.ambulanciaAsignada && s.ambulanciaAsignada.toLowerCase().includes(term)) ||
-                            (cliente?.nombre && cliente.nombre.toLowerCase().includes(term))
-                        );
-                    }).sort((a, b) => new Date(b.asignadoAt) - new Date(a.asignadoAt)).map(servicio => {
+                    {paginatedHistorial.map(servicio => {
                         const cliente = getClienteById(servicio.clienteId);
 
                         // Calculate SLA Breach
@@ -230,6 +241,44 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     })}
                 </div>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 px-1">
+                    <span className="text-xs text-slate-500">
+                        Mostrando {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, processedHistorial.length)} de {processedHistorial.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={safePage <= 1}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                            .reduce((acc, p, idx, arr) => {
+                                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                                acc.push(p);
+                                return acc;
+                            }, [])
+                            .map((p, i) => typeof p === 'string'
+                                ? <span key={`e${i}`} className="text-slate-600 px-1">…</span>
+                                : <button key={p} onClick={() => setCurrentPage(p)}
+                                    className={`min-w-[28px] h-7 rounded-md text-xs font-bold transition-colors ${safePage === p ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                                >{p}</button>
+                            )}
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={safePage >= totalPages}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {closureModalData.isOpen && (
                 <ServiceClosureModal

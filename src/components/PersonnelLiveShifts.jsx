@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
-import { Truck, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
+import { Truck, CheckCircle, AlertCircle, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import ShiftTimeInput from './ui/ShiftTimeInput';
+
+const PAGE_SIZE = 30;
 
 const PersonnelLiveShifts = ({
     filteredTurnos,
@@ -35,9 +37,17 @@ const PersonnelLiveShifts = ({
 
     const [now, setNow] = useState(new Date());
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
+        const timer = setInterval(() => setNow(new Date()), 10000); // update every 10s (saves CPU)
         return () => clearInterval(timer);
     }, []);
+
+    const [currentPage, setCurrentPage] = useState(1);
+    useEffect(() => { setCurrentPage(1); }, [filters]);
+    const totalPages = Math.max(1, Math.ceil(filteredTurnos.length / PAGE_SIZE));
+    const paginatedTurnos = useMemo(() => {
+        const start = (currentPage - 1) * PAGE_SIZE;
+        return filteredTurnos.slice(start, start + PAGE_SIZE);
+    }, [filteredTurnos, currentPage]);
     const timeStr = now.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     return (
@@ -99,10 +109,10 @@ const PersonnelLiveShifts = ({
                         </thead>
                         {/* Table Body */}
                         <tbody className="divide-y divide-slate-700/50">
-                            {filteredTurnos.length === 0 && (
+                            {paginatedTurnos.length === 0 && (
                                 <tr><td colSpan="11" className="py-12 text-center text-slate-500 text-sm">No hay turnos que coincidan con los filtros.</td></tr>
                             )}
-                            {filteredTurnos.map(turno => {
+                            {paginatedTurnos.map(turno => {
                                 const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada, turno.fecha);
                                 const sinMovil = !turno.movil || turno.movil === 'Sin Asignar';
                                 const overtime = isOvertime(turno.horaFin, turno.horaFinReal, turno.fecha);
@@ -208,10 +218,10 @@ const PersonnelLiveShifts = ({
 
                     {/* Mobile View: Cards */}
                     <div className="md:hidden flex flex-col p-4 gap-4">
-                        {filteredTurnos.length === 0 && (
+                        {paginatedTurnos.length === 0 && (
                             <div className="py-12 text-center text-slate-500 text-sm">No hay turnos que coincidan con los filtros.</div>
                         )}
-                        {filteredTurnos.map(turno => {
+                        {paginatedTurnos.map(turno => {
                             const status = getPunctualityStatus(turno.inicioProgramado, turno.inicioReal, turno.horaFinReal, turno.cancelado, turno.ausenciaConfirmada, turno.fecha);
                             const sinMovil = !turno.movil || turno.movil === 'Sin Asignar';
                             const overtime = isOvertime(turno.horaFin, turno.horaFinReal, turno.fecha);
@@ -329,6 +339,39 @@ const PersonnelLiveShifts = ({
                     </div>
                 </div>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between gap-4 text-sm">
+                    <span className="text-slate-500 text-xs">
+                        Mostrando {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredTurnos.length)} de {filteredTurnos.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                            className="p-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                            <ChevronLeft size={16} />
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                            .reduce((acc, p, idx, arr) => {
+                                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                                acc.push(p);
+                                return acc;
+                            }, [])
+                            .map((p, i) => typeof p === 'number' ? (
+                                <button key={p} onClick={() => setCurrentPage(p)}
+                                    className={clsx('min-w-[32px] h-8 rounded-lg text-xs font-semibold border transition-colors',
+                                        p === currentPage ? 'bg-blue-600 border-blue-500 text-white' : 'border-slate-700 text-slate-400 hover:text-white hover:border-slate-500')}>
+                                    {p}
+                                </button>
+                            ) : <span key={`e${i}`} className="text-slate-600 px-1">…</span>)}
+                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                            className="p-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
