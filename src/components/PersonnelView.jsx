@@ -274,6 +274,13 @@ const PersonnelView = ({
             if (field === 'horaFinReal' && value) updates.estadoRegistro = 'Finalizado';
             if (field === 'cancelado' && value) updates.estadoRegistro = 'Cancelado';
             if (field === 'ausenciaConfirmada' && value) updates.estadoRegistro = 'Ausencia';
+            if (field === 'inicioReal' && value) {
+                const turno = turnosHoy.find(t => t.id === turnoId);
+                if (turno && turno.inicioProgramado) {
+                    const isLate = toMs(value, turno.fecha) > toMs(turno.inicioProgramado, turno.fecha) + 15 * 60000;
+                    updates.estadoRegistro = isLate ? 'Tarde' : 'En Turno';
+                }
+            }
             await updateTurno(turnoId, updates);
             showToast(`Registro actualizado (${field})`, 'success');
         } catch (error) {
