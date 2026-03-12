@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { clsx } from 'clsx';
 import { Clock, Pencil, Check, X } from 'lucide-react';
 
@@ -14,6 +15,27 @@ const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
     const popRef = useRef(null);
+    const triggerRef = useRef(null);
+    const [popPos, setPopPos] = useState({ top: 0, left: 0 });
+
+    // Reposition popover when editing opens or window scrolls/resizes
+    const updatePosition = useCallback(() => {
+        if (triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setPopPos({ top: rect.bottom + 6, left: rect.left });
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!editing) return;
+        updatePosition();
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        return () => {
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [editing, updatePosition]);
 
     // Parse existing value into date/time parts
     useEffect(() => {
@@ -44,7 +66,8 @@ const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
     useEffect(() => {
         if (!editing) return;
         const handler = (e) => {
-            if (popRef.current && !popRef.current.contains(e.target)) {
+            if (popRef.current && !popRef.current.contains(e.target) &&
+                triggerRef.current && !triggerRef.current.contains(e.target)) {
                 setEditing(false);
             }
         };
@@ -105,7 +128,7 @@ const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
     }
 
     return (
-        <div className="relative" ref={popRef}>
+        <div className="relative" ref={triggerRef}>
             {/* Display area */}
             <div className={clsx(
                 "flex items-center gap-1.5 rounded-lg border text-sm transition-all",
@@ -153,9 +176,10 @@ const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
                 </div>
             </div>
 
-            {/* Edit popover */}
-            {editing && (
-                <div className="absolute z-50 top-full mt-1.5 left-0 bg-dark-800 border border-slate-600 rounded-xl shadow-2xl shadow-black/50 p-3 min-w-[240px]">
+            {/* Edit popover (portal) */}
+            {editing && createPortal(
+                <div ref={popRef} style={{ position: 'fixed', top: popPos.top, left: popPos.left, zIndex: 9999 }}
+                    className="bg-dark-800 border border-slate-600 rounded-xl shadow-2xl shadow-black/50 p-3 min-w-[240px]">
                     <p className="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-2">{label || 'Editar fecha y hora'}</p>
                     <div className="flex flex-col gap-2">
                         <div>
@@ -188,7 +212,8 @@ const ShiftTimeInput = ({ value, onSave, disabled, overtime, label }) => {
                             <Check size={12} /> Confirmar
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
