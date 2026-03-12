@@ -4,6 +4,93 @@ import { clsx } from 'clsx';
 
 const toH = (ms) => ms / 3600000;
 
+// ── Colombian Holidays (Festivos) ─────────────────────────────────────────
+// Genera todos los festivos de Colombia para un año dado, incluyendo Ley Emiliani
+const getColombianHolidays = (() => {
+    const cache = {};
+
+    // Algoritmo anónimo de Pascua (Gauss/Computus)
+    function easter(y) {
+        const a = y % 19;
+        const b = Math.floor(y / 100);
+        const c = y % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-based
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(y, month, day);
+    }
+
+    // Ley Emiliani: mueve al siguiente lunes si no cae en lunes
+    function nextMonday(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        if (day === 1) return d;
+        const diff = day === 0 ? 1 : (8 - day);
+        d.setDate(d.getDate() + diff);
+        return d;
+    }
+
+    function toKey(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function addDays(d, n) {
+        const r = new Date(d);
+        r.setDate(r.getDate() + n);
+        return r;
+    }
+
+    return function getColombianHolidays(year) {
+        if (cache[year]) return cache[year];
+        const set = new Set();
+        const E = easter(year);
+
+        // ── Fijos que NO se mueven ──
+        set.add(`${year}-01-01`); // Año Nuevo
+        set.add(`${year}-05-01`); // Día del Trabajo
+        set.add(`${year}-07-20`); // Grito de Independencia
+        set.add(`${year}-08-07`); // Batalla de Boyacá
+        set.add(`${year}-12-25`); // Navidad
+
+        // ── Fijos que se mueven al siguiente lunes (Ley Emiliani) ──
+        set.add(toKey(nextMonday(new Date(year, 0, 6))));   // Reyes Magos (Ene 6)
+        set.add(toKey(nextMonday(new Date(year, 2, 19))));  // San José (Mar 19)
+        set.add(toKey(nextMonday(new Date(year, 5, 29))));  // San Pedro y San Pablo (Jun 29)
+        set.add(toKey(nextMonday(new Date(year, 7, 15))));  // Asunción de la Virgen (Ago 15)
+        set.add(toKey(nextMonday(new Date(year, 9, 12))));  // Día de la Raza (Oct 12)
+        set.add(toKey(nextMonday(new Date(year, 10, 1))));  // Todos los Santos (Nov 1)
+        set.add(toKey(nextMonday(new Date(year, 10, 11)))); // Independencia de Cartagena (Nov 11)
+
+        // ── Basados en Pascua ──
+        set.add(toKey(addDays(E, -3)));  // Jueves Santo
+        set.add(toKey(addDays(E, -2)));  // Viernes Santo
+        set.add(toKey(nextMonday(addDays(E, 43))));  // Ascensión del Señor (Pascua +39 → lunes)
+        set.add(toKey(nextMonday(addDays(E, 64))));  // Corpus Christi (Pascua +60 → lunes)
+        set.add(toKey(nextMonday(addDays(E, 71))));  // Sagrado Corazón (Pascua +68 → lunes)
+
+        set.add(`${year}-12-08`); // Inmaculada Concepción (fijo)
+
+        cache[year] = set;
+        return set;
+    };
+})();
+
+// Verifica si una fecha (Date object) es domingo o festivo colombiano
+function isDominicalOrFestivo(date) {
+    if (date.getDay() === 0) return true;
+    const y = date.getFullYear();
+    const key = `${y}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return getColombianHolidays(y).has(key);
+}
+
 // Parses "HH:mm" (legacy) or "YYYY-MM-DDTHH:mm" (new) into epoch ms
 const parseDT = (val, fecha) => {
     if (!val) return null;
@@ -57,7 +144,7 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
         return { diurna, nocturna };
     };
 
-    // Split a time range into Sunday vs non-Sunday segments, then into diurna/nocturna
+    // Split a time range into Sunday/Festivo vs ordinary segments, then into diurna/nocturna
     const splitByDayType = (startMs, endMs) => {
         const result = { ordD: 0, ordN: 0, domD: 0, domN: 0 };
         let cursor = startMs;
@@ -68,9 +155,9 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
             nextMidnight.setDate(nextMidnight.getDate() + 1);
             nextMidnight.setHours(0, 0, 0, 0);
             const segEnd = Math.min(endMs, nextMidnight.getTime());
-            const isSun = d.getDay() === 0;
+            const isDom = isDominicalOrFestivo(d);
             const { diurna, nocturna } = splitDiurnaNocturna(cursor, segEnd);
-            if (isSun) { result.domD += diurna; result.domN += nocturna; }
+            if (isDom) { result.domD += diurna; result.domN += nocturna; }
             else { result.ordD += diurna; result.ordN += nocturna; }
             cursor = segEnd;
         }

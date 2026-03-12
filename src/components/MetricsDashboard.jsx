@@ -16,19 +16,21 @@ function getColombiaDayRangeUTC(dateStr) {
 }
 
 const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
-    // ─── State: Selected Date ──────────────────────────────────────────────
-    const [selectedDate, setSelectedDate] = useState(getColombiaToday);
+    // ─── State: Date Range ─────────────────────────────────────────────────
+    const [dateRange, setDateRange] = useState(() => {
+        const today = getColombiaToday();
+        return { desde: today, hasta: today };
+    });
 
     // ─── 1. Core Computations (Real-time and Historical) ───────────────────
     const metrics = useMemo(() => {
         const now = Date.now();
         const todayColombia = getColombiaToday();
 
-        // Define boundaries for the selected day in Colombia timezone (UTC-5)
-        const [startOfDay, endOfDay] = getColombiaDayRangeUTC(selectedDate);
-
-        // Check if selected date is today (in Colombia timezone)
-        const isToday = todayColombia === selectedDate;
+        // Check if the range includes today
+        const includestoday = dateRange.desde <= todayColombia && todayColombia <= dateRange.hasta;
+        const isSingleDay = dateRange.desde === dateRange.hasta;
+        const isToday = isSingleDay && dateRange.desde === todayColombia;
 
         // --- Fleet Metrics (Always live) ---
         const totalAmbulancias = flota.length || 1; // avoid division by zero
@@ -58,12 +60,12 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         }
         const closedOnDate = solicitudes.filter(s => {
             if (s.estado !== 'Finalizado' || !s.finalizadoAt) return false;
-            return toColombiaDateStr(s.finalizadoAt) === selectedDate;
+            const d = toColombiaDateStr(s.finalizadoAt);
+            return d >= dateRange.desde && d <= dateRange.hasta;
         });
-        console.log('[DEBUG] closedOnDate:', closedOnDate.length);
 
-        // Active services only make sense if viewing "today", otherwise 0.
-        const activeServices = isToday ? solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado') : [];
+        // Active services only make sense if range includes today, otherwise 0.
+        const activeServices = includestoday ? solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado') : [];
 
         // Response Time & SLA for the selected date
         let totalResponseMs = 0;
@@ -84,13 +86,13 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         const avgResponseMins = responseCount > 0 ? Math.floor((totalResponseMs / responseCount) / 60000) : 0;
         const slaBreachRate = responseCount > 0 ? Math.round((slaBreaches / responseCount) * 100) : 0;
 
-        // --- Personnel (Filtered by Date) ---
+        // --- Personnel (Filtered by Date Range) ---
         const activeStaff = turnos.filter(t => {
             if (t.cancelado || t.ausenciaConfirmada) return false;
-            if (t.fecha !== selectedDate) return false;
-            // If viewing today, count shifts not yet finalized
+            if (t.fecha < dateRange.desde || t.fecha > dateRange.hasta) return false;
+            // If viewing today (single day), count shifts not yet finalized
             if (isToday) return !t.horaFinReal;
-            // If viewing history, count all shifts on that date
+            // If viewing history, count all shifts in range
             return true;
         }).length;
 
@@ -125,7 +127,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
             activeStaff,
             ambulanceStats: ambulanceStats.sort((a, b) => b.servicesToday - a.servicesToday || a.id.localeCompare(b.id))
         };
-    }, [flota, solicitudes, turnos, selectedDate]);
+    }, [flota, solicitudes, turnos, dateRange]);
 
     // ─── Formatting Helpers ───────────────────────────────────────────────
     const formatMin = (m) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
@@ -137,15 +139,38 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                     <h1 className="text-2xl font-bold text-white tracking-tight">Métricas de Operación</h1>
                     <p className="text-slate-400 mt-1">Indicadores vivos calculados desde Firestore.</p>
                 </div>
-                <div className="flex items-center gap-3 bg-dark-800 border border-slate-700 p-2 rounded-xl">
-                    <Calendar size={18} className="text-blue-400 ml-2" />
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="bg-transparent border-none text-white font-medium focus:ring-0 focus:outline-none cursor-pointer"
-                        max={getColombiaToday()}
-                    />
+                <div className="flex items-center gap-2 bg-dark-800 border border-slate-700 p-2 rounded-xl flex-wrap">
+                    <Calendar size={18} className="text-blue-400 ml-2 hidden sm:block" />
+                    <div className="flex items-center gap-1.5">
+                        <input
+                            type="date"
+                            value={dateRange.desde}
+                            onChange={(e) => setDateRange(r => {
+                                const desde = e.target.value;
+                                return { desde, hasta: desde > r.hasta ? desde : r.hasta };
+                            })}
+                            className="bg-transparent border border-slate-700 rounded-lg px-2 py-1 text-sm text-white font-medium focus:ring-0 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            max={getColombiaToday()}
+                        />
+                        <span className="text-slate-500 text-xs font-bold">→</span>
+                        <input
+                            type="date"
+                            value={dateRange.hasta}
+                            onChange={(e) => setDateRange(r => ({ ...r, hasta: e.target.value }))}
+                            className="bg-transparent border border-slate-700 rounded-lg px-2 py-1 text-sm text-white font-medium focus:ring-0 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            min={dateRange.desde}
+                            max={getColombiaToday()}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { const t = getColombiaToday(); setDateRange({ desde: t, hasta: t }); }}
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-400 hover:bg-emerald-900/30 border border-emerald-700/40 hover:border-emerald-500/50 rounded-lg transition-colors"
+                        title="Ver métricas de hoy"
+                    >
+                        <Clock size={13} />
+                        Hoy
+                    </button>
                 </div>
             </header>
 
@@ -166,9 +191,9 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                     color="text-blue-400" bg="bg-blue-500/10" border="border-blue-500/20"
                 />
                 <KPICard
-                    title="Servicios Finalizados (Hoy)"
+                    title="Servicios Finalizados"
                     value={metrics.closedToday}
-                    subtitle={`${metrics.activeServices} activos actualmente`}
+                    subtitle={metrics.isToday ? `${metrics.activeServices} activos actualmente` : `En el rango seleccionado`}
                     icon={<FileCheck size={20} className="text-purple-400" />}
                     color="text-purple-400" bg="bg-purple-500/10" border="border-purple-500/20"
                 />
