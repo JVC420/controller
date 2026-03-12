@@ -25,7 +25,6 @@ const pathToTab = {
   '/metricas': 'metricas',
   '/directorio': 'directorio',
   '/personal': 'personal',
-  '/configuracion': 'configuracion',
 };
 
 function AppLayout() {
@@ -235,26 +234,6 @@ function AppLayout() {
               />
             )} />
 
-            <Route path="/configuracion" element={guard('/configuracion',
-              <div className="flex-1 p-10 flex flex-col items-center justify-center bg-[#0B1121] text-slate-500">
-                <h2 className="text-2xl font-bold mb-4">Configuración del Sistema</h2>
-                <div className="bg-dark-800 border border-slate-700 p-6 rounded-xl max-w-md text-center space-y-4">
-                  <h3 className="text-white font-semibold">Base de Datos (Firebase)</h3>
-                  <p className="text-sm">Si tu dashboard aparece vacío, significa que tu base de datos de Firestore aún no tiene los registros iniciales de prueba.</p>
-                  <button
-                    onClick={async () => {
-                      const { seedInitialData } = await import('./firebase/config');
-                      const success = await seedInitialData();
-                      if (success) alert('¡Datos inyectados a Firebase con éxito!');
-                      else alert('Error: Revisa la consola para más detalles.');
-                    }}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg w-full transition-colors"
-                  >
-                    Inyectar Datos Iniciales
-                  </button>
-                </div>
-              </div>
-            )} />
 
             {/* Catch-all: unknown paths show unauthorized */}
             <Route path="*" element={<UnauthorizedPage />} />

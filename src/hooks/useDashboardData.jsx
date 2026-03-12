@@ -59,7 +59,6 @@ const ROUTE_NEEDS = {
     '/metricas':    { flota: true, solicitudes: true, clientes: false, turnos: true, empleados: false },
     '/directorio':  { flota: false, solicitudes: false, clientes: true, turnos: false, empleados: false },
     '/personal':    { flota: true, solicitudes: false, clientes: false, turnos: true, empleados: true },
-    '/configuracion': { flota: false, solicitudes: false, clientes: false, turnos: false, empleados: false },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -114,7 +113,7 @@ export const useDashboardData = (activeRoute = '/') => {
         const wantTurnos      = canReadTurnos && needs.turnos;
         const total = (wantFlota ? 1 : 0) + (wantSol ? 2 : 0) + (wantClientes ? 1 : 0)
                     + (wantEmpleados ? 1 : 0) + (wantTurnos ? 1 : 0);
-        // If nothing is needed (e.g. /configuracion), resolve immediately
+        // If nothing is needed, resolve immediately
         if (total === 0) { setLoading(false); return; }
         const tryResolve = () => { resolved++; if (resolved >= total) setLoading(false); };
 
