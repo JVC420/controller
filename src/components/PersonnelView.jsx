@@ -364,7 +364,7 @@ const PersonnelView = ({
                         <Truck size={16} className="text-blue-400" />
                         <span className="text-sm font-bold text-slate-300">Estado de Tripulación</span>
                     </div>
-                    <div className="flex gap-3 overflow-x-auto pb-1 hide-scrollbar">
+                    <div className="flex flex-wrap gap-3">
                         {flota.filter(f => f.estado !== 'Fuera de Servicio')
                             .map(veh => ({ veh, crew: getActiveCrewForVehicle(veh.id) }))
                             .sort((a, b) => b.crew.length - a.crew.length)
