@@ -106,7 +106,17 @@ const PersonnelView = ({
             if (filters.movil && t.movil !== filters.movil) return false;
             return true;
         })
-            .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0) || (a.inicioProgramado || '').localeCompare(b.inicioProgramado || ''));
+            .sort((a, b) => {
+                // Si ambos tienen creadoAt, ordenar por creadoAt descendente
+                if (a.creadoAt && b.creadoAt) {
+                    return new Date(b.creadoAt) - new Date(a.creadoAt);
+                }
+                // Si solo uno tiene creadoAt, ese va primero
+                if (a.creadoAt) return -1;
+                if (b.creadoAt) return 1;
+                // Fallback: por fecha de turno y hora programada
+                return new Date(b.fecha || 0) - new Date(a.fecha || 0) || (a.inicioProgramado || '').localeCompare(b.inicioProgramado || '');
+            });
     }, [turnosHoy, filters]);
 
     const filteredEmpleados = useMemo(() => {
@@ -207,7 +217,8 @@ const PersonnelView = ({
                 inicioProgramado: newShift.dtInicio,
                 horaFin: newShift.dtFin,
                 movil: newShift.vehiculo || 'Sin Asignar',
-                estadoRegistro: 'Activo'
+                estadoRegistro: 'Activo',
+                creadoAt: new Date().toISOString()
             };
             await addTurno(turnoData);
             showToast('Turno programado exitosamente', 'success');
