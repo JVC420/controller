@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Clock, Calendar, Download, Plus, AlertCircle, FileText, CheckCircle, Truck, X, User } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Clock, Calendar, Download, Plus, AlertCircle, FileText, CheckCircle, Truck, X, User, Maximize2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ToastContainer, useToast } from './ui/Toast';
 
@@ -84,6 +85,7 @@ const PersonnelView = ({
     // Modals state
     const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
     const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
+    const [isFleetModalOpen, setIsFleetModalOpen] = useState(false);
     const [changeMobilTarget, setChangeMobilTarget] = useState(null); // turno object
     const [editingEmp, setEditingEmp] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -360,9 +362,19 @@ const PersonnelView = ({
             {/* Fleet Crew Status */}
             {activeTab === 'live' && flota.length > 0 && (
                 <div className="mb-4 shrink-0">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Truck size={16} className="text-blue-400" />
-                        <span className="text-sm font-bold text-slate-300">Estado de Tripulación</span>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                            <Truck size={16} className="text-blue-400" />
+                            <span className="text-sm font-bold text-slate-300">Estado de Tripulación</span>
+                        </div>
+                        <button
+                            onClick={() => setIsFleetModalOpen(true)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-700/50 border border-slate-700 hover:border-slate-600 transition-colors"
+                            title="Ver todas las ambulancias"
+                        >
+                            <Maximize2 size={14} />
+                            <span className="hidden sm:inline">Ver todas</span>
+                        </button>
                     </div>
                     <div className="max-h-[18vh] overflow-y-auto overflow-x-hidden pr-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5 auto-rows-fr">
@@ -554,6 +566,146 @@ const PersonnelView = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Fleet Overview Modal */}
+            {isFleetModalOpen && createPortal(
+                <div
+                    className="flex items-center justify-center p-4"
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 2147483647,
+                        backgroundColor: 'rgba(2, 6, 23, 0.80)',
+                        backdropFilter: 'blur(2px)',
+                        WebkitBackdropFilter: 'blur(2px)'
+                    }}
+                >
+                    <div className="bg-dark-800 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[85vh] shadow-2xl overflow-hidden flex flex-col">
+                        <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center bg-dark-900/50 shrink-0">
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                <Truck size={18} className="text-blue-400" /> Estado de Flota Completa
+                            </h2>
+                            <button onClick={() => setIsFleetModalOpen(false)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {flota
+                                    .map(veh => {
+                                        const crew = getActiveCrewForVehicle(veh.id);
+                                        const rules = CREW_RULES[veh.tipo] || [];
+                                        const isFull = rules.length > 0 && rules.every(role => crew.some(c => c.cargo === role));
+                                        const isOutOfService = veh.estado === 'Fuera de Servicio';
+                                        // Sort priority: partial (1) > full (2) > empty (3) > out of service (4)
+                                        let sortOrder = 3; // empty
+                                        if (isOutOfService) sortOrder = 4;
+                                        else if (isFull) sortOrder = 2;
+                                        else if (crew.length > 0) sortOrder = 1;
+                                        return { veh, crew, rules, isFull, isOutOfService, sortOrder };
+                                    })
+                                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                                    .map(({ veh, crew, rules, isFull, isOutOfService }) => {
+                                    const fillRatio = rules.length ? Math.round((crew.length / rules.length) * 100) : 0;
+
+                                    return (
+                                        <div key={veh.id} className={clsx(
+                                            "rounded-xl border p-4 flex flex-col gap-3",
+                                            isOutOfService
+                                                ? "bg-red-950/20 border-red-900/50 opacity-70"
+                                                : isFull
+                                                    ? "bg-emerald-500/10 border-emerald-500/40"
+                                                    : crew.length > 0
+                                                        ? "bg-amber-500/10 border-amber-500/40"
+                                                        : "bg-dark-900 border-slate-700"
+                                        )}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={clsx(
+                                                        "p-2 rounded-lg",
+                                                        isOutOfService
+                                                            ? "bg-red-500/20 text-red-400"
+                                                            : isFull
+                                                                ? "bg-emerald-500/20 text-emerald-400"
+                                                                : "bg-slate-700/50 text-slate-400"
+                                                    )}>
+                                                        <Truck size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-mono font-bold text-white text-lg">{veh.id}</h3>
+                                                        <p className="text-xs text-slate-500">{veh.tipo}</p>
+                                                    </div>
+                                                </div>
+                                                <span className={clsx(
+                                                    "text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider",
+                                                    isOutOfService
+                                                        ? "bg-red-500/20 text-red-400"
+                                                        : isFull
+                                                            ? "bg-emerald-500/20 text-emerald-300"
+                                                            : "bg-slate-700 text-slate-300"
+                                                )}>
+                                                    {veh.tipo === 'Medicalizada' ? 'TAM' : 'TAB'}
+                                                </span>
+                                            </div>
+
+                                            {isOutOfService ? (
+                                                <div className="flex items-center gap-2 text-sm text-red-400 bg-red-950/30 p-2 rounded-lg">
+                                                    <AlertCircle size={14} />
+                                                    <span>Fuera de Servicio</span>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="space-y-1.5">
+                                                        {rules.map(role => {
+                                                            const member = crew.find(c => c.cargo === role);
+                                                            return (
+                                                                <div key={role} className={clsx(
+                                                                    "rounded-lg border px-3 py-1.5 flex items-center justify-between gap-2",
+                                                                    member
+                                                                        ? "bg-emerald-500/10 border-emerald-500/30"
+                                                                        : "bg-slate-900/50 border-slate-700/80"
+                                                                )}>
+                                                                    <span className="text-xs text-slate-400 font-medium shrink-0">{role}</span>
+                                                                    <span className={clsx(
+                                                                        "text-xs font-semibold truncate",
+                                                                        member ? "text-emerald-300" : "text-slate-500"
+                                                                    )}>
+                                                                        {member ? member.nombre.split(' ').slice(0, 2).join(' ') : '—'}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    <div className="mt-auto pt-2 border-t border-slate-700/50">
+                                                        <div className="h-2 rounded-full bg-slate-800 overflow-hidden mb-1.5">
+                                                            <div
+                                                                className={clsx(
+                                                                    "h-full rounded-full transition-all duration-300",
+                                                                    isFull ? "bg-emerald-400" : "bg-amber-400"
+                                                                )}
+                                                                style={{ width: `${fillRatio}%` }}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-xs font-semibold">
+                                                            {isFull
+                                                                ? <span className="text-emerald-400 flex items-center gap-1"><CheckCircle size={12} /> Completa</span>
+                                                                : <span className="text-slate-400">Tripulación incompleta</span>
+                                                            }
+                                                            <span className="text-slate-500">{crew.length}/{rules.length}</span>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );
