@@ -85,15 +85,15 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
             </div>
 
             <div className="overflow-x-auto max-w-full bg-dark-800 border border-slate-700 rounded-xl max-h-[70vh]">
-                <table className="hidden md:table min-w-[1260px] w-max text-left border-collapse">
+                <table className="hidden min-[1300px]:table w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-dark-900/50 text-slate-400 text-sm border-b border-slate-700 text-left">
-                            <th className="py-4 px-6 font-semibold">ID Servicio</th>
-                            <th className="py-4 px-6 font-semibold">Cliente y Prioridad</th>
-                            <th className="py-4 px-6 font-semibold">Ambulancia</th>
-                            <th className="py-4 px-6 font-semibold">Tiempo</th>
-                            <th className="py-4 px-6 font-semibold">Requisitos Documentales</th>
-                            <th className="py-4 px-6 font-semibold">Estado</th>
+                            <th className="py-4 px-4 font-semibold whitespace-nowrap w-[12%]">ID Servicio</th>
+                            <th className="py-4 px-4 font-semibold w-[20%]">Cliente y Prioridad</th>
+                            <th className="py-4 px-4 font-semibold whitespace-nowrap w-[10%]">Ambulancia</th>
+                            <th className="py-4 px-4 font-semibold whitespace-nowrap w-[12%]">Tiempo</th>
+                            <th className="py-4 px-4 font-semibold w-[26%]">Requisitos Documentales</th>
+                            <th className="py-4 px-4 font-semibold w-[20%]">Estado</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
@@ -111,29 +111,29 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
 
                             return (
                                 <tr key={servicio.id} className={clsx("hover:bg-slate-800/50 transition-colors", isAlert && "bg-red-900/10")}>
-                                    <td className="py-4 px-6">
-                                        <div className="flex items-center gap-3">
-                                            {isAlert && <AlertTriangle size={18} className="text-red-500 animate-pulse" />}
-                                            <span className="font-mono text-sm font-bold text-white">{servicio.id}</span>
+                                    <td className="py-4 px-4">
+                                        <div className="flex items-center gap-2">
+                                            {isAlert && <AlertTriangle size={16} className="text-red-500 animate-pulse shrink-0" />}
+                                            <span className="font-mono text-sm font-bold text-white truncate">{servicio.id}</span>
                                         </div>
                                     </td>
-                                    <td className="py-4 px-6">
+                                    <td className="py-4 px-4">
                                         <div className="font-medium text-slate-200">{cliente?.nombre || 'Desconocido'}</div>
                                         <div className="text-xs text-slate-500">{cliente?.ranking} - Nivel {cliente?.nivelPrioridad}</div>
                                     </td>
-                                    <td className="py-4 px-6 font-mono text-blue-400 font-bold text-sm">
+                                    <td className="py-4 px-4 font-mono text-blue-400 font-bold text-sm whitespace-nowrap">
                                         {servicio.ambulanciaAsignada}
                                     </td>
-                                    <td className="py-4 px-6">
-                                        <div className={clsx("flex items-center gap-2 text-sm font-bold", isAlert ? "text-red-400" : "text-slate-300")}>
-                                            <Clock size={14} />
+                                    <td className="py-4 px-4">
+                                        <div className={clsx("flex items-center gap-2 text-sm font-bold whitespace-nowrap", isAlert ? "text-red-400" : "text-slate-300")}>
+                                            <Clock size={14} className="shrink-0" />
                                             {elapsedHrs > 0 ? `${elapsedHrs}h ` : ''}{elapsedMins}m
                                         </div>
-                                        {isAlert && <div className="text-[10px] text-red-500 uppercase mt-0.5 font-bold tracking-wider">LÍMITE EXCEDIDO (2.5h)</div>}
+                                        {isAlert && <div className="text-[10px] text-red-500 uppercase mt-0.5 font-bold tracking-wider whitespace-nowrap">LÍMITE EXCEDIDO</div>}
                                     </td>
-                                    <td className="py-4 px-6">
+                                    <td className="py-4 px-4">
                                         {cliente?.checklistTemplate ? (
-                                            <div className="text-xs text-slate-400 max-w-[220px] whitespace-normal">
+                                            <div className="text-xs text-slate-400">
                                                 <span className="font-bold text-slate-300 block mb-1">Checklist:</span>
                                                 <span className="line-clamp-2 leading-relaxed" title={cliente.checklistTemplate.join(', ')}>
                                                     • {cliente.checklistTemplate.join(', ')}
@@ -143,22 +143,22 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             <span className="text-sm text-slate-500 italic">No requiere validaciones</span>
                                         )}
                                     </td>
-                                    <td className="py-4 px-6">
+                                    <td className="py-4 px-4">
                                         {servicio.estado === 'Finalizado' ? (
-                                            <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
                                                 FINALIZADO
                                             </span>
                                         ) : (
                                             <div className="flex flex-col gap-2">
-                                                <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
                                                     {servicio.estado}
                                                 </span>
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
-                                                    className="mt-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20"
+                                                    className="mt-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20 whitespace-nowrap"
                                                     title={"Revisar checklist dinámico para cierre."}
                                                 >
-                                                    <FileCheck size={14} /> Terminación 
+                                                    <FileCheck size={14} /> Terminación
                                                 </button>
                                             </div>
                                         )}
@@ -176,8 +176,8 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     </tbody>
                 </table>
 
-                {/* Mobile View: Cards */}
-                <div className="md:hidden flex flex-col p-4 gap-4">
+                {/* Mobile/Tablet View: Cards */}
+                <div className="min-[1300px]:hidden flex flex-col p-4 gap-4">
                     {historial.length === 0 && (
                         <div className="py-10 text-center text-slate-500">No hay servicios en el historial todavía.</div>
                     )}
@@ -236,6 +236,16 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Requisitos Documentales */}
+                                {cliente?.checklistTemplate && cliente.checklistTemplate.length > 0 && (
+                                    <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-2.5 text-xs">
+                                        <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1.5">Requisitos Documentales</div>
+                                        <div className="text-slate-400 leading-relaxed line-clamp-2">
+                                            • {cliente.checklistTemplate.join(', ')}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )
                     })}
