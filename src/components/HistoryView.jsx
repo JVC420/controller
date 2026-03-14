@@ -62,7 +62,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
     useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
     return (
-        <div className="flex-1 p-6 overflow-y-auto bg-dark-900 h-screen flex flex-col">
+        <div className="flex-1 min-w-0 p-6 overflow-y-auto overflow-x-hidden bg-dark-900 h-screen flex flex-col">
             <header className="mb-8">
                 <h1 className="text-2xl font-bold text-white tracking-tight">Historial y Control de Servicios</h1>
                 <p className="text-slate-400 mt-1">Supervisión de tiempos, soportes físicos y cierre de historias clínicas.</p>
@@ -84,8 +84,8 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                 </div>
             </div>
 
-            <div className="overflow-x-auto bg-dark-800 border border-slate-700 rounded-xl max-h-[70vh]">
-                <table className="w-full text-left border-collapse hidden md:table">
+            <div className="overflow-x-auto max-w-full bg-dark-800 border border-slate-700 rounded-xl max-h-[70vh]">
+                <table className="hidden md:table min-w-[1260px] w-max text-left border-collapse">
                     <thead>
                         <tr className="bg-dark-900/50 text-slate-400 text-sm border-b border-slate-700 text-left">
                             <th className="py-4 px-6 font-semibold">ID Servicio</th>
@@ -158,7 +158,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                                     className="mt-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20"
                                                     title={"Revisar checklist dinámico para cierre."}
                                                 >
-                                                    <FileCheck size={14} /> Terminación (Validar)
+                                                    <FileCheck size={14} /> Terminación 
                                                 </button>
                                             </div>
                                         )}

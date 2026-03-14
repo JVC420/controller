@@ -232,6 +232,15 @@ export const useDashboardData = (activeRoute = '/') => {
         return `REQ-${String(maxNum + 1).padStart(3, '0')}`;
     }, [solicitudes]);
 
+    // ── Sequential CLI-ID generator ────────────────────────────────────────────
+    const getNextClientId = useCallback(() => {
+        const maxNum = clientes.reduce((max, c) => {
+            const m = (c.id || '').match(/^CLI-(\d+)$/);
+            return m ? Math.max(max, parseInt(m[1], 10)) : max;
+        }, 0);
+        return `CLI-${String(maxNum + 1).padStart(3, '0')}`;
+    }, [clientes]);
+
     // ── SERVICE Operations ────────────────────────────────────────────────────
     const createRealRequest = async (requestObj) => {
         const { id, ...data } = requestObj;
@@ -354,6 +363,7 @@ export const useDashboardData = (activeRoute = '/') => {
         // Helpers
         getClienteById,
         getNextReqId,
+        getNextClientId,
 
         // Client actions
         createClient,

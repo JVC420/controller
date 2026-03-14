@@ -45,6 +45,7 @@ function AppLayout() {
     loading,
     getClienteById,
     getNextReqId,
+    getNextClientId,
     assignAmbulance,
     addMockAmbulance,
     createRealRequest,
@@ -175,7 +176,7 @@ function AppLayout() {
           />
         )}
 
-        <div className={`fixed inset-y-0 left-0 z-[60] transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className={`fixed inset-y-0 left-0 z-[60] transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 shrink-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <Sidebar
             activeTab={activeTab}
             onMobileClose={() => setIsMobileMenuOpen(false)}
@@ -183,7 +184,7 @@ function AppLayout() {
           />
         </div>
 
-        <div className="flex-1 flex flex-col h-full pt-16 lg:pt-0">
+        <div className="flex-1 min-w-0 flex flex-col h-full pt-16 lg:pt-0">
           <Routes>
             <Route path="/" element={guard('/',
               <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
@@ -218,7 +219,7 @@ function AppLayout() {
             )} />
 
             <Route path="/directorio" element={guard('/directorio',
-              <ClientDirectory clientes={clientes} onCreateClient={createClient} onUpdateClient={updateClient} />
+              <ClientDirectory clientes={clientes} onCreateClient={createClient} onUpdateClient={updateClient} getNextClientId={getNextClientId} />
             )} />
 
             <Route path="/personal" element={guard('/personal',

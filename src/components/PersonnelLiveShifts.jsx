@@ -87,10 +87,10 @@ const PersonnelLiveShifts = ({
                 </span>
             </div>
 
-            <div className="bg-dark-800 border border-slate-700 rounded-xl shadow-md lg:shadow-2xl">
-                <div className="overflow-x-auto">
+            <div className="bg-dark-800 border border-slate-700 rounded-xl shadow-md lg:shadow-2xl max-w-full">
+                <div className="overflow-x-auto max-w-full">
                     {/* Desktop View: Table */}
-                    <table className="w-full text-left border-collapse whitespace-nowrap hidden md:table">
+                    <table className="hidden md:table min-w-[1220px] w-max text-left border-collapse whitespace-nowrap">
                         {/* Table Header */}
                         <thead className="sticky top-0 bg-dark-900/95 backdrop-blur z-10">
                             <tr className="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">

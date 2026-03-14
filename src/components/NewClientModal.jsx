@@ -40,7 +40,7 @@ const Field = ({ label, children }) => (
 
 const inputCls = "w-full bg-dark-900 border border-slate-600 rounded-lg py-2.5 px-3 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors";
 
-const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
+const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null, getNextClientId }) => {
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [newDoc, setNewDoc] = useState('');
 
@@ -88,7 +88,7 @@ const NewClientModal = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         if (!formData.nombre) return;
         const payload = isEditing
             ? { ...formData }
-            : { id: `CLI-${Math.floor(Math.random() * 900) + 100}`, ...formData };
+            : { id: getNextClientId(), ...formData };
         onSubmit(payload);
         onClose();
     };

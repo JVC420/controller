@@ -14,14 +14,14 @@ const FleetMonitor = ({ flota, turnosHoy = [], onAddAmbulance, onAddRequest, onS
     const fueraDeServicio = flota.filter(a => a.estado === 'Fuera de Servicio');
 
     return (
-        <div className="flex-1 p-6 overflow-y-auto bg-dark-900 h-screen flex flex-col">
-            <header className="mb-8 flex flex-col md:flex-row justify-between md:items-end gap-4">
-                <div>
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-dark-900 h-screen flex flex-col">
+            <header className="mb-8 flex flex-col gap-4">
+                <div className="text-center">
                     <h1 className="text-2xl font-bold text-white tracking-tight">Monitor de Flota y Asignación</h1>
                     <p className="text-slate-400 mt-1">Arrastra una solicitud de triage hacia una ambulancia disponible para despachar.</p>
                 </div>
-                <div className="flex flex-col md:flex-row items-end gap-4">
-                    <div className="flex gap-2">
+                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+                    <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
                         <button
                             onClick={onAddRequest}
                             className="px-3 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm text-white font-bold transition-colors cursor-pointer shadow-lg shadow-blue-900/20"
@@ -35,7 +35,7 @@ const FleetMonitor = ({ flota, turnosHoy = [], onAddAmbulance, onAddRequest, onS
                             Nueva Ambulancia
                         </button>}
                     </div>
-                    <div className="flex gap-2 lg:gap-4">
+                    <div className="flex flex-wrap gap-2 lg:gap-4 justify-center lg:justify-end">
                         <StatBox label="Disponibles" count={disponibles.length} color="text-emerald-400" />
                         <StatBox label="En Servicio" count={enServicio.length} color="text-blue-400" />
                         <StatBox label="Fuera" count={fueraDeServicio.length} color="text-red-400" />
@@ -73,7 +73,7 @@ const FleetMonitor = ({ flota, turnosHoy = [], onAddAmbulance, onAddRequest, onS
 };
 
 const StatBox = ({ label, count, color }) => (
-    <div className="bg-dark-800 border border-slate-700 rounded-lg px-4 py-2 flex items-center gap-3">
+    <div className="bg-dark-800 border border-slate-700 rounded-lg px-3 sm:px-4 py-2 flex items-center gap-2 sm:gap-3">
         <span className="text-sm font-medium text-slate-400">{label}</span>
         <span className={`text-xl font-bold ${color}`}>{count}</span>
     </div>

@@ -332,28 +332,28 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
     };
 
     return (
-        <div className="bg-dark-800 border border-slate-700 rounded-xl shadow-md lg:shadow-2xl">
+        <div className="bg-dark-800 border border-slate-700 rounded-xl shadow-md lg:shadow-2xl overflow-x-hidden">
             {/* Filters + Export */}
             <div className="p-4 border-b border-slate-700 bg-dark-900/50 flex flex-wrap gap-4 items-end justify-between">
-                <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex flex-wrap gap-4 items-end min-w-0">
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Desde</label>
                         <input type="date" value={payrollRange.desde}
                             onChange={e => setPayrollRange(r => ({ ...r, desde: e.target.value }))}
-                            className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full md:w-auto" />
+                            className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full sm:w-auto min-w-0" />
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Hasta</label>
                         <input type="date" value={payrollRange.hasta}
                             onChange={e => setPayrollRange(r => ({ ...r, hasta: e.target.value }))}
-                            className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full md:w-auto" />
+                            className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full sm:w-auto min-w-0" />
                     </div>
                     <span className="text-xs text-slate-500 pb-1.5 w-full md:w-auto">
                         {payrollRows.length} empleado(s) · {turnosHoy.filter(t => t.fecha >= payrollRange.desde && t.fecha <= payrollRange.hasta).length} turno(s)
                     </span>
                 </div>
                 <button onClick={handleExportCSV}
-                    className="flex-1 md:flex-none items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-lg shadow-emerald-900/30">
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-lg shadow-emerald-900/30">
                     <Download size={15} className="inline mr-2" /> Exportar CSV
                 </button>
             </div>
@@ -424,11 +424,11 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                     {payrollRows.map(row => {
                         const total = +(row.hod + row.hon + row.hed + row.hen + row.hdd + row.hdn + row.hedd + row.hedn).toFixed(1);
                         return (
-                            <div key={row.id} className="bg-dark-900 border border-slate-700 rounded-lg p-4 space-y-3">
+                            <div key={row.id} className="bg-dark-900 border border-slate-700 rounded-lg p-4 space-y-3 min-w-0">
                                 <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="font-bold text-slate-100">{row.nombre}</div>
-                                        <div className="text-xs text-slate-400">{row.cargo} • {row.cedula}</div>
+                                    <div className="min-w-0 pr-2">
+                                        <div className="font-bold text-slate-100 break-words">{row.nombre}</div>
+                                        <div className="text-xs text-slate-400 break-words">{row.cargo} • {row.cedula}</div>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-sm font-bold text-emerald-400">{total} hrs</div>

@@ -5,13 +5,14 @@ import NewClientModal from './NewClientModal';
 import { useAuth } from '../contexts/AuthContext';
 import { ToastContainer, useToast } from './ui/Toast';
 
-const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
+const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient, getNextClientId }) => {
     const { role } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const canManageClients = role === 'administrador_general';
     const { toasts, show: showToast, dismiss: dismissToast } = useToast();
     const [editTarget, setEditTarget] = useState(null); // client being edited
     const [search, setSearch] = useState('');
+    const [detailClient, setDetailClient] = useState(null);
 
     const filtered = clientes.filter(c =>
         !search || c.nombre?.toLowerCase().includes(search.toLowerCase()) || c.nit?.includes(search)
@@ -57,7 +58,13 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(cliente => (
-                    <ClientCard key={cliente.id} cliente={cliente} onEdit={() => openEdit(cliente)} canEdit={canManageClients} />
+                    <ClientCard
+                        key={cliente.id}
+                        cliente={cliente}
+                        onEdit={() => openEdit(cliente)}
+                        canEdit={canManageClients}
+                        onOpenDetails={() => setDetailClient(cliente)}
+                    />
                 ))}
                 {filtered.length === 0 && (
                     <div className="col-span-3 py-16 text-center text-slate-500">
@@ -71,20 +78,34 @@ const ClientDirectory = ({ clientes, onCreateClient, onUpdateClient }) => {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleSubmit}
                 initialData={editTarget}
+                getNextClientId={getNextClientId}
             />
+
+            <ClientDetailsModal
+                cliente={detailClient}
+                onClose={() => setDetailClient(null)}
+            />
+
             <ToastContainer toasts={toasts} dismiss={dismissToast} />
         </div>
     );
 };
 
 // ── Client Card ──────────────────────────────────────────────────────────────
-const ClientCard = ({ cliente, onEdit, canEdit }) => {
+const ClientCard = ({ cliente, onEdit, canEdit, onOpenDetails }) => {
     const [showDocs, setShowDocs] = useState(false);
     const docs = cliente.documentos || [];
     const servicios = cliente.servicios || [];
+    const maxVisibleServices = 4;
+    const hasMoreServices = servicios.length > maxVisibleServices;
+    const visibleServices = hasMoreServices ? servicios.slice(0, maxVisibleServices) : servicios;
 
     return (
-        <div className="bg-dark-800 border border-slate-700 rounded-xl flex flex-col h-full relative overflow-hidden group hover:border-slate-500 transition-colors">
+        <button
+            type="button"
+            onClick={onOpenDetails}
+            className="text-left bg-dark-800 border border-slate-700 rounded-xl flex flex-col h-full relative overflow-hidden group hover:border-slate-500 transition-colors"
+        >
             {/* Top accent */}
             <div className={clsx('absolute top-0 left-0 right-0 h-0.5 opacity-80', cliente.colorBadge)} />
 
@@ -95,12 +116,12 @@ const ClientCard = ({ cliente, onEdit, canEdit }) => {
                         <div className="p-2.5 bg-dark-900 rounded-lg text-slate-300 border border-slate-700">
                             <Building2 size={22} />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <span className="text-xs font-mono font-bold text-slate-500">{cliente.id}</span>
-                            <h3 className="text-base font-bold text-white leading-snug">{cliente.nombre}</h3>
+                            <h3 className="text-base font-bold text-white leading-snug line-clamp-2 break-words">{cliente.nombre}</h3>
                         </div>
                     </div>
-                    {canEdit && <button onClick={onEdit}
+                    {canEdit && <button onClick={(e) => { e.stopPropagation(); onEdit(); }}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-700 transition-colors shrink-0 ml-2">
                         <Edit2 size={14} />
                     </button>}
@@ -134,11 +155,16 @@ const ClientCard = ({ cliente, onEdit, canEdit }) => {
                         <Stethoscope size={11} className="text-blue-400" /> Servicios
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                        {servicios.map(s => (
+                        {visibleServices.map(s => (
                             <span key={s} className="text-[11px] bg-blue-900/25 text-blue-300 border border-blue-700/30 px-2 py-0.5 rounded-md">
                                 {s}
                             </span>
                         ))}
+                        {hasMoreServices && (
+                            <span className="text-[11px] bg-slate-800 text-slate-300 border border-slate-600/60 px-2 py-0.5 rounded-md">
+                                +{servicios.length - maxVisibleServices} más
+                            </span>
+                        )}
                     </div>
                 </div>
             )}
@@ -150,7 +176,7 @@ const ClientCard = ({ cliente, onEdit, canEdit }) => {
 
             {/* ── Documents ────────────────────────────────────────────────── */}
             <div className="px-5 pb-4 mt-auto border-t border-slate-700/50 pt-3">
-                <button onClick={() => setShowDocs(v => !v)}
+                <button onClick={(e) => { e.stopPropagation(); setShowDocs(v => !v); }}
                     className="w-full flex items-center justify-between text-[10px] uppercase font-bold text-slate-500 tracking-wider hover:text-slate-300 transition-colors">
                     <span className="flex items-center gap-1.5">
                         <FileText size={11} className="text-emerald-400" />
@@ -176,6 +202,78 @@ const ClientCard = ({ cliente, onEdit, canEdit }) => {
                 {docs.length === 0 && (
                     <p className="mt-1 text-xs text-slate-600 italic">Sin documentos configurados — haz clic en editar.</p>
                 )}
+            </div>
+        </button>
+    );
+};
+
+const ClientDetailsModal = ({ cliente, onClose }) => {
+    if (!cliente) return null;
+
+    const servicios = cliente.servicios || [];
+    const docs = cliente.documentos || [];
+
+    return (
+        <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="p-6 border-b border-slate-700/60">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                            <p className="text-xs font-mono text-slate-500 font-bold">{cliente.id}</p>
+                            <h3 className="text-xl font-bold text-white break-words">{cliente.nombre}</h3>
+                            <p className="text-slate-400 text-sm mt-1">{cliente.tipo} · {cliente.ranking} · SLA {cliente.sla}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white bg-dark-900 border border-slate-700 rounded-lg"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    <section>
+                        <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Contacto</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                            <p className="text-slate-300 break-words"><span className="text-slate-500">NIT:</span> {cliente.nit || '—'}</p>
+                            <p className="text-slate-300 break-words"><span className="text-slate-500">Teléfono:</span> {cliente.telefono || '—'}</p>
+                            <p className="text-slate-300 break-words sm:col-span-2"><span className="text-slate-500">Contacto:</span> {cliente.contacto || '—'}</p>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Servicios ({servicios.length})</h4>
+                        {servicios.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {servicios.map(s => (
+                                    <span key={s} className="text-xs bg-blue-900/25 text-blue-300 border border-blue-700/30 px-2.5 py-1 rounded-md break-words">
+                                        {s}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500 italic">Sin servicios configurados.</p>
+                        )}
+                    </section>
+
+                    <section>
+                        <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Documentos ({docs.length})</h4>
+                        {docs.length > 0 ? (
+                            <ul className="space-y-2">
+                                {docs.map((doc, i) => (
+                                    <li key={i} className="text-sm text-slate-300 break-words flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 mt-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                        {doc}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-slate-500 italic">Sin documentos configurados.</p>
+                        )}
+                    </section>
+                </div>
             </div>
         </div>
     );

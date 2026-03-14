@@ -364,51 +364,77 @@ const PersonnelView = ({
                         <Truck size={16} className="text-blue-400" />
                         <span className="text-sm font-bold text-slate-300">Estado de Tripulación</span>
                     </div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className="max-h-[18vh] overflow-y-auto overflow-x-hidden pr-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-1.5 auto-rows-fr">
                         {flota.filter(f => f.estado !== 'Fuera de Servicio')
                             .map(veh => ({ veh, crew: getActiveCrewForVehicle(veh.id) }))
                             .sort((a, b) => b.crew.length - a.crew.length)
                             .map(({ veh, crew }) => {
                             const rules = CREW_RULES[veh.tipo] || [];
                             const isFull = rules.length > 0 && rules.every(role => crew.some(c => c.cargo === role));
+                            const fillRatio = rules.length ? Math.round((crew.length / rules.length) * 100) : 0;
                             return (
                                 <div key={veh.id} className={clsx(
-                                    "flex-shrink-0 rounded-xl border px-4 py-3 min-w-[200px] space-y-1.5",
+                                    "min-w-0 rounded-md border px-2 py-1.5 flex flex-col gap-1.5",
                                     isFull
-                                        ? "bg-emerald-500/10 border-emerald-500/30"
+                                        ? "bg-emerald-500/10 border-emerald-500/35"
                                         : crew.length > 0
-                                            ? "bg-amber-500/10 border-amber-500/30"
-                                            : "bg-dark-800 border-slate-700"
+                                            ? "bg-amber-500/10 border-amber-500/35"
+                                            : "bg-dark-800 border-slate-700/90"
                                 )}>
                                     <div className="flex items-center justify-between">
-                                        <span className="font-mono font-bold text-sm text-white">{veh.id}</span>
-                                        <span className={clsx("text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                            isFull ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-700 text-slate-400"
+                                        <span className="font-mono font-bold text-xs text-white tracking-wide truncate pr-2">{veh.id}</span>
+                                        <span className={clsx("text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider",
+                                            isFull ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700/90 text-slate-300"
                                         )}>
                                             {veh.tipo === 'Medicalizada' ? 'TAM' : 'TAB'}
                                         </span>
                                     </div>
-                                    <div className="flex flex-wrap gap-1">
+
+                                    <div className="space-y-0.5 min-h-[50px]">
                                         {rules.map(role => {
                                             const member = crew.find(c => c.cargo === role);
                                             return (
-                                                <span key={role} className={clsx("text-[10px] px-1.5 py-0.5 rounded font-semibold",
-                                                    member ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-800 text-slate-500"
+                                                <div key={role} className={clsx(
+                                                    "rounded-md border px-1.5 py-0 text-[8px] leading-4 flex items-center justify-between gap-1",
+                                                    member
+                                                        ? "bg-emerald-500/10 border-emerald-500/25"
+                                                        : "bg-slate-900/70 border-slate-700/80"
                                                 )}>
-                                                    {member ? `${role}: ${member.nombre.split(' ')[0]}` : `${role}: —`}
-                                                </span>
+                                                    <span className="text-slate-400 truncate">{role}</span>
+                                                    <span className={clsx(
+                                                        "font-semibold truncate",
+                                                        member ? "text-emerald-300" : "text-slate-500"
+                                                    )}>
+                                                        {member ? member.nombre.split(' ')[0] : 'Pendiente'}
+                                                    </span>
+                                                </div>
                                             );
                                         })}
                                     </div>
-                                    <div className="text-[10px] font-bold">
-                                        {isFull
-                                            ? <span className="text-emerald-400">● Completa</span>
-                                            : <span className="text-slate-500">{crew.length}/{rules.length} tripulantes</span>
-                                        }
+
+                                    <div className="mt-auto space-y-0.5 pt-0.5">
+                                        <div className="h-1 rounded-full bg-slate-800 overflow-hidden">
+                                            <div
+                                                className={clsx(
+                                                    "h-full rounded-full transition-all duration-300",
+                                                    isFull ? "bg-emerald-400" : "bg-amber-400"
+                                                )}
+                                                style={{ width: `${fillRatio}%` }}
+                                            />
+                                        </div>
+                                        <div className="text-[8px] font-semibold flex items-center justify-between">
+                                            {isFull
+                                                ? <span className="text-emerald-300">Tripulación completa</span>
+                                                : <span className="text-slate-400">Tripulación incompleta</span>
+                                            }
+                                            <span className="text-slate-500">{crew.length}/{rules.length}</span>
+                                        </div>
                                     </div>
                                 </div>
                             );
                         })}
+                    </div>
                     </div>
                 </div>
             )}
@@ -430,7 +456,7 @@ const PersonnelView = ({
             </div>
 
             {/* Active Views */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+            <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
             {activeTab === 'live' && (
                 <PersonnelLiveShifts
                     filteredTurnos={filteredTurnos}

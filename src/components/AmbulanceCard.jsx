@@ -59,8 +59,8 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
                 </div>
             )}
 
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
                     <div className={clsx("p-2 rounded-lg",
                         isAvailable ? "bg-emerald-500/20 text-emerald-400" :
                             inService ? "bg-blue-500/20 text-blue-400" :
@@ -68,15 +68,15 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
                     )}>
                         <Activity size={20} />
                     </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-white tracking-wide">{ambulance.id}</h3>
-                        <p className="text-xs text-slate-400 font-medium">{ambulance.tipo.toUpperCase()}</p>
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-white tracking-wide truncate">{ambulance.id}</h3>
+                        <p className="text-xs text-slate-400 font-medium truncate">{ambulance.tipo.toUpperCase()}</p>
                     </div>
                 </div>
                 {/* Modifiable Status */}
                 <select
                     className={clsx(
-                        "text-xs font-semibold px-2 py-1 rounded border appearance-none cursor-pointer focus:outline-none focus:ring-1 transition-colors",
+                        "w-full sm:w-auto max-w-full sm:max-w-[170px] text-xs font-semibold px-2 py-1 rounded border appearance-none cursor-pointer focus:outline-none focus:ring-1 transition-colors",
                         isAvailable ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 focus:ring-emerald-500" :
                             inService ? "bg-blue-500/10 text-blue-400 border-blue-500/20 focus:ring-blue-500" :
                                 "bg-red-500/10 text-red-400 border-red-500/20 focus:ring-red-500"
