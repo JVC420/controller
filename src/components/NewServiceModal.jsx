@@ -27,6 +27,9 @@ const INITIAL_FORM_DATA = {
     // Entidad
     idEntidad: '',
     entidadSolicitante: '',
+    nombreEntidad: '',
+    idSucursal: '',
+    nombreSucursal: '',
     codSucursal: '',
     sucursal: '',
 
@@ -225,7 +228,15 @@ const Tabs = ({ activeTab, setActiveTab }) => (
     </div>
 );
 
-const OrderTab = ({ formData, setField }) => {
+const OrderTab = ({
+    formData,
+    setField,
+    entityOptions,
+    branchOptions,
+    selectedBranchValue,
+    onEntityChange,
+    onBranchChange,
+}) => {
     const identityOptions = [
         { value: 'CC', label: 'CC' },
         { value: 'CE', label: 'CE' },
@@ -288,10 +299,22 @@ const OrderTab = ({ formData, setField }) => {
 
             <FormSection title="Entidad">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                    <FormInput label="Id. Entidad" value={formData.idEntidad} onChange={(v) => setField('idEntidad', v)} />
-                    <FormInput label="Entidad Solicitante" value={formData.entidadSolicitante} onChange={(v) => setField('entidadSolicitante', v)} />
-                    <FormInput label="Cod. Sucursal" value={formData.codSucursal} onChange={(v) => setField('codSucursal', v)} />
-                    <FormInput label="Sucursal" value={formData.sucursal} onChange={(v) => setField('sucursal', v)} />
+                    <FormSelect
+                        label="Entidad"
+                        value={formData.idEntidad}
+                        onChange={onEntityChange}
+                        options={entityOptions}
+                        placeholder="Seleccione una entidad..."
+                    />
+                    <FormSelect
+                        label="Sucursal"
+                        value={selectedBranchValue}
+                        onChange={onBranchChange}
+                        options={branchOptions}
+                        placeholder={formData.idEntidad ? 'Seleccione una sucursal...' : 'Primero seleccione una entidad'}
+                    />
+                    <FormInput label="Nombre Entidad" value={formData.nombreEntidad || formData.entidadSolicitante} onChange={(v) => setField('nombreEntidad', v)} disabled />
+                    <FormInput label="Nombre Sucursal" value={formData.nombreSucursal || formData.sucursal} onChange={(v) => setField('nombreSucursal', v)} disabled />
                 </div>
             </FormSection>
 
@@ -420,12 +443,32 @@ const TransferTab = ({ formData, setField }) => (
     </div>
 );
 
-const ServiceOrderForm = ({ formData, setField, activeTab, setActiveTab }) => (
+const ServiceOrderForm = ({
+    formData,
+    setField,
+    activeTab,
+    setActiveTab,
+    entityOptions,
+    branchOptions,
+    selectedBranchValue,
+    onEntityChange,
+    onBranchChange,
+}) => (
     <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-x-hidden">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 pb-1">
-            {activeTab === 'order' && <OrderTab formData={formData} setField={setField} />}
+            {activeTab === 'order' && (
+                <OrderTab
+                    formData={formData}
+                    setField={setField}
+                    entityOptions={entityOptions}
+                    branchOptions={branchOptions}
+                    selectedBranchValue={selectedBranchValue}
+                    onEntityChange={onEntityChange}
+                    onBranchChange={onBranchChange}
+                />
+            )}
             {activeTab === 'transfer' && <TransferTab formData={formData} setField={setField} />}
         </div>
     </div>
@@ -434,6 +477,58 @@ const ServiceOrderForm = ({ formData, setField, activeTab, setActiveTab }) => (
 const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqId }) => {
     const [activeTab, setActiveTab] = useState('order');
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+    const [selectedBranchKey, setSelectedBranchKey] = useState('');
+
+    const entityOptions = useMemo(() => {
+        return [...clientes]
+            .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
+            .map((cliente) => ({
+                value: cliente.id,
+                label: cliente.nombre || cliente.id,
+            }));
+    }, [clientes]);
+
+    const selectedEntity = useMemo(
+        () => clientes.find((cliente) => cliente.id === formData.idEntidad),
+        [clientes, formData.idEntidad]
+    );
+
+    const selectedContacts = useMemo(() => {
+        const rawContacts = selectedEntity?.contacts;
+        if (Array.isArray(rawContacts)) return rawContacts;
+        if (rawContacts && typeof rawContacts === 'object') return Object.values(rawContacts);
+        return [];
+    }, [selectedEntity]);
+
+    const normalizedBranches = useMemo(() => {
+        return selectedContacts
+            .map((contact, index) => {
+                const idSucursal =
+                    String(
+                        contact?.idSucursal ||
+                        contact?.reference ||
+                        contact?.identification ||
+                        contact?.id ||
+                        contact?.name ||
+                        index
+                    ).trim();
+                const nombreSucursal = String(contact?.name || '').trim();
+                if (!idSucursal || !nombreSucursal) return null;
+                return {
+                    key: String(index),
+                    idSucursal,
+                    nombreSucursal,
+                };
+            })
+            .filter(Boolean);
+    }, [selectedContacts]);
+
+    const branchOptions = useMemo(() => {
+        return normalizedBranches.map((branch) => ({
+            value: branch.key,
+            label: branch.nombreSucursal,
+        }));
+    }, [normalizedBranches]);
 
     useEffect(() => {
         if (!isOpen || typeof document === 'undefined') return undefined;
@@ -457,6 +552,37 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
+    const handleEntityChange = (entityId) => {
+        const entity = clientes.find((cliente) => cliente.id === entityId);
+        setSelectedBranchKey('');
+        setFormData((prev) => ({
+            ...prev,
+            clienteId: entityId || '',
+            idEntidad: entityId || '',
+            entidadSolicitante: entity?.nombre || '',
+            nombreEntidad: entity?.nombre || '',
+            idSucursal: '',
+            codSucursal: '',
+            sucursal: '',
+            nombreSucursal: '',
+        }));
+    };
+
+    const handleBranchChange = (branchKey) => {
+        const selectedBranch = normalizedBranches.find((branch) => branch.key === branchKey);
+        const branchName = selectedBranch?.nombreSucursal || '';
+        const branchId = selectedBranch?.idSucursal || '';
+
+        setSelectedBranchKey(branchKey || '');
+        setFormData((prev) => ({
+            ...prev,
+            idSucursal: branchId,
+            codSucursal: branchId,
+            sucursal: branchName,
+            nombreSucursal: branchName,
+        }));
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!canSubmit) return;
@@ -465,6 +591,13 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         const newRequest = {
             id,
             paciente: formData.paciente,
+            clienteId: formData.idEntidad || formData.clienteId || '',
+            idEntidad: formData.idEntidad || '',
+            entidadSolicitante: formData.entidadSolicitante || formData.nombreEntidad || '',
+            nombreEntidad: formData.nombreEntidad || formData.entidadSolicitante || '',
+            idSucursal: formData.idSucursal || formData.codSucursal || '',
+            sucursal: formData.sucursal || formData.nombreSucursal || '',
+            nombreSucursal: formData.nombreSucursal || formData.sucursal || '',
             origen: formData.descripcionOrigen || formData.direccionOrigen || 'Origen no especificado',
             destino: formData.descripcionDestino1 || formData.direccionDestino1 || 'Destino no especificado',
             estado: 'Pendiente',
@@ -474,6 +607,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
         onSubmit(newRequest);
         setFormData(INITIAL_FORM_DATA);
+        setSelectedBranchKey('');
         setActiveTab('order');
         onClose();
     };
@@ -517,6 +651,11 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         setField={setField}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
+                        entityOptions={entityOptions}
+                        branchOptions={branchOptions}
+                        selectedBranchValue={selectedBranchKey}
+                        onEntityChange={handleEntityChange}
+                        onBranchChange={handleBranchChange}
                     />
 
                     <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
