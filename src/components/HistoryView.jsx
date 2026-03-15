@@ -296,9 +296,14 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     onClose={() => setClosureModalData({ isOpen: false, servicio: null, cliente: null })}
                     servicio={closureModalData.servicio}
                     cliente={closureModalData.cliente}
-                    onCerrarServicio={(reqId, ambId) => {
-                        closeService(reqId, ambId);
-                        showToast('Servicio finalizado exitosamente', 'success');
+                    onCerrarServicio={async (reqId, ambId) => {
+                        try {
+                            await closeService(reqId, ambId);
+                            showToast('Servicio finalizado exitosamente', 'success');
+                        } catch (error) {
+                            showToast(error?.message || 'No se pudo finalizar el servicio', 'error');
+                            throw error;
+                        }
                     }}
                 />
             )}

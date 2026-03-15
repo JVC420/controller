@@ -3,6 +3,10 @@ import { X, CheckCircle, FileCheck } from 'lucide-react';
 
 const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServicio }) => {
     const [checklistItems, setChecklistItems] = useState({});
+    const [historiaClinicaChecked, setHistoriaClinicaChecked] = useState(false);
+    const [historiaClinicaValidated, setHistoriaClinicaValidated] = useState(false);
+    const [historiaClinicaLoading, setHistoriaClinicaLoading] = useState(false);
+    const [historiaClinicaError, setHistoriaClinicaError] = useState('');
 
     // Initialize checklist state when modal opens or service changes
     useEffect(() => {
@@ -15,11 +19,19 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
         } else if (isOpen) {
             setChecklistItems({});
         }
+
+        if (isOpen) {
+            setHistoriaClinicaChecked(false);
+            setHistoriaClinicaValidated(false);
+            setHistoriaClinicaLoading(false);
+            setHistoriaClinicaError('');
+        }
     }, [isOpen, cliente]);
 
     if (!isOpen || !servicio || !cliente) return null;
 
-    const allChecked = Object.values(checklistItems).every(Boolean);
+    const allDocumentsChecked = Object.values(checklistItems).every(Boolean);
+    const allChecked = allDocumentsChecked && historiaClinicaValidated && historiaClinicaChecked;
 
     const handleToggle = (item) => {
         setChecklistItems(prev => ({
@@ -28,9 +40,84 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
         }));
     };
 
-    const handleConfirm = () => {
+    const normalizeIsoDate = (value) => {
+        if (!value) return '';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toISOString();
+    };
+
+    const buildHistoriaClinicaPayload = () => {
+        const legacy = servicio?.legacyForm || {};
+        const idPaciente =
+            legacy.idPacienteHC ||
+            legacy.idSolicitante ||
+            servicio?.idPacienteHC ||
+            servicio?.idSolicitante ||
+            '';
+        const startDate = normalizeIsoDate(legacy.fechaHoraContacto || servicio?.fechaHoraContacto);
+        const fechaFinRaw =
+            legacy.fechaHoraSaleD2 ||
+            servicio?.fechaHoraSaleD2 ||
+            legacy.fechaHoraSaleD1 ||
+            servicio?.fechaHoraSaleD1;
+        const endDate = normalizeIsoDate(fechaFinRaw);
+
+        return {
+            idPaciente,
+            startDate,
+            endDate,
+            status: '7'
+        };
+    };
+
+    const handleValidateHistoriaClinica = async () => {
+        const payload = buildHistoriaClinicaPayload();
+
+        if (!payload.idPaciente || !payload.startDate || !payload.endDate) {
+            setHistoriaClinicaValidated(false);
+            setHistoriaClinicaChecked(false);
+            setHistoriaClinicaError('No se pudo validar historia clínica: faltan datos (idPaciente, startDate o endDate).');
+            return;
+        }
+
+        setHistoriaClinicaLoading(true);
+        setHistoriaClinicaError('');
+
+        try {
+            const response = await fetch('https://descargarhistoriaclinica-y25bumqpla-uc.a.run.app', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const json = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(`Error HTTP ${response.status}`);
+            }
+
+            if (json?.success !== true) {
+                throw new Error('La respuesta de historia clínica no retornó success=true.');
+            }
+
+            setHistoriaClinicaValidated(true);
+            setHistoriaClinicaChecked(true);
+            setHistoriaClinicaError('');
+        } catch (err) {
+            setHistoriaClinicaValidated(false);
+            setHistoriaClinicaChecked(false);
+            setHistoriaClinicaError(err?.message || 'Falló la validación de historia clínica.');
+        } finally {
+            setHistoriaClinicaLoading(false);
+        }
+    };
+
+    const handleConfirm = async () => {
         if (allChecked) {
-            onCerrarServicio(servicio.id, servicio.ambulanciaAsignada);
+            await onCerrarServicio(servicio.id, servicio.ambulanciaAsignada);
             onClose();
         }
     };
@@ -90,6 +177,50 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                         )}
                     </div>
 
+                    <div className="mb-6 p-3 bg-dark-900 rounded-lg border border-slate-700">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <h4 className="text-sm font-semibold text-slate-300">Historia clínica</h4>
+                                <p className="text-xs text-slate-500 mt-1">Debe validar success=true para habilitar el cierre.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleValidateHistoriaClinica}
+                                disabled={historiaClinicaLoading}
+                                className={`px-3 py-2 rounded-md text-xs font-bold transition-colors ${historiaClinicaLoading
+                                    ? 'bg-slate-700 text-slate-400 cursor-wait'
+                                    : 'bg-blue-600 hover:bg-blue-500 text-white'
+                                    }`}
+                            >
+                                {historiaClinicaLoading ? 'Validando...' : 'Validar historia clínica'}
+                            </button>
+                        </div>
+
+                        <label className="mt-3 flex items-start gap-3 cursor-pointer group">
+                            <div className="relative flex items-center justify-center mt-0.5">
+                                <input
+                                    type="checkbox"
+                                    className="peer sr-only"
+                                    checked={historiaClinicaChecked}
+                                    disabled={!historiaClinicaValidated}
+                                    onChange={() => setHistoriaClinicaChecked(v => !v)}
+                                />
+                                <div className="w-5 h-5 rounded border-2 border-slate-600 bg-dark-900 peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-colors"></div>
+                                <CheckCircle size={14} className="absolute text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                            </div>
+                            <span className="text-sm text-slate-300 group-hover:text-white select-none transition-colors">
+                                Confirmo validación de historia clínica
+                            </span>
+                        </label>
+
+                        {historiaClinicaValidated && (
+                            <p className="text-xs text-emerald-400 mt-2">Historia clínica validada correctamente (success=true).</p>
+                        )}
+                        {historiaClinicaError && (
+                            <p className="text-xs text-red-400 mt-2">{historiaClinicaError}</p>
+                        )}
+                    </div>
+
                     {/* Footer Actions */}
                     <div className="flex gap-3">
                         <button
@@ -100,7 +231,7 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                         </button>
                         <button
                             onClick={handleConfirm}
-                            disabled={!allChecked}
+                            disabled={!allChecked || historiaClinicaLoading}
                             className={`flex-1 px-4 py-2.5 rounded-lg font-bold flex justify-center items-center gap-2 transition-all shadow-lg ${allChecked
                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
                                 : 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600'

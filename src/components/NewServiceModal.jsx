@@ -240,7 +240,7 @@ const OrderTab = ({ formData, setField }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                     <FormInput label="Id. Paciente / H.C." value={formData.idPacienteHC} onChange={(v) => setField('idPacienteHC', v)} />
                     <FormSelect label="Tipo Identidad" value={formData.tipoIdentidad} onChange={(v) => setField('tipoIdentidad', v)} options={identityOptions} />
-                    <FormInput label="Paciente" value={formData.paciente} onChange={(v) => setField('paciente', v)} />
+                    <FormInput label="Nombres y Apellidos del Paciente" value={formData.paciente} onChange={(v) => setField('paciente', v)} />
                     <FormSelect
                         label="Sexo"
                         value={formData.sexo}
