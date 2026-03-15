@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, FileCheck } from 'lucide-react';
 
+const HISTORIA_CLINICA_URL = import.meta.env.DEV
+    ? '/api/historia-clinica/'
+    : 'https://descargarhistoriaclinica-y25bumqpla-uc.a.run.app';
+
 const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServicio }) => {
     const [checklistItems, setChecklistItems] = useState({});
     const [historiaClinicaChecked, setHistoriaClinicaChecked] = useState(false);
@@ -85,7 +89,7 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
         setHistoriaClinicaError('');
 
         try {
-            const response = await fetch('https://descargarhistoriaclinica-y25bumqpla-uc.a.run.app', {
+            const response = await fetch(HISTORIA_CLINICA_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -93,10 +97,23 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                 body: JSON.stringify(payload)
             });
 
-            const json = await response.json().catch(() => ({}));
+            const rawBody = await response.text();
+            let json = {};
+            if (rawBody) {
+                try {
+                    json = JSON.parse(rawBody);
+                } catch {
+                    json = { message: rawBody };
+                }
+            }
 
             if (!response.ok) {
-                throw new Error(`Error HTTP ${response.status}`);
+                const backendMessage =
+                    json?.message ||
+                    json?.error ||
+                    rawBody ||
+                    `Error HTTP ${response.status}`;
+                throw new Error(backendMessage);
             }
 
             if (json?.success !== true) {
