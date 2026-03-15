@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, ClipboardList, Ambulance } from 'lucide-react';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 const TAB_ITEMS = [
     { id: 'order', label: 'Orden de Servicio', icon: <ClipboardList size={15} /> },
@@ -142,16 +144,28 @@ const FormSection = ({ title, children, className = '' }) => (
     </section>
 );
 
-const FormInput = ({ label, value, onChange, type = 'text', placeholder = '', disabled = false, className = '' }) => (
+const FormInput = ({
+    label,
+    value,
+    onChange,
+    type = 'text',
+    placeholder = '',
+    disabled = false,
+    className = '',
+    onKeyDown,
+    readOnly = false,
+}) => (
     <div className={className}>
         <label className="block text-[11px] font-semibold text-slate-400 mb-1">{label}</label>
         <input
             type={type}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
             placeholder={placeholder}
             disabled={disabled}
-            className={`${baseFieldClass} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+            readOnly={readOnly}
+            className={`${baseFieldClass} ${(disabled || readOnly) ? 'opacity-60 cursor-not-allowed' : ''}`}
         />
     </div>
 );
@@ -381,12 +395,35 @@ const OrderTab = ({
     );
 };
 
-const TransferTab = ({ formData, setField }) => (
+const TransferTab = ({ formData, setField, onCieKeyDown, cieLookupState }) => (
     <div className="space-y-4">
         <FormSection title="Diagnóstico">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <FormInput label="Cod. CIE" value={formData.codCIE} onChange={(v) => setField('codCIE', v)} />
-                <FormInput label="Buscar CIE" value={formData.buscarCIE} onChange={(v) => setField('buscarCIE', v)} />
+                <FormInput
+                    label="Cod. CIE"
+                    value={formData.codCIE}
+                    onChange={(v) => setField('codCIE', v.toUpperCase())}
+                    onKeyDown={onCieKeyDown}
+                    placeholder="Escriba el código y presione Enter"
+                />
+                <FormInput
+                    label="Nombre CIE"
+                    value={formData.buscarCIE}
+                    onChange={(v) => setField('buscarCIE', v)}
+                    readOnly
+                    placeholder="Se autocompleta al buscar el código"
+                />
+                <div className="md:col-span-3 min-h-5">
+                    {cieLookupState.loading && (
+                        <p className="text-xs text-blue-400">Buscando código CIE...</p>
+                    )}
+                    {!cieLookupState.loading && cieLookupState.error && (
+                        <p className="text-xs text-red-400">{cieLookupState.error}</p>
+                    )}
+                    {!cieLookupState.loading && cieLookupState.success && (
+                        <p className="text-xs text-emerald-400">Nombre CIE autocompletado correctamente.</p>
+                    )}
+                </div>
                 <div className="md:col-span-3">
                     <FormTextarea label="Observaciones CIE" value={formData.observacionesCIE} onChange={(v) => setField('observacionesCIE', v)} />
                 </div>
@@ -453,6 +490,8 @@ const ServiceOrderForm = ({
     selectedBranchValue,
     onEntityChange,
     onBranchChange,
+    onCieKeyDown,
+    cieLookupState,
 }) => (
     <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-x-hidden">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -469,7 +508,14 @@ const ServiceOrderForm = ({
                     onBranchChange={onBranchChange}
                 />
             )}
-            {activeTab === 'transfer' && <TransferTab formData={formData} setField={setField} />}
+            {activeTab === 'transfer' && (
+                <TransferTab
+                    formData={formData}
+                    setField={setField}
+                    onCieKeyDown={onCieKeyDown}
+                    cieLookupState={cieLookupState}
+                />
+            )}
         </div>
     </div>
 );
@@ -478,6 +524,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [activeTab, setActiveTab] = useState('order');
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
     const [selectedBranchKey, setSelectedBranchKey] = useState('');
+    const [cieLookupState, setCieLookupState] = useState({ loading: false, error: '', success: false });
 
     const entityOptions = useMemo(() => {
         return [...clientes]
@@ -550,6 +597,59 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
     const setField = (field, value) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
+        if (field === 'codCIE') {
+            setCieLookupState({ loading: false, error: '', success: false });
+        }
+    };
+
+    const handleCieLookup = async () => {
+        const cieCode = String(formData.codCIE || '').trim().toUpperCase();
+
+        if (!cieCode) {
+            setCieLookupState({ loading: false, error: 'Ingrese un código CIE para buscar.', success: false });
+            setFormData((prev) => ({ ...prev, buscarCIE: '' }));
+            return;
+        }
+
+        setCieLookupState({ loading: true, error: '', success: false });
+
+        try {
+            const cieQuery = query(
+                collection(db, 'CIE'),
+                where('codigo', '==', cieCode),
+                limit(1)
+            );
+            const snapshot = await getDocs(cieQuery);
+
+            if (snapshot.empty) {
+                setFormData((prev) => ({ ...prev, buscarCIE: '' }));
+                setCieLookupState({ loading: false, error: `No se encontró el código CIE ${cieCode}.`, success: false });
+                return;
+            }
+
+            const cieData = snapshot.docs[0].data();
+            const cieName = String(cieData?.nombre || '').trim();
+
+            setFormData((prev) => ({
+                ...prev,
+                codCIE: cieCode,
+                buscarCIE: cieName,
+            }));
+            setCieLookupState({ loading: false, error: '', success: true });
+        } catch (error) {
+            setFormData((prev) => ({ ...prev, buscarCIE: '' }));
+            setCieLookupState({
+                loading: false,
+                error: error?.message || 'No se pudo consultar el código CIE.',
+                success: false,
+            });
+        }
+    };
+
+    const handleCieKeyDown = async (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        await handleCieLookup();
     };
 
     const handleEntityChange = (entityId) => {
@@ -608,6 +708,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         onSubmit(newRequest);
         setFormData(INITIAL_FORM_DATA);
         setSelectedBranchKey('');
+        setCieLookupState({ loading: false, error: '', success: false });
         setActiveTab('order');
         onClose();
     };
@@ -656,6 +757,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         selectedBranchValue={selectedBranchKey}
                         onEntityChange={handleEntityChange}
                         onBranchChange={handleBranchChange}
+                        onCieKeyDown={handleCieKeyDown}
+                        cieLookupState={cieLookupState}
                     />
 
                     <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
