@@ -55,28 +55,7 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
         }
         if (Number.isNaN(d.getTime())) return '';
         
-        return formatBogotaLocal(d);
-    };
-
-    const formatBogotaLocal = (value) => {
-        if (!value) return '';
-        const d = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
-        if (Number.isNaN(d.getTime())) return '';
-    
-        const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Bogota',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        }).formatToParts(d);
-    
-        const get = (type) => parts.find((p) => p.type === type)?.value || '';
-    
-        return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
+        return d.toISOString();
     };
 
     const buildHistoriaClinicaPayload = () => {
