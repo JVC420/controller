@@ -4,7 +4,9 @@ import { serverTimestamp } from 'firebase/firestore';
 
 const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
     const [formData, setFormData] = useState({
-        placaBase: '',
+        idSecretaria: '',
+        movil: '',
+        placa: '',
         tipo: 'Básica',
     });
 
@@ -12,17 +14,20 @@ const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!formData.placaBase) return;
+        if (!formData.idSecretaria || !formData.movil || !formData.placa) return;
 
-        const id = formData.placaBase.toUpperCase();
+        const id = formData.movil;
         onSubmit({
             id,
+            idSecretaria: formData.idSecretaria,
+            movil: formData.movil,
+            placa: formData.placa,
             tipo: formData.tipo,
             estado: 'Disponible',
             tripulacion: [],
             lastAvailableAt: serverTimestamp(),
         });
-        setFormData({ placaBase: '', tipo: 'Básica' });
+        setFormData({ idSecretaria: '', movil: '', placa: '', tipo: 'Básica' });
         onClose();
     };
 
@@ -43,13 +48,44 @@ const NewAmbulanceModal = ({ isOpen, onClose, onSubmit }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                     <div className="space-y-2">
                         <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
-                            <Truck size={16} className="text-emerald-400" /> Placa o Indicativo
+                            <Truck size={16} className="text-emerald-400" /> Id Secretaría
                         </label>
                         <input
-                            type="text" required maxLength={40}
-                            value={formData.placaBase}
-                            onChange={e => setFormData({ ...formData, placaBase: e.target.value })}
-                            placeholder="Ej: TAB-09"
+                            type="text" required maxLength={10}
+                            inputMode="numeric"
+                            pattern="[0-9]{1,10}"
+                            value={formData.idSecretaria}
+                            onChange={e => setFormData({ ...formData, idSecretaria: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                            placeholder="Ej: 1100108171"
+                            className="w-full bg-dark-900 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                            <Truck size={16} className="text-emerald-400" /> Numero de Móbil
+                        </label>
+                        <input
+                            type="text" required maxLength={10}
+                            inputMode="numeric"
+                            pattern="[0-9]{1,10}"
+                            value={formData.movil}
+                            onChange={e => setFormData({ ...formData, movil: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                            placeholder="Ej: 2501"
+                            className="w-full bg-dark-900 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-blue-500"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                            <Truck size={16} className="text-emerald-400" /> Placa
+                        </label>
+                        <input
+                            type="text" required maxLength={6}
+                            pattern="[A-Z0-9]{1,6}"
+                            value={formData.placa}
+                            onChange={e => setFormData({ ...formData, placa: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) })}
+                            placeholder="Ej: ABC123"
                             className="w-full bg-dark-900 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-blue-500 uppercase"
                         />
                     </div>
