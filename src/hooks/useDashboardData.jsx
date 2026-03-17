@@ -18,6 +18,44 @@ const normalizeDoc = (data) => {
     return result;
 };
 
+const sanitizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+
+const assertValidRequestPayload = (data) => {
+    const paciente = sanitizeText(data?.pacienteInfo?.nombre || data?.paciente);
+    const solicitante = sanitizeText(data?.solicitanteInfo?.nombre);
+    const idEntidad = sanitizeText(data?.entidadInfo?.idEntidad || data?.clienteId);
+    const codComplejidad = sanitizeText(data?.servicioInfo?.codComplejidad);
+    const confirmaAutorizacion = sanitizeText(data?.servicioInfo?.confirmaAutorizacion);
+    const codCIE = sanitizeText(data?.diagnosticoInfo?.codCIE);
+    const nombreOrigen = sanitizeText(data?.origenInfo?.nombre || data?.origen);
+    const nombreDestino = sanitizeText(data?.destino1Info?.nombre || data?.destino);
+
+    if (!paciente || paciente.length < 3) throw new Error('Paciente inválido.');
+    if (!solicitante || solicitante.length < 3) throw new Error('Solicitante inválido.');
+    if (!idEntidad) throw new Error('Entidad inválida.');
+    if (!codComplejidad) throw new Error('Complejidad inválida.');
+    if (!['Si', 'No'].includes(confirmaAutorizacion)) throw new Error('Confirma autorización inválido.');
+    if (confirmaAutorizacion === 'Si' && !sanitizeText(data?.servicioInfo?.numeroAutorizacion)) {
+        throw new Error('Número de autorización requerido.');
+    }
+    if (!data?.programacionInfo?.servicioProgramado || !data?.programacionInfo?.servicioSolicitado) {
+        throw new Error('Programación del servicio incompleta.');
+    }
+    if (!codCIE) throw new Error('Diagnóstico CIE inválido.');
+    if (!nombreOrigen || nombreOrigen.length < 3) throw new Error('Origen inválido.');
+    if (!nombreDestino || nombreDestino.length < 3) throw new Error('Destino inválido.');
+
+    const esParticular = Boolean(data?.servicioInfo?.esServicioParticular);
+    const copago = Number(String(data?.servicioInfo?.copagoValor ?? '').replace(/[^\d.-]/g, ''));
+    const valorParticular = Number(String(data?.servicioInfo?.servicioParticularValor ?? '').replace(/[^\d.-]/g, ''));
+    if (esParticular && !(valorParticular > 0)) {
+        throw new Error('Valor de servicio particular inválido.');
+    }
+    if (!esParticular && !(copago >= 0)) {
+        throw new Error('Copago inválido.');
+    }
+};
+
 // ─── Fallback metrics (computed locally until analytics module is built) ──────
 const STATIC_METRICAS = { flotaOperativa: "85%", tiempoPromedioRespuesta: "18 min", serviciosHoy: 24 };
 const SESION_ACTUAL = { usuario: "Carlos", rol: "admin" };
@@ -244,6 +282,7 @@ export const useDashboardData = (activeRoute = '/') => {
     // ── SERVICE Operations ────────────────────────────────────────────────────
     const createRealRequest = async (requestObj) => {
         const { id, ...data } = requestObj;
+        assertValidRequestPayload(data);
         data.creadoAt = serverTimestamp();
         if (id) {
             await setDoc(doc(db, 'solicitudes', id), data);
@@ -255,6 +294,7 @@ export const useDashboardData = (activeRoute = '/') => {
     const updateRealRequest = async (requestObj) => {
         const { id, ...data } = requestObj;
         if (!id) return;
+        assertValidRequestPayload(data);
         data.actualizadoAt = serverTimestamp();
         await updateDoc(doc(db, 'solicitudes', id), data);
     };

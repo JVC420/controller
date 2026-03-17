@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, ClipboardList, Ambulance } from 'lucide-react';
 import { Timestamp, collection, getDocs, limit, query, where } from 'firebase/firestore';
@@ -106,6 +106,77 @@ const DESTINATION_2_FIELDS = {
     fechaHoraSaleD2: '',
 };
 
+const FIELD_MAX_LENGTHS = {
+    idPacienteHC: 30,
+    tipoIdentidad: 5,
+    paciente: 120,
+    sexo: 20,
+    fechaNacimiento: 10,
+    edad: 3,
+    tipoEdad: 10,
+
+    idSolicitante: 30,
+    solicitante: 120,
+    observacionesSolicita: 1000,
+
+    idEntidad: 40,
+    entidadSolicitante: 180,
+    nombreEntidad: 180,
+    idSucursal: 60,
+    nombreSucursal: 180,
+    codSucursal: 60,
+    sucursal: 180,
+
+    codComplejidad: 10,
+    complejidad: 120,
+    confirmaAutorizacion: 2,
+    numeroAutorizacion: 40,
+    copagoValor: 12,
+    servicioParticularValor: 12,
+
+    servicioProgramado: 16,
+    servicioSolicitado: 16,
+
+    codCIE: 10,
+    buscarCIE: 180,
+    observacionesCIE: 1000,
+    estadoClinicoActual: 3000,
+
+    idOrigen: 30,
+    nombreOrigen: 180,
+    observacionesOrigen: 1000,
+    direccionOrigen: 240,
+    ciudadOrigen: 80,
+    telefonoOrigen: 25,
+    fechaHoraContacto: 16,
+    fechaHoraSaleOrigen: 16,
+
+    idDestino1: 30,
+    nombreDestino1: 180,
+    observacionesDestino1: 1000,
+    direccionDestino1: 240,
+    ciudadDestino1: 80,
+    telefonoDestino1: 25,
+    fechaHoraEntregaD1: 16,
+    fechaHoraSaleD1: 16,
+
+    idDestino2: 30,
+    nombreDestino2: 180,
+    observacionesDestino2: 1000,
+    direccionDestino2: 240,
+    ciudadDestino2: 80,
+    telefonoDestino2: 25,
+    fechaHoraEntregaD2: 16,
+    fechaHoraSaleD2: 16,
+
+    observaciones: 2000,
+};
+
+const DIGITS_ONLY_FIELDS = new Set(['edad', 'numeroAutorizacion']);
+const MONEY_FIELDS = new Set(['copagoValor', 'servicioParticularValor']);
+const UPPERCASE_FIELDS = new Set(['codCIE']);
+const LETTERS_ONLY_FIELDS = new Set(['paciente', 'solicitante']);
+
 const baseFieldClass =
     'w-full bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[13px] text-white focus:outline-none focus:border-blue-500';
 
@@ -151,6 +222,15 @@ const toDateTimeLocalString = (value) => {
     const pad = (n) => String(n).padStart(2, '0');
     return `${dateValue.getFullYear()}-${pad(dateValue.getMonth() + 1)}-${pad(dateValue.getDate())}T${pad(dateValue.getHours())}:${pad(dateValue.getMinutes())}`;
 };
+
+const sanitizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+
+const sanitizeAmount = (value) => String(value ?? '').replace(/[^\d]/g, '');
+
+const sanitizeName = (value) => String(value ?? '')
+    .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s'-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const OTHER_ORIGIN_VALUE = 'otro';
 
@@ -240,7 +320,6 @@ const CheckboxField = ({ label, checked, onChange }) => (
         {label}
     </label>
 );
-
 const Tabs = ({ activeTab, setActiveTab }) => (
     <div className="flex gap-1 border-b border-slate-700/70 pb-px overflow-x-auto hide-scrollbar">
         {TAB_ITEMS.map((tab) => (
@@ -774,46 +853,56 @@ const ServiceOrderForm = ({
     onOriginCodeKeyDown,
     onOriginPickerChange,
     isManualOrigin,
-}) => (
-    <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-x-hidden">
-        <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+}) => {
+    const scrollContainerRef = useRef(null);
 
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 pb-1">
-            {activeTab === 'order' && (
-                <OrderTab
-                    formData={formData}
-                    setField={setField}
-                    entityOptions={entityOptions}
-                    branchOptions={branchOptions}
-                    selectedBranchValue={selectedBranchValue}
-                    onEntityChange={onEntityChange}
-                    onBranchChange={onBranchChange}
-                    serviceTypeOptions={serviceTypeOptions}
-                    serviceTypesState={serviceTypesState}
-                    complexityLookupState={complexityLookupState}
-                    onComplexityCodeKeyDown={onComplexityCodeKeyDown}
-                    onComplexityPickerChange={onComplexityPickerChange}
-                />
-            )}
-            {activeTab === 'transfer' && (
-                <TransferTab
-                    formData={formData}
-                    setField={setField}
-                    onCieKeyDown={onCieKeyDown}
-                    cieLookupState={cieLookupState}
-                    showSecondDestination={showSecondDestination}
-                    originOptions={originOptions}
-                    origins={origins}
-                    originsState={originsState}
-                    originLookupState={originLookupState}
-                    onOriginCodeKeyDown={onOriginCodeKeyDown}
-                    onOriginPickerChange={onOriginPickerChange}
-                    isManualOrigin={isManualOrigin}
-                />
-            )}
+    useEffect(() => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = 0;
+        }
+    }, [activeTab]);
+
+    return (
+        <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-x-hidden">
+            <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+
+            <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-1 pb-1">
+                {activeTab === 'order' && (
+                    <OrderTab
+                        formData={formData}
+                        setField={setField}
+                        entityOptions={entityOptions}
+                        branchOptions={branchOptions}
+                        selectedBranchValue={selectedBranchValue}
+                        onEntityChange={onEntityChange}
+                        onBranchChange={onBranchChange}
+                        serviceTypeOptions={serviceTypeOptions}
+                        serviceTypesState={serviceTypesState}
+                        complexityLookupState={complexityLookupState}
+                        onComplexityCodeKeyDown={onComplexityCodeKeyDown}
+                        onComplexityPickerChange={onComplexityPickerChange}
+                    />
+                )}
+                {activeTab === 'transfer' && (
+                    <TransferTab
+                        formData={formData}
+                        setField={setField}
+                        onCieKeyDown={onCieKeyDown}
+                        cieLookupState={cieLookupState}
+                        showSecondDestination={showSecondDestination}
+                        originOptions={originOptions}
+                        origins={origins}
+                        originsState={originsState}
+                        originLookupState={originLookupState}
+                        onOriginCodeKeyDown={onOriginCodeKeyDown}
+                        onOriginPickerChange={onOriginPickerChange}
+                        isManualOrigin={isManualOrigin}
+                    />
+                )}
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqId, initialData = null, isEditing = false }) => {
     const [activeTab, setActiveTab] = useState('order');
@@ -826,6 +915,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [origins, setOrigins] = useState([]);
     const [originsState, setOriginsState] = useState({ loading: false, error: '' });
     const [originLookupState, setOriginLookupState] = useState({ error: '', success: false });
+    const [submitError, setSubmitError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const entityOptions = useMemo(() => {
         return [...clientes]
@@ -955,13 +1046,6 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             document.body.style.overflow = prevOverflow;
         };
     }, [isOpen]);
-
-    useEffect(() => {
-        const scrollContainer = document.querySelector('.overflow-y-auto');
-        if (scrollContainer) {
-            scrollContainer.scrollTop = 0;
-        }
-    }, [activeTab]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -1181,7 +1265,33 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     if (typeof document === 'undefined') return null;
 
     const setField = (field, value) => {
-        setFormData((prev) => ({ ...prev, [field]: value }));
+        let nextValue = value;
+
+        if (typeof nextValue === 'string') {
+            if (LETTERS_ONLY_FIELDS.has(field)) {
+                nextValue = nextValue
+                    .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s'-]/g, '')
+                    .replace(/\s+/g, ' ');
+            }
+
+            if (DIGITS_ONLY_FIELDS.has(field)) {
+                nextValue = nextValue.replace(/\D/g, '');
+            }
+
+            if (MONEY_FIELDS.has(field)) {
+                nextValue = nextValue.replace(/[^\d]/g, '');
+            }
+
+            if (UPPERCASE_FIELDS.has(field)) {
+                nextValue = nextValue.toUpperCase();
+            }
+
+            const maxLength = FIELD_MAX_LENGTHS[field] ?? 300;
+            nextValue = nextValue.slice(0, maxLength);
+        }
+
+        setFormData((prev) => ({ ...prev, [field]: nextValue }));
+        if (submitError) setSubmitError('');
         if (field === 'codCIE') {
             setCieLookupState({ loading: false, error: '', success: false });
         }
@@ -1447,6 +1557,53 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     };
 
     const handleSubmit = (e) => {
+        const sanitizeFormData = (data) => ({
+            ...data,
+            paciente: sanitizeName(data.paciente),
+            solicitante: sanitizeName(data.solicitante),
+            codComplejidad: sanitizeText(data.codComplejidad),
+            complejidad: sanitizeText(data.complejidad),
+            confirmaAutorizacion: sanitizeText(data.confirmaAutorizacion),
+            numeroAutorizacion: sanitizeAmount(data.numeroAutorizacion),
+            copagoValor: sanitizeAmount(data.copagoValor),
+            servicioParticularValor: sanitizeAmount(data.servicioParticularValor),
+            codCIE: sanitizeText(data.codCIE).toUpperCase(),
+            buscarCIE: sanitizeText(data.buscarCIE),
+            idOrigen: sanitizeText(data.idOrigen),
+            nombreOrigen: sanitizeText(data.nombreOrigen),
+            direccionOrigen: sanitizeText(data.direccionOrigen),
+            ciudadOrigen: sanitizeText(data.ciudadOrigen),
+            telefonoOrigen: sanitizeText(data.telefonoOrigen),
+            idDestino1: sanitizeText(data.idDestino1),
+            nombreDestino1: sanitizeText(data.nombreDestino1),
+            direccionDestino1: sanitizeText(data.direccionDestino1),
+            ciudadDestino1: sanitizeText(data.ciudadDestino1),
+            telefonoDestino1: sanitizeText(data.telefonoDestino1),
+            idEntidad: sanitizeText(data.idEntidad),
+            idSucursal: sanitizeText(data.idSucursal),
+            observaciones: sanitizeText(data.observaciones),
+        });
+
+        const validateFormData = (data) => {
+            if (!data.paciente || data.paciente.length < 3) return 'Ingrese un nombre de paciente válido.';
+            if (!data.solicitante || data.solicitante.length < 3) return 'Ingrese un solicitante válido.';
+            if (!data.idEntidad) return 'Debe seleccionar una entidad.';
+            if (!data.idSucursal) return 'Debe seleccionar una sucursal.';
+            if (!data.codComplejidad || !data.complejidad) return 'Debe seleccionar una complejidad válida.';
+            if (!['Si', 'No'].includes(data.confirmaAutorizacion)) return 'Indique si confirma autorización.';
+            if (data.confirmaAutorizacion === 'Si' && !data.numeroAutorizacion) return 'Número de autorización requerido cuando confirma es Sí.';
+            if (!data.servicioProgramado || !data.servicioSolicitado) return 'Complete la programación del servicio.';
+            if (!data.codCIE || !data.buscarCIE) return 'Debe diligenciar un diagnóstico CIE válido.';
+            if (!data.nombreOrigen || data.nombreOrigen.length < 3) return 'Debe diligenciar un origen válido.';
+            if (!data.nombreDestino1 || data.nombreDestino1.length < 3) return 'Debe diligenciar un destino válido.';
+            if (data.esServicioParticular) {
+                if (!data.servicioParticularValor || Number(data.servicioParticularValor) <= 0) return 'El valor de servicio particular debe ser mayor que cero.';
+            } else if (!data.copagoValor) {
+                return 'El copago es obligatorio cuando no es servicio particular.';
+            }
+            return '';
+        };
+
         e.preventDefault();
         if (!canSubmit) return;
 
@@ -1455,6 +1612,13 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             const d = new Date(v);
             return isNaN(d.getTime()) ? null : Timestamp.fromDate(d);
         };
+
+        const sanitized = sanitizeFormData(formData);
+        const validationError = validateFormData(sanitized);
+        if (validationError) {
+            setSubmitError(validationError);
+            return;
+        }
 
         const id = isEditing ? initialData?.id : getNextReqId();
         if (!id) return;
@@ -1465,93 +1629,103 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             tiempoEsperaMin: 0,
 
             // Keep summary fields at root for compatibility with current UI.
-            paciente: formData.paciente,
-            clienteId: formData.idEntidad || formData.clienteId || '',
-            origen: formData.nombreOrigen || formData.direccionOrigen || 'Origen no especificado',
-            destino: formData.nombreDestino1 || formData.direccionDestino1 || 'Destino no especificado',
+            paciente: sanitized.paciente,
+            clienteId: sanitized.idEntidad || sanitized.clienteId || '',
+            origen: sanitized.nombreOrigen || sanitized.direccionOrigen || 'Origen no especificado',
+            destino: sanitized.nombreDestino1 || sanitized.direccionDestino1 || 'Destino no especificado',
 
             pacienteInfo: {
-                idPacienteHC: formData.idPacienteHC,
-                tipoIdentidad: formData.tipoIdentidad,
-                nombre: formData.paciente,
-                sexo: formData.sexo,
-                fechaNacimiento: formData.fechaNacimiento,
-                edad: formData.edad,
-                tipoEdad: formData.tipoEdad,
+                idPacienteHC: sanitized.idPacienteHC,
+                tipoIdentidad: sanitized.tipoIdentidad,
+                nombre: sanitized.paciente,
+                sexo: sanitized.sexo,
+                fechaNacimiento: sanitized.fechaNacimiento,
+                edad: sanitized.edad,
+                tipoEdad: sanitized.tipoEdad,
             },
             solicitanteInfo: {
-                idSolicitante: formData.idSolicitante,
-                nombre: formData.solicitante,
-                observaciones: formData.observacionesSolicita,
+                idSolicitante: sanitized.idSolicitante,
+                nombre: sanitized.solicitante,
+                observaciones: sanitized.observacionesSolicita,
             },
             entidadInfo: {
-                idEntidad: formData.idEntidad || '',
-                nombreEntidad: formData.nombreEntidad || formData.entidadSolicitante || '',
-                entidadSolicitante: formData.entidadSolicitante || formData.nombreEntidad || '',
-                idSucursal: formData.idSucursal || formData.codSucursal || '',
-                nombreSucursal: formData.nombreSucursal || formData.sucursal || '',
-                sucursal: formData.sucursal || formData.nombreSucursal || '',
+                idEntidad: sanitized.idEntidad || '',
+                nombreEntidad: sanitized.nombreEntidad || sanitized.entidadSolicitante || '',
+                entidadSolicitante: sanitized.entidadSolicitante || sanitized.nombreEntidad || '',
+                idSucursal: sanitized.idSucursal || sanitized.codSucursal || '',
+                nombreSucursal: sanitized.nombreSucursal || sanitized.sucursal || '',
+                sucursal: sanitized.sucursal || sanitized.nombreSucursal || '',
             },
             servicioInfo: {
-                codComplejidad: formData.codComplejidad,
-                complejidad: formData.complejidad,
-                confirmaAutorizacion: formData.confirmaAutorizacion,
-                numeroAutorizacion: formData.numeroAutorizacion,
-                copagoValor: formData.copagoValor,
-                esServicioParticular: formData.esServicioParticular,
-                servicioParticularValor: formData.servicioParticularValor,
+                codComplejidad: sanitized.codComplejidad,
+                complejidad: sanitized.complejidad,
+                confirmaAutorizacion: sanitized.confirmaAutorizacion,
+                numeroAutorizacion: sanitized.numeroAutorizacion,
+                copagoValor: sanitized.copagoValor,
+                esServicioParticular: sanitized.esServicioParticular,
+                servicioParticularValor: sanitized.servicioParticularValor,
             },
             programacionInfo: {
-                servicioProgramado: toTimestamp(formData.servicioProgramado),
-                servicioSolicitado: toTimestamp(formData.servicioSolicitado),
+                servicioProgramado: toTimestamp(sanitized.servicioProgramado),
+                servicioSolicitado: toTimestamp(sanitized.servicioSolicitado),
             },
             diagnosticoInfo: {
-                codCIE: formData.codCIE,
-                nombreCIE: formData.buscarCIE,
-                observacionesCIE: formData.observacionesCIE,
-                estadoClinicoActual: formData.estadoClinicoActual,
+                codCIE: sanitized.codCIE,
+                nombreCIE: sanitized.buscarCIE,
+                observacionesCIE: sanitized.observacionesCIE,
+                estadoClinicoActual: sanitized.estadoClinicoActual,
             },
             origenInfo: {
-                id: formData.idOrigen,
-                nombre: formData.nombreOrigen,
-                observaciones: formData.observacionesOrigen,
-                direccion: formData.direccionOrigen,
-                ciudad: formData.ciudadOrigen,
-                telefono: formData.telefonoOrigen,
-                fechaHoraContacto: toTimestamp(formData.fechaHoraContacto),
-                fechaHoraSalida: toTimestamp(formData.fechaHoraSaleOrigen),
+                id: sanitized.idOrigen,
+                nombre: sanitized.nombreOrigen,
+                observaciones: sanitized.observacionesOrigen,
+                direccion: sanitized.direccionOrigen,
+                ciudad: sanitized.ciudadOrigen,
+                telefono: sanitized.telefonoOrigen,
+                fechaHoraContacto: toTimestamp(sanitized.fechaHoraContacto),
+                fechaHoraSalida: toTimestamp(sanitized.fechaHoraSaleOrigen),
             },
             destino1Info: {
-                id: formData.idDestino1,
-                nombre: formData.nombreDestino1,
-                observaciones: formData.observacionesDestino1,
-                direccion: formData.direccionDestino1,
-                ciudad: formData.ciudadDestino1,
-                telefono: formData.telefonoDestino1,
-                fechaHoraEntrega: toTimestamp(formData.fechaHoraEntregaD1),
-                fechaHoraSalida: toTimestamp(formData.fechaHoraSaleD1),
+                id: sanitized.idDestino1,
+                nombre: sanitized.nombreDestino1,
+                observaciones: sanitized.observacionesDestino1,
+                direccion: sanitized.direccionDestino1,
+                ciudad: sanitized.ciudadDestino1,
+                telefono: sanitized.telefonoDestino1,
+                fechaHoraEntrega: toTimestamp(sanitized.fechaHoraEntregaD1),
+                fechaHoraSalida: toTimestamp(sanitized.fechaHoraSaleD1),
             },
-            destino2Info: formData.idDestino2 ? {
-                id: formData.idDestino2,
-                nombre: formData.nombreDestino2,
-                observaciones: formData.observacionesDestino2,
-                direccion: formData.direccionDestino2,
-                ciudad: formData.ciudadDestino2,
-                telefono: formData.telefonoDestino2,
-                fechaHoraEntrega: toTimestamp(formData.fechaHoraEntregaD2),
-                fechaHoraSalida: toTimestamp(formData.fechaHoraSaleD2),
+            destino2Info: sanitized.idDestino2 ? {
+                id: sanitized.idDestino2,
+                nombre: sanitized.nombreDestino2,
+                observaciones: sanitized.observacionesDestino2,
+                direccion: sanitized.direccionDestino2,
+                ciudad: sanitized.ciudadDestino2,
+                telefono: sanitized.telefonoDestino2,
+                fechaHoraEntrega: toTimestamp(sanitized.fechaHoraEntregaD2),
+                fechaHoraSalida: toTimestamp(sanitized.fechaHoraSaleD2),
             } : null,
-            observaciones: formData.observaciones,
+            observaciones: sanitized.observaciones,
         };
 
-        onSubmit(newRequest);
-        setFormData(INITIAL_FORM_DATA);
-        setSelectedBranchKey('');
-        setCieLookupState({ loading: false, error: '', success: false });
-        setComplexityLookupState({ error: '', success: false });
-        setOriginLookupState({ error: '', success: false });
-        setActiveTab('order');
-        onClose();
+        setSubmitting(true);
+        Promise.resolve(onSubmit(newRequest))
+            .then(() => {
+                setFormData(INITIAL_FORM_DATA);
+                setSelectedBranchKey('');
+                setCieLookupState({ loading: false, error: '', success: false });
+                setComplexityLookupState({ error: '', success: false });
+                setOriginLookupState({ error: '', success: false });
+                setActiveTab('order');
+                setSubmitError('');
+                onClose();
+            })
+            .catch((error) => {
+                setSubmitError(error?.message || 'No se pudo guardar la solicitud. Intente de nuevo.');
+            })
+            .finally(() => {
+                setSubmitting(false);
+            });
     };
 
     return createPortal(
@@ -1615,6 +1789,10 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         isManualOrigin={isManualOrigin}
                     />
 
+                    {submitError && (
+                        <p className="text-xs text-red-400 px-1">{submitError}</p>
+                    )}
+
                     <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
                         <button
                             type="button"
@@ -1625,11 +1803,11 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         </button>
                         <button
                             type="submit"
-                            disabled={!canSubmit}
+                            disabled={!canSubmit || submitting}
                             className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center justify-center gap-2 transition-colors"
                             title="Requiere: Paciente, Solicitante, Entidad, Complejidad, Autorizaciones, Programación, Diagnóstico CIE, Origen y Destino"
                         >
-                            <Send size={16} /> {isEditing ? 'Guardar Cambios' : 'Crear y Enviar a Triage'}
+                            <Send size={16} /> {submitting ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear y Enviar a Triage')}
                         </button>
                     </div>
                 </form>

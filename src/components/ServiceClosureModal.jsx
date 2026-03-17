@@ -52,18 +52,21 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
     };
 
     const buildHistoriaClinicaPayload = () => {
-        const legacy = servicio?.legacyForm || {};
+        const pacienteInfo = servicio?.pacienteInfo || {};
+        const origenInfo = servicio?.origenInfo || {};
+        const destino1Info = servicio?.destino1Info || {};
+        const destino2Info = servicio?.destino2Info || {};
         const idPaciente =
-            legacy.idPacienteHC ||
-            legacy.idSolicitante ||
+            pacienteInfo.idPacienteHC ||
+            servicio?.solicitanteInfo?.idSolicitante ||
             servicio?.idPacienteHC ||
             servicio?.idSolicitante ||
             '';
-        const startDate = normalizeIsoDate(legacy.fechaHoraContacto || servicio?.fechaHoraContacto);
+        const startDate = normalizeIsoDate(origenInfo.fechaHoraContacto || servicio?.fechaHoraContacto);
         const fechaFinRaw =
-            legacy.fechaHoraSaleD2 ||
+            destino2Info.fechaHoraSalida ||
             servicio?.fechaHoraSaleD2 ||
-            legacy.fechaHoraSaleD1 ||
+            destino1Info.fechaHoraSalida ||
             servicio?.fechaHoraSaleD1;
         const endDate = normalizeIsoDate(fechaFinRaw);
 
