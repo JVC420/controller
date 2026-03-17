@@ -1648,7 +1648,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         if (!id) return;
         const newRequest = {
             id,
-            estado: 'Pendiente',
+            estado: isEditing ? (initialData?.estado ?? 'Pendiente') : 'Pendiente',
             creadoAt: Timestamp.now(),
             tiempoEsperaMin: 0,
 
