@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, ClipboardList, Ambulance } from 'lucide-react';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { Timestamp, collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 const TAB_ITEMS = [
@@ -55,6 +55,7 @@ const INITIAL_FORM_DATA = {
     servicioProgramado: '',
     servicioSolicitado: '',
     numOrden: '',
+    esServicioParticular: false,
 
     // Opciones
     recordTraslado: false,
@@ -326,7 +327,7 @@ const OrderTab = ({
                     <FormInput label="Id. Solicitante" value={formData.idSolicitante} onChange={(v) => setField('idSolicitante', v)} />
                     <FormInput label="Solicitante" value={formData.solicitante} onChange={(v) => setField('solicitante', v)} />
                     <div className="md:col-span-2">
-                        <FormTextarea label="Observaciones Solicita" value={formData.observacionesSolicita} onChange={(v) => setField('observacionesSolicita', v)} />
+                        <FormTextarea label="Observaciones Solicitante" value={formData.observacionesSolicita} onChange={(v) => setField('observacionesSolicita', v)} />
                     </div>
                 </div>
             </FormSection>
@@ -347,8 +348,8 @@ const OrderTab = ({
                         options={branchOptions}
                         placeholder={formData.idEntidad ? 'Seleccione una sucursal...' : 'Primero seleccione una entidad'}
                     />
-                    <FormInput label="Nombre Entidad" value={formData.nombreEntidad || formData.entidadSolicitante} onChange={(v) => setField('nombreEntidad', v)} disabled />
-                    <FormInput label="Nombre Sucursal" value={formData.nombreSucursal || formData.sucursal} onChange={(v) => setField('nombreSucursal', v)} disabled />
+                    <div className="hidden"><FormInput label="Nombre Entidad" value={formData.nombreEntidad || formData.entidadSolicitante} onChange={(v) => setField('nombreEntidad', v)} disabled /></div>
+                    <div className="hidden"><FormInput label="Nombre Sucursal" value={formData.nombreSucursal || formData.sucursal} onChange={(v) => setField('nombreSucursal', v)} disabled /></div>
                 </div>
             </FormSection>
 
@@ -368,8 +369,6 @@ const OrderTab = ({
                         options={serviceTypeOptions}
                         placeholder="Seleccione una complejidad..."
                     />
-                    <FormInput label="Cod. Tipo Horario" value={formData.codTipoHorario} onChange={(v) => setField('codTipoHorario', v)} />
-                    <FormInput label="Tipo Horario" value={formData.tipoHorario} onChange={(v) => setField('tipoHorario', v)} />
                     <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 min-h-5">
                         {serviceTypesState.loading && (
                             <p className="text-xs text-blue-400">Cargando catálogo de complejidades...</p>
@@ -398,43 +397,44 @@ const OrderTab = ({
                             { value: 'No', label: 'No' },
                         ]}
                     />
-                    <FormInput
-                        label="Números de Autorización Adicionales"
-                        value={formData.numerosAutorizacionAdicionales}
-                        onChange={(v) => setField('numerosAutorizacionAdicionales', v)}
+                </div>
+                {formData.confirma === 'Si' && (
+                    <div className="mt-3">
+                        <FormInput
+                            label="Número Autorización"
+                            value={formData.numeroAutorizacion}
+                            onChange={(v) => setField('numeroAutorizacion', v)}
+                        />
+                    </div>
+                )}
+            </FormSection>
+
+            <FormSection title="Información de Pago">
+                <div className="mb-3">
+                    <CheckboxField
+                        label="¿Es un servicio particular?"
+                        checked={formData.esServicioParticular}
+                        onChange={(v) => setField('esServicioParticular', v)}
                     />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {formData.esServicioParticular ? (
+                        <FormInput label="Servicio Particular Valor" type="number" value={formData.servicioParticularValor} onChange={(v) => setField('servicioParticularValor', v)} />
+                    ) : (
+                        <FormInput label="Copago Valor" type="number" value={formData.copagoValor} onChange={(v) => setField('copagoValor', v)} />
+                    )}
+                </div>
+            </FormSection>
+
+            <FormSection title="Programación del Servicio">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <FormDateTime label="Servicio Programado" value={formData.servicioProgramado} onChange={(v) => setField('servicioProgramado', v)} />
+                    <FormDateTime label="Servicio Solicitado" value={formData.servicioSolicitado} onChange={(v) => setField('servicioSolicitado', v)} />
                 </div>
             </FormSection>
 
             <FormSection title="Observaciones">
-                <FormTextarea label="Observaciones" value={formData.observaciones} onChange={(v) => setField('observaciones', v)} rows={4} />
-            </FormSection>
-
-            <FormSection title="Información de autorización">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    <FormInput label="Número Autorización" value={formData.numeroAutorizacion} onChange={(v) => setField('numeroAutorizacion', v)} />
-                    <FormInput label="Copago Valor" type="number" value={formData.copagoValor} onChange={(v) => setField('copagoValor', v)} />
-                    <FormInput label="Servicio Particular Valor" type="number" value={formData.servicioParticularValor} onChange={(v) => setField('servicioParticularValor', v)} />
-                    <FormDateTime label="Servicio Programado (Fecha y Hora)" value={formData.servicioProgramado} onChange={(v) => setField('servicioProgramado', v)} />
-                    <FormDateTime label="Servicio Solicitado (Fecha y Hora)" value={formData.servicioSolicitado} onChange={(v) => setField('servicioSolicitado', v)} />
-                    <FormInput label="Num. Orden" value={formData.numOrden} onChange={(v) => setField('numOrden', v)} />
-                </div>
-            </FormSection>
-
-            <FormSection title="Opciones">
-                <div className="flex flex-wrap gap-6">
-                    <CheckboxField label="Record Traslado" checked={formData.recordTraslado} onChange={(v) => setField('recordTraslado', v)} />
-                    <CheckboxField label="Especial" checked={formData.especial} onChange={(v) => setField('especial', v)} />
-                </div>
-            </FormSection>
-
-            <FormSection title="Auditoría">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                    <FormInput label="Cod. Usuario Elabora" value={formData.codUsuarioElabora} onChange={(v) => setField('codUsuarioElabora', v)} />
-                    <FormInput label="Elaborado por" value={formData.elaboradoPor} onChange={(v) => setField('elaboradoPor', v)} />
-                    <FormInput label="Ingresado al sistema por" value={formData.ingresadoSistemaPor} onChange={(v) => setField('ingresadoSistemaPor', v)} />
-                    <FormInput label="Estado" value={formData.estado} onChange={(v) => setField('estado', v)} />
-                </div>
+                <FormTextarea value={formData.observaciones} onChange={(v) => setField('observaciones', v)} rows={4} />
             </FormSection>
 
         </div>
@@ -737,6 +737,21 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         });
     }, [selectedServiceType]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+
+        setFormData((prev) => ({
+            ...prev,
+            servicioProgramado: fmt(todayStart),
+            servicioSolicitado: fmt(now),
+        }));
+    }, [isOpen]);
+
     const canSubmit = useMemo(() => {
         return Boolean(formData.paciente && formData.descripcionOrigen && formData.descripcionDestino1);
     }, [formData.paciente, formData.descripcionOrigen, formData.descripcionDestino1]);
@@ -909,6 +924,12 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         e.preventDefault();
         if (!canSubmit) return;
 
+        const toTimestamp = (v) => {
+            if (!v) return null;
+            const d = new Date(v);
+            return isNaN(d.getTime()) ? null : Timestamp.fromDate(d);
+        };
+
         const id = getNextReqId();
         const newRequest = {
             id,
@@ -922,6 +943,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             nombreSucursal: formData.nombreSucursal || formData.sucursal || '',
             origen: formData.descripcionOrigen || formData.direccionOrigen || 'Origen no especificado',
             destino: formData.descripcionDestino1 || formData.direccionDestino1 || 'Destino no especificado',
+            servicioProgramado: toTimestamp(formData.servicioProgramado),
+            servicioSolicitado: toTimestamp(formData.servicioSolicitado),
             estado: 'Pendiente',
             tiempoEsperaMin: 0,
             legacyForm: { ...formData },
