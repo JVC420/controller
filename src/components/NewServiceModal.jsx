@@ -38,36 +38,24 @@ const INITIAL_FORM_DATA = {
     // Informacion del servicio
     codComplejidad: '',
     complejidad: '',
-    codTipoHorario: '',
-    tipoHorario: '',
 
     // Autorizaciones
-    confirma: '',
-    numerosAutorizacionAdicionales: '',
+    confirmaAutorizacion: '',
+    numeroAutorizacion: '',
 
     // Observaciones
     observaciones: '',
 
     // Informacion de autorizacion
-    numeroAutorizacion: '',
     copagoValor: '',
     servicioParticularValor: '',
     servicioProgramado: '',
     servicioSolicitado: '',
-    numOrden: '',
     esServicioParticular: false,
 
     // Opciones
-    recordTraslado: false,
-    especial: false,
 
     // Auditoria
-    codUsuarioElabora: '',
-    elaboradoPor: '',
-    ingresadoSistemaPor: '',
-    estado: 'Pendiente',
-
-    // TAB 2 - Diagnostico
     codCIE: '',
     buscarCIE: '',
     observacionesCIE: '',
@@ -87,8 +75,8 @@ const INITIAL_FORM_DATA = {
 
     // Destino 1
     idDestino1: '',
-    descripcionDestino1: '',
-    ubicacionObsDestino1: '',
+    nombreDestino1: '',
+    observacionesDestino1: '',
     direccionDestino1: '',
     ciudadDestino1: '',
     telefonoDestino1: '',
@@ -97,8 +85,8 @@ const INITIAL_FORM_DATA = {
 
     // Destino 2
     idDestino2: '',
-    descripcionDestino2: '',
-    ubicacionObsDestino2: '',
+    nombreDestino2: '',
+    observacionesDestino2: '',
     direccionDestino2: '',
     ciudadDestino2: '',
     telefonoDestino2: '',
@@ -109,8 +97,8 @@ const INITIAL_FORM_DATA = {
 
 const DESTINATION_2_FIELDS = {
     idDestino2: '',
-    descripcionDestino2: '',
-    ubicacionObsDestino2: '',
+    nombreDestino2: '',
+    observacionesDestino2: '',
     direccionDestino2: '',
     ciudadDestino2: '',
     telefonoDestino2: '',
@@ -324,6 +312,13 @@ const OrderTab = ({
                 </div>
             </FormSection>
 
+            <FormSection title="Programación del Servicio">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <FormDateTime label="Servicio Solicitado" value={formData.servicioSolicitado} onChange={(v) => setField('servicioSolicitado', v)} />
+                    <FormDateTime label="Servicio Programado" value={formData.servicioProgramado} onChange={(v) => setField('servicioProgramado', v)} />
+                </div>
+            </FormSection>
+
             <FormSection title="Solicitante">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <FormInput label="Id. Solicitante" value={formData.idSolicitante} onChange={(v) => setField('idSolicitante', v)} />
@@ -391,15 +386,15 @@ const OrderTab = ({
             <FormSection title="Autorizaciones">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <FormSelect
-                        label="Confirma"
-                        value={formData.confirma}
-                        onChange={(v) => setField('confirma', v)}
+                        label="Confirma Autorización"
+                        value={formData.confirmaAutorizacion}
+                        onChange={(v) => setField('confirmaAutorizacion', v)}
                         options={[
                             { value: 'Si', label: 'Sí' },
                             { value: 'No', label: 'No' },
                         ]}
                     />
-                    {formData.confirma === 'Si' && (
+                    {formData.confirmaAutorizacion === 'Si' && (
                         <FormInput
                             label="Número Autorización"
                             value={formData.numeroAutorizacion}
@@ -426,13 +421,6 @@ const OrderTab = ({
                 </div>
             </FormSection>
 
-            <FormSection title="Programación del Servicio">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <FormDateTime label="Servicio Programado" value={formData.servicioProgramado} onChange={(v) => setField('servicioProgramado', v)} />
-                    <FormDateTime label="Servicio Solicitado" value={formData.servicioSolicitado} onChange={(v) => setField('servicioSolicitado', v)} />
-                </div>
-            </FormSection>
-
             <FormSection title="Observaciones">
                 <FormTextarea value={formData.observaciones} onChange={(v) => setField('observaciones', v)} rows={4} />
             </FormSection>
@@ -448,6 +436,7 @@ const TransferTab = ({
     cieLookupState,
     showSecondDestination,
     originOptions,
+    origins,
     originsState,
     originLookupState,
     onOriginCodeKeyDown,
@@ -563,12 +552,90 @@ const TransferTab = ({
 
         <FormSection title="Destino 1">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                <FormInput label="Id. Destino 1" value={formData.idDestino1} onChange={(v) => setField('idDestino1', v)} />
-                <FormInput label="Descripción Destino 1" value={formData.descripcionDestino1} onChange={(v) => setField('descripcionDestino1', v)} />
-                <FormInput label="Ubicación / Observaciones Destino 1" value={formData.ubicacionObsDestino1} onChange={(v) => setField('ubicacionObsDestino1', v)} />
-                <FormInput label="Dirección Destino 1" value={formData.direccionDestino1} onChange={(v) => setField('direccionDestino1', v)} />
-                <FormInput label="Ciudad Destino 1" value={formData.ciudadDestino1} onChange={(v) => setField('ciudadDestino1', v)} />
-                <FormInput label="Teléfono Destino 1" value={formData.telefonoDestino1} onChange={(v) => setField('telefonoDestino1', v)} />
+                <FormInput
+                    label="Id. Destino 1"
+                    value={formData.idDestino1}
+                    onChange={(v) => setField('idDestino1', v)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const origin = origins.find((o) => normalizeLookupValue(o?.id) === normalizeLookupValue(formData.idDestino1));
+                            if (origin) {
+                                setField('idDestino1', String(origin?.id ?? ''));
+                                setField('nombreDestino1', String(origin?.name || origin?.reference || ''));
+                                setField('direccionDestino1', String(origin?.DIRECCIÓN || origin?.direccion || ''));
+                                setField('ciudadDestino1', String(origin?.CIUDAD || origin?.ciudad || ''));
+                                setField('telefonoDestino1', String(origin?.TELÉFONO || origin?.telefono || ''));
+                            }
+                        }
+                    }}
+                    placeholder="Escriba el código y presione Enter"
+                />
+                <FormSelect
+                    label="Destino 1"
+                    value={formData.idDestino1 === OTHER_ORIGIN_VALUE ? OTHER_ORIGIN_VALUE : formData.idDestino1}
+                    onChange={(originValue) => {
+                        if (!originValue) {
+                            setField('idDestino1', '');
+                            setField('nombreDestino1', '');
+                            setField('observacionesDestino1', '');
+                            setField('direccionDestino1', '');
+                            setField('ciudadDestino1', '');
+                            setField('telefonoDestino1', '');
+                            return;
+                        }
+
+                        if (originValue === OTHER_ORIGIN_VALUE) {
+                            setField('idDestino1', OTHER_ORIGIN_VALUE);
+                            setField('nombreDestino1', '');
+                            setField('observacionesDestino1', '');
+                            setField('direccionDestino1', '');
+                            setField('ciudadDestino1', '');
+                            setField('telefonoDestino1', '');
+                            return;
+                        }
+
+                        const origin = origins.find((o) => normalizeLookupValue(o?.id) === normalizeLookupValue(originValue));
+                        if (origin) {
+                            setField('idDestino1', String(origin?.id ?? ''));
+                            setField('nombreDestino1', String(origin?.name || origin?.reference || ''));
+                            setField('direccionDestino1', String(origin?.DIRECCIÓN || origin?.direccion || ''));
+                            setField('ciudadDestino1', String(origin?.CIUDAD || origin?.ciudad || ''));
+                            setField('telefonoDestino1', String(origin?.TELÉFONO || origin?.telefono || ''));
+                        }
+                    }}
+                    options={originOptions}
+                    placeholder="Seleccione un destino..."
+                />
+                <FormInput
+                    label="Nombre de destino 1"
+                    value={formData.nombreDestino1}
+                    onChange={(v) => setField('nombreDestino1', v)}
+                    disabled={formData.idDestino1 !== '' && formData.idDestino1 !== OTHER_ORIGIN_VALUE}
+                />
+                <FormInput
+                    label="Observaciones Destino 1"
+                    value={formData.observacionesDestino1}
+                    onChange={(v) => setField('observacionesDestino1', v)}
+                />
+                <FormInput
+                    label="Dirección Destino 1"
+                    value={formData.direccionDestino1}
+                    onChange={(v) => setField('direccionDestino1', v)}
+                    disabled={formData.idDestino1 !== '' && formData.idDestino1 !== OTHER_ORIGIN_VALUE}
+                />
+                <FormInput
+                    label="Ciudad Destino 1"
+                    value={formData.ciudadDestino1}
+                    onChange={(v) => setField('ciudadDestino1', v)}
+                    disabled={formData.idDestino1 !== '' && formData.idDestino1 !== OTHER_ORIGIN_VALUE}
+                />
+                <FormInput
+                    label="Teléfono Destino 1"
+                    value={formData.telefonoDestino1}
+                    onChange={(v) => setField('telefonoDestino1', v)}
+                    disabled={formData.idDestino1 !== '' && formData.idDestino1 !== OTHER_ORIGIN_VALUE}
+                />
                 <FormDateTime label="Fecha Hora Entrega D1" value={formData.fechaHoraEntregaD1} onChange={(v) => setField('fechaHoraEntregaD1', v)} />
                 <FormDateTime label="Fecha Hora Sale D1" value={formData.fechaHoraSaleD1} onChange={(v) => setField('fechaHoraSaleD1', v)} />
             </div>
@@ -577,12 +644,90 @@ const TransferTab = ({
         {showSecondDestination && (
             <FormSection title="Destino 2">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                    <FormInput label="Id. Destino 2" value={formData.idDestino2} onChange={(v) => setField('idDestino2', v)} />
-                    <FormInput label="Descripción Destino 2" value={formData.descripcionDestino2} onChange={(v) => setField('descripcionDestino2', v)} />
-                    <FormInput label="Ubicación / Observaciones Destino 2" value={formData.ubicacionObsDestino2} onChange={(v) => setField('ubicacionObsDestino2', v)} />
-                    <FormInput label="Dirección Destino 2" value={formData.direccionDestino2} onChange={(v) => setField('direccionDestino2', v)} />
-                    <FormInput label="Ciudad Destino 2" value={formData.ciudadDestino2} onChange={(v) => setField('ciudadDestino2', v)} />
-                    <FormInput label="Teléfono Destino 2" value={formData.telefonoDestino2} onChange={(v) => setField('telefonoDestino2', v)} />
+                    <FormInput
+                        label="Id. Destino 2"
+                        value={formData.idDestino2}
+                        onChange={(v) => setField('idDestino2', v)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const origin = origins.find((o) => normalizeLookupValue(o?.id) === normalizeLookupValue(formData.idDestino2));
+                                if (origin) {
+                                    setField('idDestino2', String(origin?.id ?? ''));
+                                    setField('nombreDestino2', String(origin?.name || origin?.reference || ''));
+                                    setField('direccionDestino2', String(origin?.DIRECCIÓN || origin?.direccion || ''));
+                                    setField('ciudadDestino2', String(origin?.CIUDAD || origin?.ciudad || ''));
+                                    setField('telefonoDestino2', String(origin?.TELÉFONO || origin?.telefono || ''));
+                                }
+                            }
+                        }}
+                        placeholder="Escriba el código y presione Enter"
+                    />
+                    <FormSelect
+                        label="Destino 2"
+                        value={formData.idDestino2 === OTHER_ORIGIN_VALUE ? OTHER_ORIGIN_VALUE : formData.idDestino2}
+                        onChange={(originValue) => {
+                            if (!originValue) {
+                                setField('idDestino2', '');
+                                setField('nombreDestino2', '');
+                                setField('observacionesDestino2', '');
+                                setField('direccionDestino2', '');
+                                setField('ciudadDestino2', '');
+                                setField('telefonoDestino2', '');
+                                return;
+                            }
+
+                            if (originValue === OTHER_ORIGIN_VALUE) {
+                                setField('idDestino2', OTHER_ORIGIN_VALUE);
+                                setField('nombreDestino2', '');
+                                setField('observacionesDestino2', '');
+                                setField('direccionDestino2', '');
+                                setField('ciudadDestino2', '');
+                                setField('telefonoDestino2', '');
+                                return;
+                            }
+
+                            const origin = origins.find((o) => normalizeLookupValue(o?.id) === normalizeLookupValue(originValue));
+                            if (origin) {
+                                setField('idDestino2', String(origin?.id ?? ''));
+                                setField('nombreDestino2', String(origin?.name || origin?.reference || ''));
+                                setField('direccionDestino2', String(origin?.DIRECCIÓN || origin?.direccion || ''));
+                                setField('ciudadDestino2', String(origin?.CIUDAD || origin?.ciudad || ''));
+                                setField('telefonoDestino2', String(origin?.TELÉFONO || origin?.telefono || ''));
+                            }
+                        }}
+                        options={originOptions}
+                        placeholder="Seleccione un destino..."
+                    />
+                    <FormInput
+                        label="Nombre de destino 2"
+                        value={formData.nombreDestino2}
+                        onChange={(v) => setField('nombreDestino2', v)}
+                        disabled={formData.idDestino2 !== '' && formData.idDestino2 !== OTHER_ORIGIN_VALUE}
+                    />
+                    <FormInput
+                        label="Observaciones Destino 2"
+                        value={formData.observacionesDestino2}
+                        onChange={(v) => setField('observacionesDestino2', v)}
+                    />
+                    <FormInput
+                        label="Dirección Destino 2"
+                        value={formData.direccionDestino2}
+                        onChange={(v) => setField('direccionDestino2', v)}
+                        disabled={formData.idDestino2 !== '' && formData.idDestino2 !== OTHER_ORIGIN_VALUE}
+                    />
+                    <FormInput
+                        label="Ciudad Destino 2"
+                        value={formData.ciudadDestino2}
+                        onChange={(v) => setField('ciudadDestino2', v)}
+                        disabled={formData.idDestino2 !== '' && formData.idDestino2 !== OTHER_ORIGIN_VALUE}
+                    />
+                    <FormInput
+                        label="Teléfono Destino 2"
+                        value={formData.telefonoDestino2}
+                        onChange={(v) => setField('telefonoDestino2', v)}
+                        disabled={formData.idDestino2 !== '' && formData.idDestino2 !== OTHER_ORIGIN_VALUE}
+                    />
                     <FormDateTime label="Fecha Hora Entrega D2" value={formData.fechaHoraEntregaD2} onChange={(v) => setField('fechaHoraEntregaD2', v)} />
                     <FormDateTime label="Fecha Hora Sale D2" value={formData.fechaHoraSaleD2} onChange={(v) => setField('fechaHoraSaleD2', v)} />
                 </div>
@@ -610,6 +755,7 @@ const ServiceOrderForm = ({
     onComplexityPickerChange,
     showSecondDestination,
     originOptions,
+    origins,
     originsState,
     originLookupState,
     onOriginCodeKeyDown,
@@ -644,6 +790,7 @@ const ServiceOrderForm = ({
                     cieLookupState={cieLookupState}
                     showSecondDestination={showSecondDestination}
                     originOptions={originOptions}
+                    origins={origins}
                     originsState={originsState}
                     originLookupState={originLookupState}
                     onOriginCodeKeyDown={onOriginCodeKeyDown}
@@ -797,6 +944,13 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     }, [isOpen]);
 
     useEffect(() => {
+        const scrollContainer = document.querySelector('.overflow-y-auto');
+        if (scrollContainer) {
+            scrollContainer.scrollTop = 0;
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
         if (!isOpen) return undefined;
 
         let cancelled = false;
@@ -901,8 +1055,32 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     }, [isOpen]);
 
     const canSubmit = useMemo(() => {
-        return Boolean(formData.paciente && formData.nombreOrigen && formData.descripcionDestino1);
-    }, [formData.paciente, formData.nombreOrigen, formData.descripcionDestino1]);
+        const validatorsMap = {
+            paciente: Boolean(formData.paciente?.trim()),
+            solicitante: Boolean(formData.solicitante?.trim()),
+            entidad: Boolean(formData.idEntidad?.trim()),
+            complejidad: Boolean(formData.codComplejidad?.trim()),
+            confirmaAutorizacion: Boolean(formData.confirmaAutorizacion?.trim()),
+            programacionProgramado: Boolean(formData.servicioProgramado?.trim()),
+            programacionSolicitado: Boolean(formData.servicioSolicitado?.trim()),
+            destinoNombre: Boolean(formData.nombreDestino1?.trim()),
+            diagnosticoCIE: Boolean(formData.codCIE?.trim()),
+            origenNombre: Boolean(formData.nombreOrigen?.trim()),
+        };
+
+        return Object.values(validatorsMap).every(Boolean);
+    }, [
+        formData.paciente,
+        formData.solicitante,
+        formData.idEntidad,
+        formData.codComplejidad,
+        formData.confirmaAutorizacion,
+        formData.servicioProgramado,
+        formData.servicioSolicitado,
+        formData.nombreDestino1,
+        formData.codCIE,
+        formData.nombreOrigen,
+    ]);
 
     if (!isOpen) return null;
     if (typeof document === 'undefined') return null;
@@ -1195,7 +1373,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             sucursal: formData.sucursal || formData.nombreSucursal || '',
             nombreSucursal: formData.nombreSucursal || formData.sucursal || '',
             origen: formData.nombreOrigen || formData.direccionOrigen || 'Origen no especificado',
-            destino: formData.descripcionDestino1 || formData.direccionDestino1 || 'Destino no especificado',
+            destino: formData.nombreDestino1 || formData.direccionDestino1 || 'Destino no especificado',
             servicioProgramado: toTimestamp(formData.servicioProgramado),
             servicioSolicitado: toTimestamp(formData.servicioSolicitado),
             estado: 'Pendiente',
@@ -1266,6 +1444,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         onComplexityPickerChange={handleComplexityPickerChange}
                         showSecondDestination={showSecondDestination}
                         originOptions={originOptions}
+                        origins={origins}
                         originsState={originsState}
                         originLookupState={originLookupState}
                         onOriginCodeKeyDown={handleOriginCodeKeyDown}
@@ -1285,7 +1464,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                             type="submit"
                             disabled={!canSubmit}
                             className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center justify-center gap-2 transition-colors"
-                            title="Requiere: Paciente, Nombre de origen y Descripción Destino 1"
+                            title="Requiere: Paciente, Solicitante, Entidad, Complejidad, Autorizaciones, Programación, Diagnóstico CIE, Origen y Destino"
                         >
                             <Send size={16} /> Crear y Enviar a Triage
                         </button>
