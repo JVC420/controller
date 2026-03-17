@@ -46,9 +46,39 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
 
     const normalizeIsoDate = (value) => {
         if (!value) return '';
-        const d = new Date(value);
+        // Handle Firestore Timestamp objects
+        let d;
+        if (typeof value.toDate === 'function') {
+            // It's a Firestore Timestamp
+            d = value.toDate();
+        } else {
+            // It's a string or number
+            d = new Date(value);
+        }
         if (Number.isNaN(d.getTime())) return '';
-        return d.toISOString();
+        
+        return formatBogotaLocal(d);
+    };
+
+    const formatBogotaLocal = (value) => {
+        if (!value) return '';
+        const d = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+        if (Number.isNaN(d.getTime())) return '';
+    
+        const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        }).formatToParts(d);
+    
+        const get = (type) => parts.find((p) => p.type === type)?.value || '';
+    
+        return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}`;
     };
 
     const buildHistoriaClinicaPayload = () => {
@@ -63,13 +93,8 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
             servicio?.idSolicitante ||
             '';
         const startDate = normalizeIsoDate(origenInfo.fechaHoraContacto || servicio?.fechaHoraContacto);
-        const fechaFinRaw =
-            destino2Info.fechaHoraSalida ||
-            servicio?.fechaHoraSaleD2 ||
-            destino1Info.fechaHoraSalida ||
-            servicio?.fechaHoraSaleD1;
-        const endDate = normalizeIsoDate(fechaFinRaw);
-
+        const endDate = normalizeIsoDate(destino2Info.fechaHoraSalida || destino1Info.fechaHoraSalida);
+        console.log('Payload para historia clínica:', { idPaciente, startDate, endDate });
         return {
             idPaciente,
             startDate,

@@ -524,7 +524,6 @@ const OrderTab = ({
 const TransferTab = ({
     formData,
     setField,
-    onCieKeyDown,
     cieLookupState,
     showSecondDestination,
     originOptions,
@@ -541,9 +540,8 @@ const TransferTab = ({
                 <FormInput
                     label="Cod. CIE"
                     value={formData.codCIE}
-                    onChange={(v) => setField('codCIE', v.toUpperCase())}
-                    onKeyDown={onCieKeyDown}
-                    placeholder="Escriba el código y presione Enter"
+                    onChange={(v) => setField('codCIE', v)}
+                    placeholder="Escriba el código CIE"
                 />
                 <FormInput
                     label="Nombre CIE"
@@ -838,7 +836,6 @@ const ServiceOrderForm = ({
     selectedBranchValue,
     onEntityChange,
     onBranchChange,
-    onCieKeyDown,
     cieLookupState,
     serviceTypeOptions,
     serviceTypesState,
@@ -887,7 +884,6 @@ const ServiceOrderForm = ({
                     <TransferTab
                         formData={formData}
                         setField={setField}
-                        onCieKeyDown={onCieKeyDown}
                         cieLookupState={cieLookupState}
                         showSecondDestination={showSecondDestination}
                         originOptions={originOptions}
@@ -917,6 +913,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [originLookupState, setOriginLookupState] = useState({ error: '', success: false });
     const [submitError, setSubmitError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const cieLookupDebounceRef = useRef(null);
+    const cieLookupRequestRef = useRef(0);
 
     const entityOptions = useMemo(() => {
         return [...clientes]
@@ -1313,15 +1311,20 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         setComplexityLookupState({ error: '', success: true });
     };
 
-    const handleCieLookup = async () => {
-        const cieCode = String(formData.codCIE || '').trim().toUpperCase();
+    const handleCieLookup = async ({ cieCodeOverride, showEmptyError = true } = {}) => {
+        const cieCode = String(cieCodeOverride ?? formData.codCIE ?? '').trim().toUpperCase();
 
         if (!cieCode) {
-            setCieLookupState({ loading: false, error: 'Ingrese un código CIE para buscar.', success: false });
+            setCieLookupState({
+                loading: false,
+                error: showEmptyError ? 'Ingrese un código CIE para buscar.' : '',
+                success: false,
+            });
             setFormData((prev) => ({ ...prev, buscarCIE: '' }));
             return;
         }
 
+        const requestId = ++cieLookupRequestRef.current;
         setCieLookupState({ loading: true, error: '', success: false });
 
         try {
@@ -1331,6 +1334,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                 limit(1)
             );
             const snapshot = await getDocs(cieQuery);
+            if (requestId !== cieLookupRequestRef.current) return;
 
             if (snapshot.empty) {
                 setFormData((prev) => ({ ...prev, buscarCIE: '' }));
@@ -1348,6 +1352,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             }));
             setCieLookupState({ loading: false, error: '', success: true });
         } catch (error) {
+            if (requestId !== cieLookupRequestRef.current) return;
             setFormData((prev) => ({ ...prev, buscarCIE: '' }));
             setCieLookupState({
                 loading: false,
@@ -1357,11 +1362,30 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         }
     };
 
-    const handleCieKeyDown = async (event) => {
-        if (event.key !== 'Enter') return;
-        event.preventDefault();
-        await handleCieLookup();
-    };
+    useEffect(() => {
+        if (!isOpen) return;
+
+        if (cieLookupDebounceRef.current) {
+            clearTimeout(cieLookupDebounceRef.current);
+        }
+
+        const cieCode = String(formData.codCIE || '').trim().toUpperCase();
+        if (!cieCode) {
+            setFormData((prev) => (prev.buscarCIE ? { ...prev, buscarCIE: '' } : prev));
+            setCieLookupState({ loading: false, error: '', success: false });
+            return;
+        }
+
+        cieLookupDebounceRef.current = setTimeout(() => {
+            handleCieLookup({ cieCodeOverride: cieCode, showEmptyError: false });
+        }, 350);
+
+        return () => {
+            if (cieLookupDebounceRef.current) {
+                clearTimeout(cieLookupDebounceRef.current);
+            }
+        };
+    }, [formData.codCIE, isOpen]);
 
     const handleComplexityCodeLookup = async () => {
         const complexityCode = normalizeLookupValue(formData.codComplejidad);
@@ -1772,7 +1796,6 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         selectedBranchValue={selectedBranchKey}
                         onEntityChange={handleEntityChange}
                         onBranchChange={handleBranchChange}
-                        onCieKeyDown={handleCieKeyDown}
                         cieLookupState={cieLookupState}
                         serviceTypeOptions={serviceTypeOptions}
                         serviceTypesState={serviceTypesState}
