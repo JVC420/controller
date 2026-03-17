@@ -333,7 +333,7 @@ const OrderTab = ({
             </FormSection>
 
             <FormSection title="Entidad">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <FormSelect
                         label="Entidad"
                         value={formData.idEntidad}
@@ -354,7 +354,7 @@ const OrderTab = ({
             </FormSection>
 
             <FormSection title="Información del servicio">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <FormInput
                         label="Cod. Complejidad"
                         value={formData.codComplejidad}
@@ -369,7 +369,7 @@ const OrderTab = ({
                         options={serviceTypeOptions}
                         placeholder="Seleccione una complejidad..."
                     />
-                    <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 min-h-5">
+                    <div className="md:col-span-2 min-h-5">
                         {serviceTypesState.loading && (
                             <p className="text-xs text-blue-400">Cargando catálogo de complejidades...</p>
                         )}
@@ -397,32 +397,30 @@ const OrderTab = ({
                             { value: 'No', label: 'No' },
                         ]}
                     />
-                </div>
-                {formData.confirma === 'Si' && (
-                    <div className="mt-3">
+                    {formData.confirma === 'Si' && (
                         <FormInput
                             label="Número Autorización"
                             value={formData.numeroAutorizacion}
                             onChange={(v) => setField('numeroAutorizacion', v)}
                         />
-                    </div>
-                )}
+                    )}
+                </div>
             </FormSection>
 
             <FormSection title="Información de Pago">
-                <div className="mb-3">
-                    <CheckboxField
-                        label="¿Es un servicio particular?"
-                        checked={formData.esServicioParticular}
-                        onChange={(v) => setField('esServicioParticular', v)}
-                    />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
                     {formData.esServicioParticular ? (
                         <FormInput label="Servicio Particular Valor" type="number" value={formData.servicioParticularValor} onChange={(v) => setField('servicioParticularValor', v)} />
                     ) : (
                         <FormInput label="Copago Valor" type="number" value={formData.copagoValor} onChange={(v) => setField('copagoValor', v)} />
                     )}
+                    <div className="flex items-end pb-1">
+                        <CheckboxField
+                            label="¿Es un servicio particular?"
+                            checked={formData.esServicioParticular}
+                            onChange={(v) => setField('esServicioParticular', v)}
+                        />
+                    </div>
                 </div>
             </FormSection>
 
