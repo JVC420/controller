@@ -106,6 +106,17 @@ const INITIAL_FORM_DATA = {
 
 };
 
+const DESTINATION_2_FIELDS = {
+    idDestino2: '',
+    descripcionDestino2: '',
+    ubicacionObsDestino2: '',
+    direccionDestino2: '',
+    ciudadDestino2: '',
+    telefonoDestino2: '',
+    fechaHoraEntregaD2: '',
+    fechaHoraSaleD2: '',
+};
+
 const baseFieldClass =
     'w-full bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[13px] text-white focus:outline-none focus:border-blue-500';
 
@@ -137,6 +148,8 @@ const calculateAge = (birthDate) => {
     return { edad: String(years), tipoEdad: 'Años' };
 };
 
+const normalizeLookupValue = (value) => String(value ?? '').trim().toLowerCase();
+
 const FormSection = ({ title, children, className = '' }) => (
     <section className={`${sectionClass} ${className}`}>
         <h3 className="text-xs md:text-sm font-bold text-slate-200 mb-2.5 tracking-wide">{title}</h3>
@@ -154,6 +167,7 @@ const FormInput = ({
     className = '',
     onKeyDown,
     readOnly = false,
+    list,
 }) => (
     <div className={className}>
         <label className="block text-[11px] font-semibold text-slate-400 mb-1">{label}</label>
@@ -162,6 +176,7 @@ const FormInput = ({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
+            list={list}
             placeholder={placeholder}
             disabled={disabled}
             readOnly={readOnly}
@@ -250,6 +265,11 @@ const OrderTab = ({
     selectedBranchValue,
     onEntityChange,
     onBranchChange,
+    serviceTypeOptions,
+    serviceTypesState,
+    complexityLookupState,
+    onComplexityCodeKeyDown,
+    onComplexityPickerChange,
 }) => {
     const identityOptions = [
         { value: 'CC', label: 'CC' },
@@ -334,10 +354,36 @@ const OrderTab = ({
 
             <FormSection title="Información del servicio">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                    <FormInput label="Cod. Complejidad" value={formData.codComplejidad} onChange={(v) => setField('codComplejidad', v)} />
-                    <FormInput label="Complejidad" value={formData.complejidad} onChange={(v) => setField('complejidad', v)} />
+                    <FormInput
+                        label="Cod. Complejidad"
+                        value={formData.codComplejidad}
+                        onChange={(v) => setField('codComplejidad', v)}
+                        onKeyDown={onComplexityCodeKeyDown}
+                        placeholder="Escriba el código y presione Enter"
+                    />
+                    <FormSelect
+                        label="Complejidad"
+                        value={formData.codComplejidad}
+                        onChange={onComplexityPickerChange}
+                        options={serviceTypeOptions}
+                        placeholder="Seleccione una complejidad..."
+                    />
                     <FormInput label="Cod. Tipo Horario" value={formData.codTipoHorario} onChange={(v) => setField('codTipoHorario', v)} />
                     <FormInput label="Tipo Horario" value={formData.tipoHorario} onChange={(v) => setField('tipoHorario', v)} />
+                    <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 min-h-5">
+                        {serviceTypesState.loading && (
+                            <p className="text-xs text-blue-400">Cargando catálogo de complejidades...</p>
+                        )}
+                        {!serviceTypesState.loading && serviceTypesState.error && (
+                            <p className="text-xs text-red-400">{serviceTypesState.error}</p>
+                        )}
+                        {!serviceTypesState.loading && !serviceTypesState.error && complexityLookupState.error && (
+                            <p className="text-xs text-red-400">{complexityLookupState.error}</p>
+                        )}
+                        {!serviceTypesState.loading && !serviceTypesState.error && complexityLookupState.success && (
+                            <p className="text-xs text-emerald-400">Complejidad autocompletada correctamente.</p>
+                        )}
+                    </div>
                 </div>
             </FormSection>
 
@@ -395,7 +441,7 @@ const OrderTab = ({
     );
 };
 
-const TransferTab = ({ formData, setField, onCieKeyDown, cieLookupState }) => (
+const TransferTab = ({ formData, setField, onCieKeyDown, cieLookupState, showSecondDestination }) => (
     <div className="space-y-4">
         <FormSection title="Diagnóstico">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -465,18 +511,20 @@ const TransferTab = ({ formData, setField, onCieKeyDown, cieLookupState }) => (
             </div>
         </FormSection>
 
-        <FormSection title="Destino 2">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                <FormInput label="Id. Destino 2" value={formData.idDestino2} onChange={(v) => setField('idDestino2', v)} />
-                <FormInput label="Descripción Destino 2" value={formData.descripcionDestino2} onChange={(v) => setField('descripcionDestino2', v)} />
-                <FormInput label="Ubicación / Observaciones Destino 2" value={formData.ubicacionObsDestino2} onChange={(v) => setField('ubicacionObsDestino2', v)} />
-                <FormInput label="Dirección Destino 2" value={formData.direccionDestino2} onChange={(v) => setField('direccionDestino2', v)} />
-                <FormInput label="Ciudad Destino 2" value={formData.ciudadDestino2} onChange={(v) => setField('ciudadDestino2', v)} />
-                <FormInput label="Teléfono Destino 2" value={formData.telefonoDestino2} onChange={(v) => setField('telefonoDestino2', v)} />
-                <FormDateTime label="Fecha Hora Entrega D2" value={formData.fechaHoraEntregaD2} onChange={(v) => setField('fechaHoraEntregaD2', v)} />
-                <FormDateTime label="Fecha Hora Sale D2" value={formData.fechaHoraSaleD2} onChange={(v) => setField('fechaHoraSaleD2', v)} />
-            </div>
-        </FormSection>
+        {showSecondDestination && (
+            <FormSection title="Destino 2">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                    <FormInput label="Id. Destino 2" value={formData.idDestino2} onChange={(v) => setField('idDestino2', v)} />
+                    <FormInput label="Descripción Destino 2" value={formData.descripcionDestino2} onChange={(v) => setField('descripcionDestino2', v)} />
+                    <FormInput label="Ubicación / Observaciones Destino 2" value={formData.ubicacionObsDestino2} onChange={(v) => setField('ubicacionObsDestino2', v)} />
+                    <FormInput label="Dirección Destino 2" value={formData.direccionDestino2} onChange={(v) => setField('direccionDestino2', v)} />
+                    <FormInput label="Ciudad Destino 2" value={formData.ciudadDestino2} onChange={(v) => setField('ciudadDestino2', v)} />
+                    <FormInput label="Teléfono Destino 2" value={formData.telefonoDestino2} onChange={(v) => setField('telefonoDestino2', v)} />
+                    <FormDateTime label="Fecha Hora Entrega D2" value={formData.fechaHoraEntregaD2} onChange={(v) => setField('fechaHoraEntregaD2', v)} />
+                    <FormDateTime label="Fecha Hora Sale D2" value={formData.fechaHoraSaleD2} onChange={(v) => setField('fechaHoraSaleD2', v)} />
+                </div>
+            </FormSection>
+        )}
     </div>
 );
 
@@ -492,6 +540,12 @@ const ServiceOrderForm = ({
     onBranchChange,
     onCieKeyDown,
     cieLookupState,
+    serviceTypeOptions,
+    serviceTypesState,
+    complexityLookupState,
+    onComplexityCodeKeyDown,
+    onComplexityPickerChange,
+    showSecondDestination,
 }) => (
     <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-x-hidden">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -506,6 +560,11 @@ const ServiceOrderForm = ({
                     selectedBranchValue={selectedBranchValue}
                     onEntityChange={onEntityChange}
                     onBranchChange={onBranchChange}
+                    serviceTypeOptions={serviceTypeOptions}
+                    serviceTypesState={serviceTypesState}
+                    complexityLookupState={complexityLookupState}
+                    onComplexityCodeKeyDown={onComplexityCodeKeyDown}
+                    onComplexityPickerChange={onComplexityPickerChange}
                 />
             )}
             {activeTab === 'transfer' && (
@@ -514,6 +573,7 @@ const ServiceOrderForm = ({
                     setField={setField}
                     onCieKeyDown={onCieKeyDown}
                     cieLookupState={cieLookupState}
+                    showSecondDestination={showSecondDestination}
                 />
             )}
         </div>
@@ -525,6 +585,9 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
     const [selectedBranchKey, setSelectedBranchKey] = useState('');
     const [cieLookupState, setCieLookupState] = useState({ loading: false, error: '', success: false });
+    const [serviceTypes, setServiceTypes] = useState([]);
+    const [serviceTypesState, setServiceTypesState] = useState({ loading: false, error: '' });
+    const [complexityLookupState, setComplexityLookupState] = useState({ error: '', success: false });
 
     const entityOptions = useMemo(() => {
         return [...clientes]
@@ -577,6 +640,39 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         }));
     }, [normalizedBranches]);
 
+    const serviceTypeOptions = useMemo(() => {
+        return [...serviceTypes]
+            .sort((a, b) => String(a?.Name || '').localeCompare(String(b?.Name || '')))
+            .map((serviceType) => ({
+                value: String(serviceType?.Id ?? ''),
+                label: String(serviceType?.Name || ''),
+            }));
+    }, [serviceTypes]);
+
+    const serviceTypesByCode = useMemo(() => {
+        const map = new Map();
+        serviceTypes.forEach((serviceType) => {
+            map.set(normalizeLookupValue(serviceType?.Id), serviceType);
+        });
+        return map;
+    }, [serviceTypes]);
+
+    const serviceTypesByName = useMemo(() => {
+        const map = new Map();
+        serviceTypes.forEach((serviceType) => {
+            map.set(normalizeLookupValue(serviceType?.Name), serviceType);
+        });
+        return map;
+    }, [serviceTypes]);
+
+    const selectedServiceType = useMemo(() => {
+        const byCode = serviceTypesByCode.get(normalizeLookupValue(formData.codComplejidad));
+        if (byCode) return byCode;
+        return serviceTypesByName.get(normalizeLookupValue(formData.complejidad)) || null;
+    }, [formData.codComplejidad, formData.complejidad, serviceTypesByCode, serviceTypesByName]);
+
+    const showSecondDestination = !selectedServiceType?.isSencillo;
+
     useEffect(() => {
         if (!isOpen || typeof document === 'undefined') return undefined;
 
@@ -587,6 +683,59 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             document.body.style.overflow = prevOverflow;
         };
     }, [isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        let cancelled = false;
+
+        const loadServiceTypes = async () => {
+            setServiceTypesState({ loading: true, error: '' });
+
+            try {
+                const snapshot = await getDocs(collection(db, 'ServiceTypes'));
+                if (cancelled) return;
+
+                const nextServiceTypes = snapshot.docs
+                    .map((doc) => doc.data())
+                    .filter((serviceType) => serviceType?.Id !== undefined && serviceType?.Name);
+
+                setServiceTypes(nextServiceTypes);
+                setServiceTypesState({ loading: false, error: '' });
+            } catch (error) {
+                if (cancelled) return;
+
+                setServiceTypes([]);
+                setServiceTypesState({
+                    loading: false,
+                    error: error?.message || 'No se pudo cargar el catálogo de complejidades.',
+                });
+            }
+        };
+
+        loadServiceTypes();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
+        if (!selectedServiceType?.isSencillo) return;
+
+        setFormData((prev) => {
+            const hasDestination2Data = Object.keys(DESTINATION_2_FIELDS).some(
+                (field) => String(prev[field] || '').trim() !== ''
+            );
+
+            if (!hasDestination2Data) return prev;
+
+            return {
+                ...prev,
+                ...DESTINATION_2_FIELDS,
+            };
+        });
+    }, [selectedServiceType]);
 
     const canSubmit = useMemo(() => {
         return Boolean(formData.paciente && formData.descripcionOrigen && formData.descripcionDestino1);
@@ -600,6 +749,19 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         if (field === 'codCIE') {
             setCieLookupState({ loading: false, error: '', success: false });
         }
+        if (field === 'codComplejidad' || field === 'complejidad') {
+            setComplexityLookupState({ error: '', success: false });
+        }
+    };
+
+    const applyServiceTypeSelection = (serviceType) => {
+        setFormData((prev) => ({
+            ...prev,
+            codComplejidad: String(serviceType?.Id ?? ''),
+            complejidad: String(serviceType?.Name || ''),
+            ...(serviceType?.isSencillo ? DESTINATION_2_FIELDS : {}),
+        }));
+        setComplexityLookupState({ error: '', success: true });
     };
 
     const handleCieLookup = async () => {
@@ -650,6 +812,66 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         if (event.key !== 'Enter') return;
         event.preventDefault();
         await handleCieLookup();
+    };
+
+    const handleComplexityCodeLookup = async () => {
+        const complexityCode = normalizeLookupValue(formData.codComplejidad);
+
+        if (!complexityCode) {
+            setFormData((prev) => ({ ...prev, complejidad: '' }));
+            setComplexityLookupState({ error: 'Ingrese un código de complejidad para buscar.', success: false });
+            return;
+        }
+
+        if (serviceTypesState.loading) {
+            setComplexityLookupState({ error: 'El catálogo de complejidades todavía se está cargando.', success: false });
+            return;
+        }
+
+        if (serviceTypesState.error) {
+            setComplexityLookupState({ error: serviceTypesState.error, success: false });
+            return;
+        }
+
+        const serviceType = serviceTypesByCode.get(complexityCode);
+
+        if (!serviceType) {
+            setFormData((prev) => ({ ...prev, complejidad: '' }));
+            setComplexityLookupState({
+                error: `No se encontró la complejidad con código ${String(formData.codComplejidad).trim()}.`,
+                success: false,
+            });
+            return;
+        }
+
+        applyServiceTypeSelection(serviceType);
+    };
+
+    const handleComplexityCodeKeyDown = async (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        await handleComplexityCodeLookup();
+    };
+
+    const handleComplexityPickerChange = (complexityCode) => {
+        if (!complexityCode) {
+            setFormData((prev) => ({
+                ...prev,
+                codComplejidad: '',
+                complejidad: '',
+            }));
+            setComplexityLookupState({ error: '', success: false });
+            return;
+        }
+
+        const serviceType = serviceTypesByCode.get(normalizeLookupValue(complexityCode));
+
+        if (!serviceType) {
+            setComplexityLookupState({ error: 'La complejidad seleccionada no es válida.', success: false });
+            return;
+        }
+
+        applyServiceTypeSelection(serviceType);
     };
 
     const handleEntityChange = (entityId) => {
@@ -709,6 +931,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         setFormData(INITIAL_FORM_DATA);
         setSelectedBranchKey('');
         setCieLookupState({ loading: false, error: '', success: false });
+        setComplexityLookupState({ error: '', success: false });
         setActiveTab('order');
         onClose();
     };
@@ -759,6 +982,12 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         onBranchChange={handleBranchChange}
                         onCieKeyDown={handleCieKeyDown}
                         cieLookupState={cieLookupState}
+                        serviceTypeOptions={serviceTypeOptions}
+                        serviceTypesState={serviceTypesState}
+                        complexityLookupState={complexityLookupState}
+                        onComplexityCodeKeyDown={handleComplexityCodeKeyDown}
+                        onComplexityPickerChange={handleComplexityPickerChange}
+                        showSecondDestination={showSecondDestination}
                     />
 
                     <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
