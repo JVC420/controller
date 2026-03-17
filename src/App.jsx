@@ -12,6 +12,7 @@ import NewServiceModal from './components/NewServiceModal';
 import HistoryView from './components/HistoryView';
 import MetricsDashboard from './components/MetricsDashboard';
 import PersonnelView from './components/PersonnelView';
+import SupportChatbot from './components/SupportChatbot';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useAuth, ROLES } from './contexts/AuthContext';
 import UnauthorizedPage from './components/UnauthorizedPage';
@@ -288,6 +289,7 @@ function AppLayout() {
           getNextReqId={getNextReqId}
         />
       )}
+      <SupportChatbot />
       <ToastContainer toasts={toasts} dismiss={dismissToast} />
     </DndContext>
   );
