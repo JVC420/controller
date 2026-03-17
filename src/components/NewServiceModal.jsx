@@ -77,8 +77,8 @@ const INITIAL_FORM_DATA = {
 
     // Origen
     idOrigen: '',
-    descripcionOrigen: '',
-    ubicacionObsOrigen: '',
+    nombreOrigen: '',
+    observacionesOrigen: '',
     direccionOrigen: '',
     ciudadOrigen: '',
     telefonoOrigen: '',
@@ -150,6 +150,8 @@ const calculateAge = (birthDate) => {
 };
 
 const normalizeLookupValue = (value) => String(value ?? '').trim().toLowerCase();
+
+const OTHER_ORIGIN_VALUE = 'otro';
 
 const FormSection = ({ title, children, className = '' }) => (
     <section className={`${sectionClass} ${className}`}>
@@ -439,7 +441,19 @@ const OrderTab = ({
     );
 };
 
-const TransferTab = ({ formData, setField, onCieKeyDown, cieLookupState, showSecondDestination }) => (
+const TransferTab = ({
+    formData,
+    setField,
+    onCieKeyDown,
+    cieLookupState,
+    showSecondDestination,
+    originOptions,
+    originsState,
+    originLookupState,
+    onOriginCodeKeyDown,
+    onOriginPickerChange,
+    isManualOrigin,
+}) => (
     <div className="space-y-4">
         <FormSection title="Diagnóstico">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -485,14 +499,65 @@ const TransferTab = ({ formData, setField, onCieKeyDown, cieLookupState, showSec
 
         <FormSection title="Origen">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                <FormInput label="Id. Origen" value={formData.idOrigen} onChange={(v) => setField('idOrigen', v)} />
-                <FormInput label="Descripción Origen" value={formData.descripcionOrigen} onChange={(v) => setField('descripcionOrigen', v)} />
-                <FormInput label="Ubicación / Observaciones Origen" value={formData.ubicacionObsOrigen} onChange={(v) => setField('ubicacionObsOrigen', v)} />
-                <FormInput label="Dirección Origen" value={formData.direccionOrigen} onChange={(v) => setField('direccionOrigen', v)} />
-                <FormInput label="Ciudad Origen" value={formData.ciudadOrigen} onChange={(v) => setField('ciudadOrigen', v)} />
-                <FormInput label="Teléfono Origen" value={formData.telefonoOrigen} onChange={(v) => setField('telefonoOrigen', v)} />
+                <FormInput
+                    label="Id. Origen"
+                    value={formData.idOrigen}
+                    onChange={(v) => setField('idOrigen', v)}
+                    onKeyDown={onOriginCodeKeyDown}
+                    placeholder="Escriba el código y presione Enter"
+                />
+                <FormSelect
+                    label="Origen"
+                    value={isManualOrigin ? OTHER_ORIGIN_VALUE : formData.idOrigen}
+                    onChange={onOriginPickerChange}
+                    options={originOptions}
+                    placeholder="Seleccione un origen..."
+                />
+                <FormInput
+                    label="Nombre de origen"
+                    value={formData.nombreOrigen}
+                    onChange={(v) => setField('nombreOrigen', v)}
+                    disabled={!isManualOrigin}
+                />
+                <FormInput
+                    label="Observaciones Origen"
+                    value={formData.observacionesOrigen}
+                    onChange={(v) => setField('observacionesOrigen', v)}
+                />
+                <FormInput
+                    label="Dirección Origen"
+                    value={formData.direccionOrigen}
+                    onChange={(v) => setField('direccionOrigen', v)}
+                    disabled={!isManualOrigin}
+                />
+                <FormInput
+                    label="Ciudad Origen"
+                    value={formData.ciudadOrigen}
+                    onChange={(v) => setField('ciudadOrigen', v)}
+                    disabled={!isManualOrigin}
+                />
+                <FormInput
+                    label="Teléfono Origen"
+                    value={formData.telefonoOrigen}
+                    onChange={(v) => setField('telefonoOrigen', v)}
+                    disabled={!isManualOrigin}
+                />
                 <FormDateTime label="Fecha Hora Contacto" value={formData.fechaHoraContacto} onChange={(v) => setField('fechaHoraContacto', v)} />
                 <FormDateTime label="Fecha Hora Sale Origen" value={formData.fechaHoraSaleOrigen} onChange={(v) => setField('fechaHoraSaleOrigen', v)} />
+                <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 min-h-5">
+                    {originsState.loading && (
+                        <p className="text-xs text-blue-400">Cargando catálogo de orígenes...</p>
+                    )}
+                    {!originsState.loading && originsState.error && (
+                        <p className="text-xs text-red-400">{originsState.error}</p>
+                    )}
+                    {!originsState.loading && !originsState.error && originLookupState.error && (
+                        <p className="text-xs text-red-400">{originLookupState.error}</p>
+                    )}
+                    {!originsState.loading && !originsState.error && originLookupState.success && (
+                        <p className="text-xs text-emerald-400">Origen autocompletado correctamente.</p>
+                    )}
+                </div>
             </div>
         </FormSection>
 
@@ -544,6 +609,12 @@ const ServiceOrderForm = ({
     onComplexityCodeKeyDown,
     onComplexityPickerChange,
     showSecondDestination,
+    originOptions,
+    originsState,
+    originLookupState,
+    onOriginCodeKeyDown,
+    onOriginPickerChange,
+    isManualOrigin,
 }) => (
     <div className="flex-1 min-h-0 flex flex-col gap-3 overflow-x-hidden">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -572,6 +643,12 @@ const ServiceOrderForm = ({
                     onCieKeyDown={onCieKeyDown}
                     cieLookupState={cieLookupState}
                     showSecondDestination={showSecondDestination}
+                    originOptions={originOptions}
+                    originsState={originsState}
+                    originLookupState={originLookupState}
+                    onOriginCodeKeyDown={onOriginCodeKeyDown}
+                    onOriginPickerChange={onOriginPickerChange}
+                    isManualOrigin={isManualOrigin}
                 />
             )}
         </div>
@@ -586,6 +663,9 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [serviceTypes, setServiceTypes] = useState([]);
     const [serviceTypesState, setServiceTypesState] = useState({ loading: false, error: '' });
     const [complexityLookupState, setComplexityLookupState] = useState({ error: '', success: false });
+    const [origins, setOrigins] = useState([]);
+    const [originsState, setOriginsState] = useState({ loading: false, error: '' });
+    const [originLookupState, setOriginLookupState] = useState({ error: '', success: false });
 
     const entityOptions = useMemo(() => {
         return [...clientes]
@@ -663,6 +743,40 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         return map;
     }, [serviceTypes]);
 
+    const originOptions = useMemo(() => {
+        const catalogOptions = [...origins]
+            .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
+            .map((origin) => ({
+                value: String(origin?.id ?? ''),
+                label: String(origin?.name || origin?.reference || origin?.id || ''),
+            }));
+
+        return [{ value: OTHER_ORIGIN_VALUE, label: 'Otro' }, ...catalogOptions];
+    }, [origins]);
+
+    const originsByCode = useMemo(() => {
+        const map = new Map();
+        origins.forEach((origin) => {
+            map.set(normalizeLookupValue(origin?.id), origin);
+        });
+        return map;
+    }, [origins]);
+
+    const originsByName = useMemo(() => {
+        const map = new Map();
+        origins.forEach((origin) => {
+            const nameKey = normalizeLookupValue(origin?.name || origin?.reference);
+            if (nameKey) map.set(nameKey, origin);
+        });
+        return map;
+    }, [origins]);
+
+    const isManualOrigin = useMemo(() => {
+        return normalizeLookupValue(formData.idOrigen) === OTHER_ORIGIN_VALUE || (
+            !formData.idOrigen && !originsByName.has(normalizeLookupValue(formData.nombreOrigen))
+        );
+    }, [formData.idOrigen, formData.nombreOrigen, originsByName]);
+
     const selectedServiceType = useMemo(() => {
         const byCode = serviceTypesByCode.get(normalizeLookupValue(formData.codComplejidad));
         if (byCode) return byCode;
@@ -719,6 +833,42 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     }, [isOpen]);
 
     useEffect(() => {
+        if (!isOpen) return undefined;
+
+        let cancelled = false;
+
+        const loadOrigins = async () => {
+            setOriginsState({ loading: true, error: '' });
+
+            try {
+                const snapshot = await getDocs(collection(db, 'origenes'));
+                if (cancelled) return;
+
+                const nextOrigins = snapshot.docs
+                    .map((doc) => doc.data())
+                    .filter((origin) => origin?.id !== undefined && (origin?.name || origin?.reference));
+
+                setOrigins(nextOrigins);
+                setOriginsState({ loading: false, error: '' });
+            } catch (error) {
+                if (cancelled) return;
+
+                setOrigins([]);
+                setOriginsState({
+                    loading: false,
+                    error: error?.message || 'No se pudo cargar el catálogo de orígenes.',
+                });
+            }
+        };
+
+        loadOrigins();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen]);
+
+    useEffect(() => {
         if (!selectedServiceType?.isSencillo) return;
 
         setFormData((prev) => {
@@ -751,8 +901,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     }, [isOpen]);
 
     const canSubmit = useMemo(() => {
-        return Boolean(formData.paciente && formData.descripcionOrigen && formData.descripcionDestino1);
-    }, [formData.paciente, formData.descripcionOrigen, formData.descripcionDestino1]);
+        return Boolean(formData.paciente && formData.nombreOrigen && formData.descripcionDestino1);
+    }, [formData.paciente, formData.nombreOrigen, formData.descripcionDestino1]);
 
     if (!isOpen) return null;
     if (typeof document === 'undefined') return null;
@@ -764,6 +914,9 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         }
         if (field === 'codComplejidad' || field === 'complejidad') {
             setComplexityLookupState({ error: '', success: false });
+        }
+        if (field === 'idOrigen' || field === 'nombreOrigen') {
+            setOriginLookupState({ error: '', success: false });
         }
     };
 
@@ -887,6 +1040,108 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         applyServiceTypeSelection(serviceType);
     };
 
+    const applyOriginSelection = (origin) => {
+        setFormData((prev) => ({
+            ...prev,
+            idOrigen: String(origin?.id ?? ''),
+            nombreOrigen: String(origin?.name || origin?.reference || ''),
+            direccionOrigen: String(origin?.DIRECCIÓN || origin?.direccion || ''),
+            ciudadOrigen: String(origin?.CIUDAD || origin?.ciudad || ''),
+            telefonoOrigen: String(origin?.TELÉFONO || origin?.telefono || ''),
+        }));
+        setOriginLookupState({ error: '', success: true });
+    };
+
+    const handleOriginCodeLookup = async () => {
+        const originCode = normalizeLookupValue(formData.idOrigen);
+
+        if (!originCode) {
+            setOriginLookupState({ error: 'Ingrese un código de origen para buscar.', success: false });
+            return;
+        }
+
+        if (originCode === OTHER_ORIGIN_VALUE) {
+            setFormData((prev) => ({
+                ...prev,
+                idOrigen: OTHER_ORIGIN_VALUE,
+                nombreOrigen: '',
+                observacionesOrigen: '',
+                direccionOrigen: '',
+                ciudadOrigen: '',
+                telefonoOrigen: '',
+            }));
+            setOriginLookupState({ error: '', success: false });
+            return;
+        }
+
+        if (originsState.loading) {
+            setOriginLookupState({ error: 'El catálogo de orígenes todavía se está cargando.', success: false });
+            return;
+        }
+
+        if (originsState.error) {
+            setOriginLookupState({ error: originsState.error, success: false });
+            return;
+        }
+
+        const origin = originsByCode.get(originCode);
+
+        if (!origin) {
+            setOriginLookupState({
+                error: `No se encontró el origen con código ${String(formData.idOrigen).trim()}.`,
+                success: false,
+            });
+            return;
+        }
+
+        applyOriginSelection(origin);
+    };
+
+    const handleOriginCodeKeyDown = async (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        await handleOriginCodeLookup();
+    };
+
+    const handleOriginPickerChange = (originValue) => {
+        if (!originValue) {
+            setFormData((prev) => ({
+                ...prev,
+                idOrigen: '',
+                nombreOrigen: '',
+                observacionesOrigen: '',
+                direccionOrigen: '',
+                ciudadOrigen: '',
+                telefonoOrigen: '',
+            }));
+            setOriginLookupState({ error: '', success: false });
+            return;
+        }
+
+        if (originValue === OTHER_ORIGIN_VALUE) {
+            setFormData((prev) => ({
+                ...prev,
+                idOrigen: OTHER_ORIGIN_VALUE,
+                nombreOrigen: '',
+                observacionesOrigen: '',
+                direccionOrigen: '',
+                ciudadOrigen: '',
+                telefonoOrigen: '',
+            }));
+            setOriginLookupState({ error: '', success: false });
+            return;
+        }
+
+        const origin = originsByCode.get(normalizeLookupValue(originValue));
+
+        if (!origin) {
+            setOriginLookupState({ error: 'El origen seleccionado no es válido.', success: false });
+            return;
+        }
+
+        applyOriginSelection(origin);
+    };
+
     const handleEntityChange = (entityId) => {
         const entity = clientes.find((cliente) => cliente.id === entityId);
         setSelectedBranchKey('');
@@ -939,7 +1194,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             idSucursal: formData.idSucursal || formData.codSucursal || '',
             sucursal: formData.sucursal || formData.nombreSucursal || '',
             nombreSucursal: formData.nombreSucursal || formData.sucursal || '',
-            origen: formData.descripcionOrigen || formData.direccionOrigen || 'Origen no especificado',
+            origen: formData.nombreOrigen || formData.direccionOrigen || 'Origen no especificado',
             destino: formData.descripcionDestino1 || formData.direccionDestino1 || 'Destino no especificado',
             servicioProgramado: toTimestamp(formData.servicioProgramado),
             servicioSolicitado: toTimestamp(formData.servicioSolicitado),
@@ -953,6 +1208,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         setSelectedBranchKey('');
         setCieLookupState({ loading: false, error: '', success: false });
         setComplexityLookupState({ error: '', success: false });
+        setOriginLookupState({ error: '', success: false });
         setActiveTab('order');
         onClose();
     };
@@ -1009,6 +1265,12 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         onComplexityCodeKeyDown={handleComplexityCodeKeyDown}
                         onComplexityPickerChange={handleComplexityPickerChange}
                         showSecondDestination={showSecondDestination}
+                        originOptions={originOptions}
+                        originsState={originsState}
+                        originLookupState={originLookupState}
+                        onOriginCodeKeyDown={handleOriginCodeKeyDown}
+                        onOriginPickerChange={handleOriginPickerChange}
+                        isManualOrigin={isManualOrigin}
                     />
 
                     <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
@@ -1023,7 +1285,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                             type="submit"
                             disabled={!canSubmit}
                             className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center justify-center gap-2 transition-colors"
-                            title="Requiere: Paciente, Descripción Origen y Descripción Destino 1"
+                            title="Requiere: Paciente, Nombre de origen y Descripción Destino 1"
                         >
                             <Send size={16} /> Crear y Enviar a Triage
                         </button>
