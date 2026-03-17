@@ -49,6 +49,7 @@ function AppLayout() {
     assignAmbulance,
     addMockAmbulance,
     createRealRequest,
+    updateRealRequest,
     createClient,
     updateClient,
     createRealAmbulance,
@@ -70,6 +71,7 @@ function AppLayout() {
 
   const [activeDragItem, setActiveDragItem] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
@@ -144,6 +146,21 @@ function AppLayout() {
     setActiveDragItem(null);
   };
 
+  const handleCreateRequest = () => {
+    setEditingRequest(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditRequest = (request) => {
+    setEditingRequest(request);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingRequest(null);
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -191,15 +208,18 @@ function AppLayout() {
                 <TriageBoard
                   solicitudes={solicitudesPendientes}
                   getClienteById={getClienteById}
+                  onEditRequest={handleEditRequest}
                   className="flex-none lg:h-full overflow-y-auto"
                 />
                 <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
                   <FleetMonitor
                     flota={flota}
+                    solicitudes={solicitudesActivas}
                     turnosHoy={turnosHoy}
                     onAddAmbulance={createRealAmbulance}
-                    onAddRequest={() => setIsModalOpen(true)}
+                    onAddRequest={handleCreateRequest}
                     onStatusChange={updateAmbulanceStatus}
+                    onEditRequest={handleEditRequest}
                   />
                 </main>
               </div>
@@ -260,9 +280,11 @@ function AppLayout() {
       {isModalOpen && (
         <NewServiceModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={handleCloseModal}
           clientes={clientes}
-          onSubmit={createRealRequest}
+          initialData={editingRequest}
+          isEditing={!!editingRequest}
+          onSubmit={editingRequest ? updateRealRequest : createRealRequest}
           getNextReqId={getNextReqId}
         />
       )}

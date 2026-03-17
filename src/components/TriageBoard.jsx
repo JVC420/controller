@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import RequestCard from './RequestCard';
 import { AlertCircle } from 'lucide-react';
 
-const TriageBoard = ({ solicitudes, getClienteById }) => {
+const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
 
     // Auto-Sorting Logic: First by Nivel Prioridad (Ascending 1->3), then by Waiting Time (Descending)
     const sortedSolicitudes = useMemo(() => {
@@ -43,6 +43,7 @@ const TriageBoard = ({ solicitudes, getClienteById }) => {
                             key={request.id}
                             request={request}
                             client={getClienteById(request.clienteId)}
+                            onEdit={onEditRequest}
                         />
                     ))
                 ) : (

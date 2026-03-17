@@ -1,9 +1,9 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { clsx } from 'clsx';
-import { Stethoscope, Activity, FileWarning } from 'lucide-react';
+import { Stethoscope, Activity, FileWarning, Pencil } from 'lucide-react';
 
-const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
+const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceRequest, onEditRequest }) => {
     const { isOver, setNodeRef } = useDroppable({
         id: ambulance.id,
         data: {
@@ -136,9 +136,21 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange }) => {
                 )}
 
                 {inService && ambulance.destino && (
-                    <div className="flex items-start gap-2 text-sm text-blue-300">
-                        <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
-                        <span className="line-clamp-2">Destino: {ambulance.destino}</span>
+                    <div className="space-y-2">
+                        <div className="flex items-start gap-2 text-sm text-blue-300">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                            <span className="line-clamp-2">Destino: {ambulance.destino}</span>
+                        </div>
+                        {serviceRequest && onEditRequest && (
+                            <button
+                                type="button"
+                                onClick={() => onEditRequest(serviceRequest)}
+                                className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-sky-500/30 text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 transition-colors"
+                                title="Editar solicitud asignada"
+                            >
+                                <Pencil size={12} /> Editar solicitud asignada
+                            </button>
+                        )}
                     </div>
                 )}
 

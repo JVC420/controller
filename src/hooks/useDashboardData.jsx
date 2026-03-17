@@ -252,6 +252,13 @@ export const useDashboardData = (activeRoute = '/') => {
         }
     };
 
+    const updateRealRequest = async (requestObj) => {
+        const { id, ...data } = requestObj;
+        if (!id) return;
+        data.actualizadoAt = serverTimestamp();
+        await updateDoc(doc(db, 'solicitudes', id), data);
+    };
+
     const assignAmbulance = async (reqId, ambulanceId) => {
         const batch = writeBatch(db);
         batch.update(doc(db, 'solicitudes', reqId), {
@@ -376,6 +383,7 @@ export const useDashboardData = (activeRoute = '/') => {
 
         // Service actions
         createRealRequest,
+        updateRealRequest,
         assignAmbulance,
         closeService,
         updateServiceChecklist,

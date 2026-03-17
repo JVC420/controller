@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, MapPin, GripVertical, AlertTriangle } from 'lucide-react';
+import { Clock, MapPin, GripVertical, AlertTriangle, Pencil } from 'lucide-react';
 import { clsx } from 'clsx';
 
 // The visual representation of the card
-export const RequestCardUI = ({ request, client, isDragging, style, attributes, listeners, setNodeRef }) => {
+export const RequestCardUI = ({ request, client, isDragging, style, attributes, listeners, setNodeRef, onEdit }) => {
 
     // ── Live wait-time counter ────────────────────────────────────────────────
     const getElapsedMin = () => {
@@ -73,6 +73,23 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 </div>
             </div>
 
+            {onEdit && (
+                <div className="-mt-1">
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(request);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md border border-cyan-500/30 text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors"
+                        title="Editar solicitud"
+                    >
+                        <Pencil size={12} /> Editar solicitud
+                    </button>
+                </div>
+            )}
+
             {client && (
                 <div className="flex flex-col gap-1">
                     <div className="flex gap-2 items-center">
@@ -108,7 +125,7 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
 };
 
 // Default exported draggable wrapper
-const RequestCard = ({ request, client }) => {
+const RequestCard = ({ request, client, onEdit }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: request.id,
         data: { type: 'REQUEST', request, client }
@@ -122,6 +139,7 @@ const RequestCard = ({ request, client }) => {
         <RequestCardUI
             request={request}
             client={client}
+            onEdit={onEdit}
             isDragging={isDragging}
             style={style}
             attributes={attributes}

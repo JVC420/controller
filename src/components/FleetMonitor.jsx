@@ -3,7 +3,7 @@ import AmbulanceCard from './AmbulanceCard';
 import NewAmbulanceModal from './NewAmbulanceModal';
 import { useAuth } from '../contexts/AuthContext';
 
-const FleetMonitor = ({ flota, turnosHoy = [], onAddAmbulance, onAddRequest, onStatusChange }) => {
+const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance, onAddRequest, onStatusChange, onEditRequest }) => {
     const { role } = useAuth();
     const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
     const canManageFleet = role === 'administrador_general';
@@ -57,7 +57,14 @@ const FleetMonitor = ({ flota, turnosHoy = [], onAddAmbulance, onAddRequest, onS
 
                 <FleetSection title="En Servicio" color="text-blue-400" count={enServicio.length}>
                     {enServicio.map(amb => (
-                        <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
+                        <AmbulanceCard
+                            key={amb.id}
+                            ambulance={amb}
+                            turnosHoy={turnosHoy}
+                            onStatusChange={onStatusChange}
+                            serviceRequest={solicitudes.find((s) => s.ambulanciaAsignada === amb.id && s.estado !== 'Finalizado')}
+                            onEditRequest={onEditRequest}
+                        />
                     ))}
                 </FleetSection>
 

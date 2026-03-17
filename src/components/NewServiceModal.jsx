@@ -139,6 +139,19 @@ const calculateAge = (birthDate) => {
 
 const normalizeLookupValue = (value) => String(value ?? '').trim().toLowerCase();
 
+const toDateTimeLocalString = (value) => {
+    if (!value) return '';
+
+    const dateValue = value && typeof value.toDate === 'function'
+        ? value.toDate()
+        : new Date(value);
+
+    if (!(dateValue instanceof Date) || Number.isNaN(dateValue.getTime())) return '';
+
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${dateValue.getFullYear()}-${pad(dateValue.getMonth() + 1)}-${pad(dateValue.getDate())}T${pad(dateValue.getHours())}:${pad(dateValue.getMinutes())}`;
+};
+
 const OTHER_ORIGIN_VALUE = 'otro';
 
 const FormSection = ({ title, children, className = '' }) => (
@@ -802,7 +815,7 @@ const ServiceOrderForm = ({
     </div>
 );
 
-const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqId }) => {
+const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqId, initialData = null, isEditing = false }) => {
     const [activeTab, setActiveTab] = useState('order');
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
     const [selectedBranchKey, setSelectedBranchKey] = useState('');
@@ -1042,6 +1055,88 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     useEffect(() => {
         if (!isOpen) return;
 
+        if (isEditing && initialData) {
+            const pacienteInfo = initialData.pacienteInfo || {};
+            const solicitanteInfo = initialData.solicitanteInfo || {};
+            const entidadInfo = initialData.entidadInfo || {};
+            const servicioInfo = initialData.servicioInfo || {};
+            const programacionInfo = initialData.programacionInfo || {};
+            const diagnosticoInfo = initialData.diagnosticoInfo || {};
+            const origenInfo = initialData.origenInfo || {};
+            const destino1Info = initialData.destino1Info || {};
+            const destino2Info = initialData.destino2Info || {};
+
+            setFormData((prev) => ({
+                ...prev,
+                clienteId: initialData.clienteId || entidadInfo.idEntidad || '',
+                idEntidad: entidadInfo.idEntidad || initialData.idEntidad || '',
+                entidadSolicitante: entidadInfo.entidadSolicitante || initialData.entidadSolicitante || '',
+                nombreEntidad: entidadInfo.nombreEntidad || initialData.nombreEntidad || '',
+                idSucursal: entidadInfo.idSucursal || initialData.idSucursal || '',
+                codSucursal: entidadInfo.idSucursal || initialData.idSucursal || '',
+                sucursal: entidadInfo.sucursal || initialData.sucursal || '',
+                nombreSucursal: entidadInfo.nombreSucursal || initialData.nombreSucursal || '',
+
+                idPacienteHC: pacienteInfo.idPacienteHC || '',
+                tipoIdentidad: pacienteInfo.tipoIdentidad || '',
+                paciente: pacienteInfo.nombre || initialData.paciente || '',
+                sexo: pacienteInfo.sexo || '',
+                fechaNacimiento: pacienteInfo.fechaNacimiento || '',
+                edad: String(pacienteInfo.edad ?? ''),
+                tipoEdad: pacienteInfo.tipoEdad || '',
+
+                idSolicitante: solicitanteInfo.idSolicitante || '',
+                solicitante: solicitanteInfo.nombre || initialData.solicitanteNombre || '',
+                observacionesSolicita: solicitanteInfo.observaciones || '',
+
+                codComplejidad: servicioInfo.codComplejidad || '',
+                complejidad: servicioInfo.complejidad || '',
+                confirmaAutorizacion: servicioInfo.confirmaAutorizacion || '',
+                numeroAutorizacion: servicioInfo.numeroAutorizacion || '',
+                copagoValor: servicioInfo.copagoValor || '',
+                esServicioParticular: Boolean(servicioInfo.esServicioParticular),
+                servicioParticularValor: servicioInfo.servicioParticularValor || '',
+
+                codCIE: diagnosticoInfo.codCIE || '',
+                buscarCIE: diagnosticoInfo.nombreCIE || '',
+                observacionesCIE: diagnosticoInfo.observacionesCIE || '',
+                estadoClinicoActual: diagnosticoInfo.estadoClinicoActual || '',
+
+                idOrigen: origenInfo.id || '',
+                nombreOrigen: origenInfo.nombre || initialData.origenNombre || '',
+                observacionesOrigen: origenInfo.observaciones || '',
+                direccionOrigen: origenInfo.direccion || '',
+                ciudadOrigen: origenInfo.ciudad || '',
+                telefonoOrigen: origenInfo.telefono || '',
+                fechaHoraContacto: toDateTimeLocalString(origenInfo.fechaHoraContacto),
+                fechaHoraSaleOrigen: toDateTimeLocalString(origenInfo.fechaHoraSalida),
+
+                idDestino1: destino1Info.id || '',
+                nombreDestino1: destino1Info.nombre || initialData.destinoNombre || '',
+                observacionesDestino1: destino1Info.observaciones || '',
+                direccionDestino1: destino1Info.direccion || '',
+                ciudadDestino1: destino1Info.ciudad || '',
+                telefonoDestino1: destino1Info.telefono || '',
+                fechaHoraEntregaD1: toDateTimeLocalString(destino1Info.fechaHoraEntrega),
+                fechaHoraSaleD1: toDateTimeLocalString(destino1Info.fechaHoraSalida),
+
+                idDestino2: destino2Info.id || '',
+                nombreDestino2: destino2Info.nombre || '',
+                observacionesDestino2: destino2Info.observaciones || '',
+                direccionDestino2: destino2Info.direccion || '',
+                ciudadDestino2: destino2Info.ciudad || '',
+                telefonoDestino2: destino2Info.telefono || '',
+                fechaHoraEntregaD2: toDateTimeLocalString(destino2Info.fechaHoraEntrega),
+                fechaHoraSaleD2: toDateTimeLocalString(destino2Info.fechaHoraSalida),
+
+                servicioProgramado: toDateTimeLocalString(programacionInfo.servicioProgramado),
+                servicioSolicitado: toDateTimeLocalString(programacionInfo.servicioSolicitado),
+                observaciones: initialData.observaciones || '',
+            }));
+
+            return;
+        }
+
         const now = new Date();
         const pad = (n) => String(n).padStart(2, '0');
         const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -1052,7 +1147,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             servicioProgramado: fmt(todayStart),
             servicioSolicitado: fmt(now),
         }));
-    }, [isOpen]);
+    }, [isOpen, isEditing, initialData]);
 
     const canSubmit = useMemo(() => {
         const validatorsMap = {
@@ -1361,7 +1456,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             return isNaN(d.getTime()) ? null : Timestamp.fromDate(d);
         };
 
-        const id = getNextReqId();
+        const id = isEditing ? initialData?.id : getNextReqId();
+        if (!id) return;
         const newRequest = {
             id,
             estado: 'Pendiente',
@@ -1480,7 +1576,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             >
                 <div className="px-4 md:px-5 py-3 border-b border-slate-700 flex justify-between items-start md:items-center gap-3 bg-dark-900/50">
                     <div>
-                        <h2 className="text-base md:text-lg font-bold text-white">Crear orden de servicio</h2>
+                        <h2 className="text-base md:text-lg font-bold text-white">{isEditing ? 'Editar orden de servicio' : 'Crear orden de servicio'}</h2>
                     </div>
                     <button
                         type="button"
@@ -1533,7 +1629,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                             className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center justify-center gap-2 transition-colors"
                             title="Requiere: Paciente, Solicitante, Entidad, Complejidad, Autorizaciones, Programación, Diagnóstico CIE, Origen y Destino"
                         >
-                            <Send size={16} /> Crear y Enviar a Triage
+                            <Send size={16} /> {isEditing ? 'Guardar Cambios' : 'Crear y Enviar a Triage'}
                         </button>
                     </div>
                 </form>
