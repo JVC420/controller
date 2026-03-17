@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileCheck, Search, Clock, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileCheck, Search, Clock, AlertTriangle, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { clsx } from 'clsx';
 import ServiceClosureModal from './ServiceClosureModal';
 import { ToastContainer, useToast } from './ui/Toast';
@@ -29,9 +29,32 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
         servicio: null,
         cliente: null
     });
+    const [viewRequestData, setViewRequestData] = useState({
+        isOpen: false,
+        servicio: null,
+        cliente: null
+    });
 
     const openClosureModal = (servicio, cliente) => {
         setClosureModalData({ isOpen: true, servicio, cliente });
+    };
+
+    const openViewRequestModal = (servicio, cliente) => {
+        setViewRequestData({ isOpen: true, servicio, cliente });
+    };
+
+    const formatCreatedAt = (value) => {
+        if (!value) return 'Sin fecha';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return 'Sin fecha';
+        return new Intl.DateTimeFormat('es-CO', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(d);
     };
 
     // ── Memoized filtered + sorted list ────────────────────────────────────────
@@ -88,12 +111,13 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                 <table className="hidden min-[1300px]:table w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-dark-900/50 text-slate-400 text-sm border-b border-slate-700 text-left">
-                            <th className="py-4 px-4 font-semibold whitespace-nowrap w-[12%]">ID Servicio</th>
-                            <th className="py-4 px-4 font-semibold w-[20%]">Cliente y Prioridad</th>
+                            <th className="py-4 px-4 font-semibold whitespace-nowrap w-[10%]">ID Servicio</th>
+                            <th className="py-4 px-4 font-semibold whitespace-nowrap w-[14%]">Creado</th>
+                            <th className="py-4 px-4 font-semibold w-[18%]">Cliente y Prioridad</th>
                             <th className="py-4 px-4 font-semibold whitespace-nowrap w-[10%]">Ambulancia</th>
                             <th className="py-4 px-4 font-semibold whitespace-nowrap w-[12%]">Tiempo</th>
-                            <th className="py-4 px-4 font-semibold w-[26%]">Requisitos Documentales</th>
-                            <th className="py-4 px-4 font-semibold w-[20%]">Estado</th>
+                            <th className="py-4 px-4 font-semibold w-[22%]">Requisitos Documentales</th>
+                            <th className="py-4 px-4 font-semibold w-[24%]">Estado / Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-700/50">
@@ -116,6 +140,9 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             {isAlert && <AlertTriangle size={16} className="text-red-500 animate-pulse shrink-0" />}
                                             <span className="font-mono text-sm font-bold text-white truncate">{servicio.id}</span>
                                         </div>
+                                    </td>
+                                    <td className="py-4 px-4 text-xs text-slate-300 whitespace-nowrap">
+                                        {formatCreatedAt(servicio.creadoAt)}
                                     </td>
                                     <td className="py-4 px-4">
                                         <div className="font-medium text-slate-200">{cliente?.nombre || 'Desconocido'}</div>
@@ -144,31 +171,39 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                         )}
                                     </td>
                                     <td className="py-4 px-4">
-                                        {servicio.estado === 'Finalizado' ? (
-                                            <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
-                                                FINALIZADO
-                                            </span>
-                                        ) : (
-                                            <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col gap-2">
+                                            {servicio.estado === 'Finalizado' ? (
+                                                <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+                                                    FINALIZADO
+                                                </span>
+                                            ) : (
                                                 <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
                                                     {servicio.estado}
                                                 </span>
+                                            )}
+                                            <button
+                                                onClick={() => openViewRequestModal(servicio, cliente)}
+                                                className="mt-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-slate-700 hover:bg-slate-600 text-white whitespace-nowrap"
+                                            >
+                                                <Eye size={14} /> Ver Solicitud
+                                            </button>
+                                            {servicio.estado !== 'Finalizado' && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
-                                                    className="mt-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20 whitespace-nowrap"
+                                                    className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20 whitespace-nowrap"
                                                     title={"Revisar checklist dinámico para cierre."}
                                                 >
                                                     <FileCheck size={14} /> Terminación
                                                 </button>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             )
                         })}
                         {historial.length === 0 && (
                             <tr>
-                                <td colSpan="6" className="py-10 text-center text-slate-500">
+                                <td colSpan="7" className="py-10 text-center text-slate-500">
                                     No hay servicios en el historial todavía.
                                 </td>
                             </tr>
@@ -208,6 +243,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                         </div>
                                         <div className="font-bold text-slate-200 line-clamp-1">{cliente?.nombre || 'Desconocido'}</div>
                                         <div className="text-xs text-slate-500">{cliente?.ranking} - Nivel {cliente?.nivelPrioridad}</div>
+                                        <div className="text-xs text-slate-500 mt-1">Creado: {formatCreatedAt(servicio.creadoAt)}</div>
                                     </div>
                                     <div className="text-right flex flex-col items-end">
                                         <div className="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wider font-bold">Móvil</div>
@@ -226,14 +262,22 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                     </div>
 
                                     <div className="flex flex-col justify-end">
-                                        {servicio.estado !== 'Finalizado' && (
+                                        <div className="flex flex-col gap-2">
                                             <button
-                                                onClick={() => openClosureModal(servicio, cliente)}
-                                                className="w-full h-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
+                                                onClick={() => openViewRequestModal(servicio, cliente)}
+                                                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-bold transition-all bg-slate-700 hover:bg-slate-600 text-white"
                                             >
-                                                <FileCheck size={14} /> Validar Cierre
+                                                <Eye size={14} /> Ver Solicitud
                                             </button>
-                                        )}
+                                            {servicio.estado !== 'Finalizado' && (
+                                                <button
+                                                    onClick={() => openClosureModal(servicio, cliente)}
+                                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
+                                                >
+                                                    <FileCheck size={14} /> Validar Cierre
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -306,6 +350,68 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                         }
                     }}
                 />
+            )}
+
+            {viewRequestData.isOpen && (
+                <div className="fixed inset-0 z-50 bg-dark-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-4xl bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                        <div className="px-5 py-3 border-b border-slate-700 bg-dark-900/50 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-white font-bold text-lg">Solicitud {viewRequestData.servicio?.id}</h3>
+                                <p className="text-xs text-slate-400">Solo lectura</p>
+                            </div>
+                            <button
+                                onClick={() => setViewRequestData({ isOpen: false, servicio: null, cliente: null })}
+                                className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+
+                        <div className="p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Paciente</p>
+                                <p className="text-slate-200 font-semibold">{viewRequestData.servicio?.pacienteInfo?.nombre || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Entidad</p>
+                                <p className="text-slate-200 font-semibold">{viewRequestData.servicio?.entidadInfo?.nombreEntidad || viewRequestData.cliente?.nombre || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
+                                <p className="text-xs text-slate-500 mb-1">Solicitante</p>
+                                <p className="text-slate-200">{viewRequestData.servicio?.solicitanteInfo?.nombre || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Origen</p>
+                                <p className="text-slate-200">{viewRequestData.servicio?.origenInfo?.nombre || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Destino 1</p>
+                                <p className="text-slate-200">{viewRequestData.servicio?.destino1Info?.nombre || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Destino 2</p>
+                                <p className="text-slate-200">{viewRequestData.servicio?.destino2Info?.nombre || 'No aplica'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Complejidad</p>
+                                <p className="text-slate-200">{viewRequestData.servicio?.servicioInfo?.complejidad || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Estado</p>
+                                <p className="text-slate-200">{viewRequestData.servicio?.estado || 'Sin dato'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <p className="text-xs text-slate-500 mb-1">Creado</p>
+                                <p className="text-slate-200">{formatCreatedAt(viewRequestData.servicio?.creadoAt)}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
+                                <p className="text-xs text-slate-500 mb-1">Observaciones</p>
+                                <p className="text-slate-200 whitespace-pre-wrap">{viewRequestData.servicio?.observaciones || 'Sin observaciones'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
             <ToastContainer toasts={toasts} dismiss={dismissToast} />
         </div>

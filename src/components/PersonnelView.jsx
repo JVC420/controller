@@ -316,6 +316,10 @@ const PersonnelView = ({
 
     const handleEmpSubmit = async (e) => {
         e.preventDefault();
+        if (!editingEmp && empForm.cedula && empleados.some((emp) => emp.cedula === empForm.cedula)) {
+            showToast('Ya existe un empleado con esta cedula', 'error');
+            return;
+        }
         setSubmitting(true);
         try {
             if (editingEmp) {

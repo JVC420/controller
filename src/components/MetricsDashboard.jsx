@@ -29,6 +29,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         return { desde: today, hasta: today };
     });
 
+
     // ─── 1. Core Computations (Real-time and Historical) ───────────────────
     const metrics = useMemo(() => {
         const now = Date.now();
@@ -135,6 +136,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
             ambulanceStats: ambulanceStats.sort((a, b) => b.servicesToday - a.servicesToday || a.id.localeCompare(b.id))
         };
     }, [flota, solicitudes, turnos, dateRange]);
+
 
     // ─── Formatting Helpers ───────────────────────────────────────────────
     const formatMin = (m) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m} min`;
@@ -365,6 +367,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                     </div>
                 </div>
             </section>
+
         </div>
     );
 };

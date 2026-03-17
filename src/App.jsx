@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, pointerWithin, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import LoginPage from './components/LoginPage';
@@ -74,7 +74,54 @@ function AppLayout() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showProgrammedDashboardView, setShowProgrammedDashboardView] = useState(false);
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
+
+  const toMs = (value) => {
+    if (!value) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (typeof value?.toDate === 'function') {
+      const ms = value.toDate().getTime();
+      return Number.isFinite(ms) ? ms : null;
+    }
+    const ms = new Date(value).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  };
+
+  const toColombiaDate = (value) => {
+    const ms = toMs(value);
+    if (ms == null) return 'Sin fecha';
+    const d = new Date(ms);
+    return new Intl.DateTimeFormat('es-CO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(d);
+  };
+
+  const scheduledServicesDashboard = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return solicitudes
+      .filter((s) => {
+        if (s?.estado === 'Finalizado') return true;
+        const programmed = s?.programacionInfo?.servicioProgramado;
+        if (!programmed) return false;
+        const ms = toMs(programmed);
+        return ms != null && ms >= today.getTime();
+      })
+      .sort((a, b) => {
+        const aFinal = a?.estado === 'Finalizado';
+        const bFinal = b?.estado === 'Finalizado';
+        if (aFinal !== bFinal) return aFinal ? 1 : -1;
+        const aMs = toMs(a?.programacionInfo?.servicioProgramado) ?? 0;
+        const bMs = toMs(b?.programacionInfo?.servicioProgramado) ?? 0;
+        return aMs - bMs;
+      });
+  }, [solicitudes]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -162,6 +209,32 @@ function AppLayout() {
     setEditingRequest(null);
   };
 
+  const dashboardViewSwitch = (
+    <div className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-dark-800 px-2.5 py-1.5">
+      <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider hidden sm:inline">
+        Mostrar en Lista
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={showProgrammedDashboardView}
+        onClick={() => setShowProgrammedDashboardView((v) => !v)}
+        className={`relative inline-flex h-7 w-14 items-center rounded-full border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
+          showProgrammedDashboardView
+            ? 'bg-emerald-500/80 border-emerald-400/70'
+            : 'bg-slate-700 border-slate-600'
+        }`}
+        title={showProgrammedDashboardView ? 'Turn Off' : 'Turn On'}
+      >
+        <span
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+            showProgrammedDashboardView ? 'translate-x-8' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+  );
+
   return (
     <DndContext
       sensors={sensors}
@@ -205,24 +278,85 @@ function AppLayout() {
         <div className="flex-1 min-w-0 flex flex-col h-full pt-16 lg:pt-0">
           <Routes>
             <Route path="/" element={guard('/',
-              <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
-                <TriageBoard
-                  solicitudes={solicitudesPendientes}
-                  getClienteById={getClienteById}
-                  onEditRequest={handleEditRequest}
-                  className="flex-none lg:h-full overflow-y-auto"
-                />
-                <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
-                  <FleetMonitor
-                    flota={flota}
-                    solicitudes={solicitudesActivas}
-                    turnosHoy={turnosHoy}
-                    onAddAmbulance={createRealAmbulance}
-                    onAddRequest={handleCreateRequest}
-                    onStatusChange={updateAmbulanceStatus}
-                    onEditRequest={handleEditRequest}
-                  />
-                </main>
+              <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0B1121]">
+                {showProgrammedDashboardView ? (
+                  <div className="flex-1 overflow-auto p-4 md:p-6">
+                    <div className="mb-4 flex justify-end">
+                      {dashboardViewSwitch}
+                    </div>
+                    <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-x-auto">
+                      <table className="w-full text-left text-xs md:text-sm whitespace-nowrap">
+                        <thead className="text-[11px] text-slate-400 bg-dark-900/60 font-semibold uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-3">Fecha de programacion</th>
+                            <th className="px-4 py-3">ID</th>
+                            <th className="px-4 py-3">Movil</th>
+                            <th className="px-4 py-3">Tipo ambulancia</th>
+                            <th className="px-4 py-3">Paciente</th>
+                            <th className="px-4 py-3">Entidad</th>
+                            <th className="px-4 py-3">Origen</th>
+                            <th className="px-4 py-3">Destino 1</th>
+                            <th className="px-4 py-3">Destino 2</th>
+                            <th className="px-4 py-3">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/80">
+                          {scheduledServicesDashboard.map((s) => {
+                            const movil = flota.find((a) => a.id === s.ambulanciaAsignada);
+                            return (
+                              <tr key={s.id} className="hover:bg-slate-800/20 transition-colors">
+                                <td className="px-4 py-3 text-slate-300">{toColombiaDate(s?.programacionInfo?.servicioProgramado)}</td>
+                                <td className="px-4 py-3 font-mono text-cyan-300">{s.id}</td>
+                                <td className="px-4 py-3 text-slate-300">{s.ambulanciaAsignada || 'Sin asignar'}</td>
+                                <td className="px-4 py-3 text-slate-400">{movil?.tipo || 'N/A'}</td>
+                                <td className="px-4 py-3 text-slate-300">{s?.pacienteInfo?.nombre || s.paciente || 'Sin paciente'}</td>
+                                <td className="px-4 py-3 text-slate-400">{s?.entidadInfo?.nombreEntidad || 'Sin entidad'}</td>
+                                <td className="px-4 py-3 text-slate-400">{s?.origenInfo?.nombre || s.origen || 'Sin origen'}</td>
+                                <td className="px-4 py-3 text-slate-400">{s?.destino1Info?.nombre || s.destino || 'Sin destino'}</td>
+                                <td className="px-4 py-3 text-slate-400">{s?.destino2Info?.nombre || 'No aplica'}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                    s.estado === 'Finalizado'
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                      : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                  }`}>
+                                    {s.estado || 'Sin estado'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {scheduledServicesDashboard.length === 0 && (
+                            <tr>
+                              <td colSpan="10" className="px-4 py-10 text-center text-slate-500">No hay servicios programados.</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
+                    <TriageBoard
+                      solicitudes={solicitudesPendientes}
+                      getClienteById={getClienteById}
+                      onEditRequest={handleEditRequest}
+                      className="flex-none lg:h-full overflow-y-auto"
+                    />
+                    <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
+                      <FleetMonitor
+                        flota={flota}
+                        solicitudes={solicitudesActivas}
+                        turnosHoy={turnosHoy}
+                        onAddAmbulance={createRealAmbulance}
+                        onAddRequest={handleCreateRequest}
+                        onStatusChange={updateAmbulanceStatus}
+                        onEditRequest={handleEditRequest}
+                        headerControl={dashboardViewSwitch}
+                      />
+                    </main>
+                  </div>
+                )}
               </div>
             )} />
 

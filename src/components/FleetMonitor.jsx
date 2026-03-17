@@ -3,7 +3,7 @@ import AmbulanceCard from './AmbulanceCard';
 import NewAmbulanceModal from './NewAmbulanceModal';
 import { useAuth } from '../contexts/AuthContext';
 
-const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance, onAddRequest, onStatusChange, onEditRequest }) => {
+const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance, onAddRequest, onStatusChange, onEditRequest, headerControl = null }) => {
     const { role } = useAuth();
     const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
     const canManageFleet = role === 'administrador_general';
@@ -35,7 +35,8 @@ const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance,
                             Nueva Ambulancia
                         </button>}
                     </div>
-                    <div className="flex flex-wrap gap-2 lg:gap-4 justify-center lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 lg:gap-4 justify-center lg:justify-end">
+                        {headerControl}
                         <StatBox label="Disponibles" count={disponibles.length} color="text-emerald-400" />
                         <StatBox label="En Servicio" count={enServicio.length} color="text-blue-400" />
                         <StatBox label="Fuera" count={fueraDeServicio.length} color="text-red-400" />
