@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, FileCheck } from 'lucide-react';
 
-const HISTORIA_CLINICA_URL = import.meta.env.DEV
-    ? '/api/historia-clinica/'
-    : 'https://descargarhistoriaclinica-y25bumqpla-uc.a.run.app';
+const HISTORIA_CLINICA_URL = '/api/historia-clinica';
 
 const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServicio }) => {
     const [checklistItems, setChecklistItems] = useState({});
