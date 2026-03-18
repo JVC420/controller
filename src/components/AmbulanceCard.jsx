@@ -2,6 +2,7 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { clsx } from 'clsx';
 import { Stethoscope, Activity, FileWarning, Pencil } from 'lucide-react';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceRequest, onEditRequest }) => {
     const { isOver, setNodeRef } = useDroppable({
@@ -115,7 +116,7 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
                                                 <span key={role} className={clsx("text-[10px] px-1.5 py-0.5 rounded font-semibold",
                                                     member ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-800 text-slate-500"
                                                 )}>
-                                                    {member ? `${role}: ${member.nombre.split(' ')[0]}` : `${role}: —`}
+                                                    {member ? `${getRoleDisplayName(role)}: ${member.nombre.split(' ')[0]}` : `${getRoleDisplayName(role)}: —`}
                                                 </span>
                                             );
                                         })}

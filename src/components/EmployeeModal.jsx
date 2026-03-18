@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, X } from 'lucide-react';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 const EmployeeModal = ({ isOpen, onClose, onSubmit, empForm, setEmpForm, editingEmp, submitting }) => {
     if (!isOpen) return null;
@@ -31,9 +32,9 @@ const EmployeeModal = ({ isOpen, onClose, onSubmit, empForm, setEmpForm, editing
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">Cargo</label>
                         <select className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                             value={empForm.cargo} onChange={e => setEmpForm({ ...empForm, cargo: e.target.value })}>
-                            <option value="Médico">Médico</option>
-                            <option value="Paramédico">Paramédico</option>
-                            <option value="Conductor">Conductor</option>
+                            <option value="Médico">{getRoleDisplayName('Médico')}</option>
+                            <option value="Paramédico">{getRoleDisplayName('Paramédico')}</option>
+                            <option value="Conductor">{getRoleDisplayName('Conductor')}</option>
                         </select>
                     </div>
                     {editingEmp && (

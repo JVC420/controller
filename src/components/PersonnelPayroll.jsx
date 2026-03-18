@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Download } from 'lucide-react';
 import { clsx } from 'clsx';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 const toH = (ms) => ms / 3600000;
 
@@ -396,7 +397,7 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                                 <tr key={row.id} className="hover:bg-slate-700/30 transition-colors">
                                     <td className="py-2.5 px-4 font-mono text-slate-400 text-xs">{row.cedula}</td>
                                     <td className="py-2.5 px-4 font-bold text-slate-200">{row.nombre}</td>
-                                    <td className="py-2.5 px-4 text-slate-400">{row.cargo}</td>
+                                    <td className="py-2.5 px-4 text-slate-400">{getRoleDisplayName(row.cargo)}</td>
                                     <td className="py-2.5 px-4 text-center text-slate-400">{row.turnos.length}</td>
                                     <td className="py-2.5 px-4 text-right border-l border-slate-700/50 bg-slate-800/10 font-bold text-emerald-400">{total}</td>
                                     <td className="py-2.5 px-4 text-right text-slate-300 border-l border-slate-700/20">{row.hod.toFixed(1)}</td>
@@ -428,7 +429,7 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                                 <div className="flex justify-between items-start">
                                     <div className="min-w-0 pr-2">
                                         <div className="font-bold text-slate-100 break-words">{row.nombre}</div>
-                                        <div className="text-xs text-slate-400 break-words">{row.cargo} • {row.cedula}</div>
+                                        <div className="text-xs text-slate-400 break-words">{getRoleDisplayName(row.cargo)} • {row.cedula}</div>
                                     </div>
                                     <div className="text-right">
                                         <div className="text-sm font-bold text-emerald-400">{total} hrs</div>

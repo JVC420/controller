@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, X } from 'lucide-react';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 const ShiftModal = ({
     isOpen,
@@ -83,7 +84,7 @@ const ShiftModal = ({
                         >
                             <option value="" disabled>Seleccione un empleado...</option>
                             {activeEmpleados.map(emp => (
-                                <option key={emp.id} value={emp.id}>{emp.nombre} — {emp.cargo}</option>
+                                <option key={emp.id} value={emp.id}>{emp.nombre} — {getRoleDisplayName(emp.cargo)}</option>
                             ))}
                         </select>
                     </div>

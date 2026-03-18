@@ -2,6 +2,7 @@ import React from 'react';
 import { Search, Edit2, UserX, UserCheck, CheckCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { EmpEstadoBadge } from './ui/Badge';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 const PersonnelDirectory = ({
     filteredEmpleados,
@@ -63,7 +64,7 @@ const PersonnelDirectory = ({
                                     </div>
                                 </td>
                                 <td className="py-3 px-4 font-mono text-slate-400 text-sm">{emp.cedula}</td>
-                                <td className="py-3 px-4 text-slate-300 font-medium">{emp.cargo}</td>
+                                <td className="py-3 px-4 text-slate-300 font-medium">{getRoleDisplayName(emp.cargo)}</td>
                                 <td className="py-3 px-4">
                                     <EmpEstadoBadge estado={emp.estado} />
                                 </td>
@@ -93,7 +94,7 @@ const PersonnelDirectory = ({
                                     <h3 className="font-bold text-slate-100 truncate pr-2">{emp.nombre || 'Desconocido'}</h3>
                                     <EmpEstadoBadge estado={emp.estado} />
                                 </div>
-                                <p className="text-sm font-medium text-emerald-400 mb-0.5">{emp.cargo}</p>
+                                <p className="text-sm font-medium text-emerald-400 mb-0.5">{getRoleDisplayName(emp.cargo)}</p>
                                 <p className="text-xs font-mono text-slate-500 mb-3">{emp.cedula}</p>
                                 <div className="flex justify-end border-t border-slate-800 pt-3">
                                     <button onClick={() => onEditEmpleado(emp)}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Clock, Calendar, Download, Plus, AlertCircle, FileText, CheckCircle, Truck, X, User, Maximize2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ToastContainer, useToast } from './ui/Toast';
+import { getRoleDisplayName, getRoleListDisplay } from '../utils/roleDisplay';
 
 // Imported modular components
 import EmployeeModal from './EmployeeModal';
@@ -205,12 +206,12 @@ const PersonnelView = ({
                 if (veh) {
                     const rules = CREW_RULES[veh.tipo] || [];
                     if (!rules.includes(emp.cargo)) {
-                        showToast(`Un ${emp.cargo} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${rules.join(', ')}.`, 'error');
+                        showToast(`Un ${getRoleDisplayName(emp.cargo)} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${getRoleListDisplay(rules)}.`, 'error');
                         return;
                     }
                     const activeCrew = getActiveCrewForVehicle(veh.id);
                     if (activeCrew.some(t => t.cargo === emp.cargo)) {
-                        showToast(`La móvil ${veh.id} ya tiene un ${emp.cargo} asignado.`, 'error');
+                        showToast(`La móvil ${veh.id} ya tiene un ${getRoleDisplayName(emp.cargo)} asignado.`, 'error');
                         return;
                     }
                     if (activeCrew.length >= rules.length) {
@@ -251,12 +252,12 @@ const PersonnelView = ({
                 if (veh) {
                     const rules = CREW_RULES[veh.tipo] || [];
                     if (!rules.includes(turno.cargo)) {
-                        showToast(`Un ${turno.cargo} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${rules.join(', ')}.`, 'error');
+                        showToast(`Un ${getRoleDisplayName(turno.cargo)} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${getRoleListDisplay(rules)}.`, 'error');
                         return;
                     }
                     const activeCrew = getActiveCrewForVehicle(veh.id, turno.id);
                     if (activeCrew.some(t => t.cargo === turno.cargo)) {
-                        showToast(`La móvil ${veh.id} ya tiene un ${turno.cargo} asignado.`, 'error');
+                        showToast(`La móvil ${veh.id} ya tiene un ${getRoleDisplayName(turno.cargo)} asignado.`, 'error');
                         return;
                     }
                     if (activeCrew.length >= rules.length) {
@@ -417,7 +418,7 @@ const PersonnelView = ({
                                                         ? "bg-emerald-500/10 border-emerald-500/25"
                                                         : "bg-slate-900/70 border-slate-700/80"
                                                 )}>
-                                                    <span className="text-slate-400 truncate">{role}</span>
+                                                    <span className="text-slate-400 truncate">{getRoleDisplayName(role)}</span>
                                                     <span className={clsx(
                                                         "font-semibold truncate",
                                                         member ? "text-emerald-300" : "text-slate-500"
@@ -670,7 +671,7 @@ const PersonnelView = ({
                                                                         ? "bg-emerald-500/10 border-emerald-500/30"
                                                                         : "bg-slate-900/50 border-slate-700/80"
                                                                 )}>
-                                                                    <span className="text-xs text-slate-400 font-medium shrink-0">{role}</span>
+                                                                    <span className="text-xs text-slate-400 font-medium shrink-0">{getRoleDisplayName(role)}</span>
                                                                     <span className={clsx(
                                                                         "text-xs font-semibold truncate",
                                                                         member ? "text-emerald-300" : "text-slate-500"

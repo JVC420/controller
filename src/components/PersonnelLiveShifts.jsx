@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
 import { Truck, CheckCircle, AlertCircle, X, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import ShiftTimeInput from './ui/ShiftTimeInput';
+import { getRoleDisplayName } from '../utils/roleDisplay';
 
 const PAGE_SIZE = 30;
 
@@ -67,7 +68,7 @@ const PersonnelLiveShifts = ({
                 <select className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full md:w-auto"
                     value={filters.cargo} onChange={e => setFilters(f => ({ ...f, cargo: e.target.value }))}>
                     <option value="">Todos los cargos</option>
-                    {uniqueCargos.map(c => <option key={c} value={c}>{c}</option>)}
+                    {uniqueCargos.map(c => <option key={c} value={c}>{getRoleDisplayName(c)}</option>)}
                 </select>
                 <select className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full md:w-auto"
                     value={filters.movil} onChange={e => setFilters(f => ({ ...f, movil: e.target.value }))}>
@@ -129,7 +130,7 @@ const PersonnelLiveShifts = ({
                                             </div>
                                             <div className="text-[10px] text-slate-600 font-mono">{turno.id_empleado}</div>
                                         </td>
-                                        <td className="hidden lg:table-cell py-2.5 px-2.5 2xl:px-3 text-slate-400">{turno.cargo}</td>
+                                        <td className="hidden lg:table-cell py-2.5 px-2.5 2xl:px-3 text-slate-400">{getRoleDisplayName(turno.cargo)}</td>
                                         <td className="py-2.5 px-2.5 2xl:px-3">
                                             {(isCancelled || isAbsent) ? (
                                                 <span className="font-mono text-slate-600 text-xs">{turno.movil || 'Sin Asignar'}</span>
@@ -237,7 +238,7 @@ const PersonnelLiveShifts = ({
                                                 {isCancelled && <span className="text-[10px] bg-red-900/40 text-red-400 border border-red-700/30 px-1.5 py-0.5 rounded font-bold normal-case">Baja</span>}
                                                 {isAbsent && !isCancelled && <span className="text-[10px] bg-slate-800 text-slate-500 border border-slate-700 px-1.5 py-0.5 rounded font-bold normal-case">Ausencia</span>}
                                             </div>
-                                            <div className="text-[11px] text-slate-500">{turno.cargo} • {turno.fecha || '—'} • {turno.cedula || '—'}</div>
+                                            <div className="text-[11px] text-slate-500">{getRoleDisplayName(turno.cargo)} • {turno.fecha || '—'} • {turno.cedula || '—'}</div>
                                         </div>
                                         <div className="flex items-center gap-1.5 shrink-0">
                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${status.styles}`}>
@@ -362,7 +363,7 @@ const PersonnelLiveShifts = ({
                                                 {isCancelled && <span className="text-[10px] bg-red-900/40 text-red-400 border border-red-700/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Baja</span>}
                                                 {isAbsent && !isCancelled && <span className="text-[10px] bg-slate-800 text-slate-500 border border-slate-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Ausencia</span>}
                                             </div>
-                                            <p className="text-xs text-slate-400">{turno.cargo} • {turno.fecha}</p>
+                                            <p className="text-xs text-slate-400">{getRoleDisplayName(turno.cargo)} • {turno.fecha}</p>
                                         </div>
                                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${status.styles}`}>
                                             {status.label === 'Tarde' && <AlertCircle size={10} />}
