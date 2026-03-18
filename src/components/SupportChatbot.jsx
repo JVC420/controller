@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Loader2, MessageCircle, Send, User, X } from 'lucide-react';
 
-const SUPPORT_WEBHOOK_URL = 'https://n8n.srv1491772.hstgr.cloud/webhook/c1375170-4ba7-4ac6-89b2-cedd4d596c31';
+const SUPPORT_WEBHOOK_URL = 'https://enviarmensajesoporte-y25bumqpla-uc.a.run.app';
 
 const INITIAL_BOT_MESSAGE = `Hola 👋, soy tu asistente de LMA.
 

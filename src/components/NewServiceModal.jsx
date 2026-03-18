@@ -172,10 +172,11 @@ const FIELD_MAX_LENGTHS = {
     observaciones: 2000,
 };
 
-const DIGITS_ONLY_FIELDS = new Set(['edad', 'numeroAutorizacion']);
+const DIGITS_ONLY_FIELDS = new Set(['edad']);
 const MONEY_FIELDS = new Set(['copagoValor', 'servicioParticularValor']);
 const UPPERCASE_FIELDS = new Set(['codCIE']);
 const LETTERS_ONLY_FIELDS = new Set(['paciente', 'solicitante']);
+const AUTH_CODE_FIELDS = new Set(['numeroAutorizacion']);
 
 const baseFieldClass =
     'w-full bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[13px] text-white focus:outline-none focus:border-blue-500';
@@ -226,6 +227,7 @@ const toDateTimeLocalString = (value) => {
 const sanitizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 
 const sanitizeAmount = (value) => String(value ?? '').replace(/[^\d]/g, '');
+const sanitizeAuthorizationCode = (value) => String(value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
 const sanitizeName = (value) => String(value ?? '')
     .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s'-]/g, '')
@@ -501,7 +503,7 @@ const OrderTab = ({
                     {formData.esServicioParticular ? (
                         <FormInput label="Servicio Particular Valor" type="number" value={formData.servicioParticularValor} onChange={(v) => setField('servicioParticularValor', v)} />
                     ) : (
-                        <FormInput label="Copago Valor" type="number" value={formData.copagoValor} onChange={(v) => setField('copagoValor', v)} />
+                        <FormInput label="Copago Valor (Opcional)" type="number" value={formData.copagoValor} onChange={(v) => setField('copagoValor', v)} />
                     )}
                     <div className="flex items-end pb-1">
                         <CheckboxField
@@ -1276,6 +1278,10 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                 nextValue = nextValue.replace(/\D/g, '');
             }
 
+            if (AUTH_CODE_FIELDS.has(field)) {
+                nextValue = sanitizeAuthorizationCode(nextValue);
+            }
+
             if (MONEY_FIELDS.has(field)) {
                 nextValue = nextValue.replace(/[^\d]/g, '');
             }
@@ -1588,7 +1594,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             codComplejidad: sanitizeText(data.codComplejidad),
             complejidad: sanitizeText(data.complejidad),
             confirmaAutorizacion: sanitizeText(data.confirmaAutorizacion),
-            numeroAutorizacion: sanitizeAmount(data.numeroAutorizacion),
+            numeroAutorizacion: sanitizeAuthorizationCode(data.numeroAutorizacion),
             copagoValor: sanitizeAmount(data.copagoValor),
             servicioParticularValor: sanitizeAmount(data.servicioParticularValor),
             codCIE: sanitizeText(data.codCIE).toUpperCase(),
@@ -1622,8 +1628,6 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             if (!data.nombreDestino1 || data.nombreDestino1.length < 3) return 'Debe diligenciar un destino válido.';
             if (data.esServicioParticular) {
                 if (!data.servicioParticularValor || Number(data.servicioParticularValor) <= 0) return 'El valor de servicio particular debe ser mayor que cero.';
-            } else if (!data.copagoValor) {
-                return 'El copago es obligatorio cuando no es servicio particular.';
             }
             return '';
         };
