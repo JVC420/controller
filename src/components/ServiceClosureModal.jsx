@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, FileCheck } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 const HISTORIA_CLINICA_URL = '/api/historia-clinica';
 
 const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServicio }) => {
+    const { user } = useAuth();
     const [checklistItems, setChecklistItems] = useState({});
     const [historiaClinicaChecked, setHistoriaClinicaChecked] = useState(false);
     const [historiaClinicaValidated, setHistoriaClinicaValidated] = useState(false);
@@ -94,10 +96,12 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
         setHistoriaClinicaError('');
 
         try {
+            const authToken = await user?.getIdToken?.();
             const response = await fetch(HISTORIA_CLINICA_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
                 },
                 body: JSON.stringify(payload)
             });
