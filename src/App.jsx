@@ -284,55 +284,119 @@ function AppLayout() {
                     <div className="mb-4 flex justify-end">
                       {dashboardViewSwitch}
                     </div>
-                    <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-x-auto">
-                      <table className="w-full text-left text-xs md:text-sm whitespace-nowrap">
-                        <thead className="text-[11px] text-slate-400 bg-dark-900/60 font-semibold uppercase tracking-wider">
-                          <tr>
-                            <th className="px-4 py-3">Fecha de programacion</th>
-                            <th className="px-4 py-3">ID</th>
-                            <th className="px-4 py-3">Movil</th>
-                            <th className="px-4 py-3">Tipo ambulancia</th>
-                            <th className="px-4 py-3">Paciente</th>
-                            <th className="px-4 py-3">Entidad</th>
-                            <th className="px-4 py-3">Origen</th>
-                            <th className="px-4 py-3">Destino 1</th>
-                            <th className="px-4 py-3">Destino 2</th>
-                            <th className="px-4 py-3">Estado</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/80">
-                          {scheduledServicesDashboard.map((s) => {
-                            const movil = flota.find((a) => a.id === s.ambulanciaAsignada);
-                            return (
-                              <tr key={s.id} className="hover:bg-slate-800/20 transition-colors">
-                                <td className="px-4 py-3 text-slate-300">{toColombiaDate(s?.programacionInfo?.servicioProgramado)}</td>
-                                <td className="px-4 py-3 font-mono text-cyan-300">{s.id}</td>
-                                <td className="px-4 py-3 text-slate-300">{s.ambulanciaAsignada || 'Sin asignar'}</td>
-                                <td className="px-4 py-3 text-slate-400">{movil?.tipo || 'N/A'}</td>
-                                <td className="px-4 py-3 text-slate-300">{s?.pacienteInfo?.nombre || s.paciente || 'Sin paciente'}</td>
-                                <td className="px-4 py-3 text-slate-400">{s?.entidadInfo?.nombreEntidad || 'Sin entidad'}</td>
-                                <td className="px-4 py-3 text-slate-400">{s?.origenInfo?.nombre || s.origen || 'Sin origen'}</td>
-                                <td className="px-4 py-3 text-slate-400">{s?.destino1Info?.nombre || s.destino || 'Sin destino'}</td>
-                                <td className="px-4 py-3 text-slate-400">{s?.destino2Info?.nombre || 'No aplica'}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                    s.estado === 'Finalizado'
-                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                      : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                  }`}>
-                                    {s.estado || 'Sin estado'}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {scheduledServicesDashboard.length === 0 && (
+                    <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="hidden min-[1600px]:table w-full table-auto text-left text-xs md:text-sm">
+                          <thead className="text-[11px] text-slate-400 bg-dark-900/60 font-semibold uppercase tracking-wider">
                             <tr>
-                              <td colSpan="10" className="px-4 py-10 text-center text-slate-500">No hay servicios programados.</td>
+                              <th className="px-4 py-3 whitespace-nowrap">Fecha de programacion</th>
+                              <th className="px-4 py-3 whitespace-nowrap">ID</th>
+                              <th className="px-4 py-3 whitespace-nowrap">Movil</th>
+                              <th className="px-4 py-3 whitespace-nowrap">Tipo ambulancia</th>
+                              <th className="px-4 py-3">Paciente</th>
+                              <th className="px-4 py-3">Entidad</th>
+                              <th className="px-4 py-3">Origen</th>
+                              <th className="px-4 py-3">Destino 1</th>
+                              <th className="px-4 py-3">Destino 2</th>
+                              <th className="px-4 py-3 whitespace-nowrap">Estado</th>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/80">
+                            {scheduledServicesDashboard.map((s) => {
+                              const movil = flota.find((a) => a.id === s.ambulanciaAsignada);
+                              return (
+                                <tr key={s.id} className="hover:bg-slate-800/20 transition-colors">
+                                  <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{toColombiaDate(s?.programacionInfo?.servicioProgramado)}</td>
+                                  <td className="px-4 py-3 font-mono text-cyan-300 whitespace-nowrap">{s.id}</td>
+                                  <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{s.ambulanciaAsignada || 'Sin asignar'}</td>
+                                  <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{movil?.tipo || 'N/A'}</td>
+                                  <td className="px-4 py-3 text-slate-300 break-words">{s?.pacienteInfo?.nombre || s.paciente || 'Sin paciente'}</td>
+                                  <td className="px-4 py-3 text-slate-400 break-words">{s?.entidadInfo?.nombreEntidad || 'Sin entidad'}</td>
+                                  <td className="px-4 py-3 text-slate-400 break-words">{s?.origenInfo?.nombre || s.origen || 'Sin origen'}</td>
+                                  <td className="px-4 py-3 text-slate-400 break-words">{s?.destino1Info?.nombre || s.destino || 'Sin destino'}</td>
+                                  <td className="px-4 py-3 text-slate-400 break-words">{s?.destino2Info?.nombre || 'No aplica'}</td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                      s.estado === 'Finalizado'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                    }`}>
+                                      {s.estado || 'Sin estado'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {scheduledServicesDashboard.length === 0 && (
+                              <tr>
+                                <td colSpan="10" className="px-4 py-10 text-center text-slate-500">No hay servicios programados.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="min-[1600px]:hidden p-3 md:p-4 flex flex-col gap-3">
+                        {scheduledServicesDashboard.map((s) => {
+                          const movil = flota.find((a) => a.id === s.ambulanciaAsignada);
+                          return (
+                            <div key={s.id} className="bg-dark-900 border border-slate-700/60 rounded-xl p-3 md:p-4 space-y-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-[11px] text-slate-500 uppercase tracking-wider">Fecha de programacion</p>
+                                  <p className="text-sm text-slate-200 font-semibold">{toColombiaDate(s?.programacionInfo?.servicioProgramado)}</p>
+                                </div>
+                                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                  s.estado === 'Finalizado'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                }`}>
+                                  {s.estado || 'Sin estado'}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">ID</p>
+                                  <p className="font-mono text-cyan-300 break-all">{s.id}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Movil</p>
+                                  <p className="text-slate-300">{s.ambulanciaAsignada || 'Sin asignar'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Tipo ambulancia</p>
+                                  <p className="text-slate-400">{movil?.tipo || 'N/A'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Paciente</p>
+                                  <p className="text-slate-300 break-words">{s?.pacienteInfo?.nombre || s.paciente || 'Sin paciente'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2 sm:col-span-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Entidad</p>
+                                  <p className="text-slate-400 break-words">{s?.entidadInfo?.nombreEntidad || 'Sin entidad'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2 sm:col-span-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Origen</p>
+                                  <p className="text-slate-400 break-words">{s?.origenInfo?.nombre || s.origen || 'Sin origen'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2 sm:col-span-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Destino 1</p>
+                                  <p className="text-slate-400 break-words">{s?.destino1Info?.nombre || s.destino || 'Sin destino'}</p>
+                                </div>
+                                <div className="rounded-lg border border-slate-700/70 bg-slate-800/30 px-2.5 py-2 sm:col-span-2">
+                                  <p className="text-slate-500 uppercase tracking-wider mb-1">Destino 2</p>
+                                  <p className="text-slate-400 break-words">{s?.destino2Info?.nombre || 'No aplica'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {scheduledServicesDashboard.length === 0 && (
+                          <div className="px-4 py-10 text-center text-slate-500">No hay servicios programados.</div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (

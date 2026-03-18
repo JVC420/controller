@@ -247,7 +247,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm whitespace-nowrap hidden md:table">
+                    <table className="hidden min-[1600px]:table w-full table-auto text-left text-sm">
                         <thead className="text-xs text-slate-400 bg-dark-900/60 font-semibold uppercase tracking-wider">
                             <tr>
                                 <th className="px-6 py-4 rounded-tl-lg">Móvil</th>
@@ -312,7 +312,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                     </table>
 
                     {/* Mobile Card View */}
-                    <div className="md:hidden flex flex-col p-4 gap-3">
+                    <div className="min-[1600px]:hidden flex flex-col p-4 gap-3">
                         {metrics.ambulanceStats.length === 0 && (
                             <div className="py-8 text-center text-slate-500 text-sm">No hay flota registrada.</div>
                         )}

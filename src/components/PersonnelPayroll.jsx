@@ -361,7 +361,7 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
 
             {/* Responsive Desktop Grid / Mobile Stack */}
             <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse whitespace-nowrap text-sm hidden md:table">
+                <table className="hidden min-[1600px]:table w-full table-auto text-left border-collapse text-sm">
                     <thead className="sticky top-0 bg-dark-900/95 backdrop-blur z-10">
                         <tr className="text-slate-400 text-[11px] uppercase tracking-wider border-b border-slate-700">
                             <th className="py-3 px-4 font-semibold">Cédula</th>
@@ -395,9 +395,9 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                             const hasDom = row.hdd > 0 || row.hdn > 0 || row.hedd > 0 || row.hedn > 0;
                             return (
                                 <tr key={row.id} className="hover:bg-slate-700/30 transition-colors">
-                                    <td className="py-2.5 px-4 font-mono text-slate-400 text-xs">{row.cedula}</td>
-                                    <td className="py-2.5 px-4 font-bold text-slate-200">{row.nombre}</td>
-                                    <td className="py-2.5 px-4 text-slate-400">{getRoleDisplayName(row.cargo)}</td>
+                                    <td className="py-2.5 px-4 font-mono text-slate-400 text-xs whitespace-nowrap">{row.cedula}</td>
+                                    <td className="py-2.5 px-4 font-bold text-slate-200 break-words">{row.nombre}</td>
+                                    <td className="py-2.5 px-4 text-slate-400 break-words">{getRoleDisplayName(row.cargo)}</td>
                                     <td className="py-2.5 px-4 text-center text-slate-400">{row.turnos.length}</td>
                                     <td className="py-2.5 px-4 text-right border-l border-slate-700/50 bg-slate-800/10 font-bold text-emerald-400">{total}</td>
                                     <td className="py-2.5 px-4 text-right text-slate-300 border-l border-slate-700/20">{row.hod.toFixed(1)}</td>
@@ -418,7 +418,7 @@ const PersonnelPayroll = ({ empleados, turnosHoy, showToast }) => {
                 </table>
 
                 {/* Mobile View: Cards */}
-                <div className="md:hidden flex flex-col gap-3 p-4">
+                <div className="min-[1600px]:hidden flex flex-col gap-3 p-4">
                     {payrollRows.length === 0 && (
                         <div className="py-12 text-center text-slate-500 text-sm">No hay turnos en el período seleccionado.</div>
                     )}
