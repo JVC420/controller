@@ -287,15 +287,20 @@ const FormSelect = ({ label, value, onChange, options, placeholder = 'Seleccione
     </div>
 );
 
-const FormDateTime = ({ label, value, onChange }) => (
-    <div>
+const FormDateTime = ({ label, value, onChange, disabled = false, disabledReason }) => (
+    <div className={disabled ? 'opacity-60' : ''}>
         <label className="block text-[11px] font-semibold text-slate-400 mb-1">{label}</label>
         <input
             type="datetime-local"
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className={baseFieldClass}
+            disabled={disabled}
+            title={disabled ? disabledReason : undefined}
         />
+        {disabled && disabledReason && (
+            <p className="text-[10px] text-amber-400 mt-0.5">{disabledReason}</p>
+        )}
     </div>
 );
 
@@ -535,6 +540,8 @@ const TransferTab = ({
     onOriginCodeKeyDown,
     onOriginPickerChange,
     isManualOrigin,
+    hasAmbulanceAssigned,
+    executionFieldsDisabledReason,
 }) => (
     <div className="space-y-4">
         <FormSection title="Diagnóstico">
@@ -623,8 +630,8 @@ const TransferTab = ({
                     onChange={(v) => setField('telefonoOrigen', v)}
                     disabled={!isManualOrigin}
                 />
-                <FormDateTime label="Fecha Hora Contacto" value={formData.fechaHoraContacto} onChange={(v) => setField('fechaHoraContacto', v)} />
-                <FormDateTime label="Fecha Hora Sale Origen" value={formData.fechaHoraSaleOrigen} onChange={(v) => setField('fechaHoraSaleOrigen', v)} />
+                <FormDateTime label="Fecha Hora Contacto" value={formData.fechaHoraContacto} onChange={(v) => setField('fechaHoraContacto', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
+                <FormDateTime label="Fecha Hora Sale Origen" value={formData.fechaHoraSaleOrigen} onChange={(v) => setField('fechaHoraSaleOrigen', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
                 <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 min-h-5">
                     {originsState.loading && (
                         <p className="text-xs text-blue-400">Cargando catálogo de orígenes...</p>
@@ -728,8 +735,8 @@ const TransferTab = ({
                     onChange={(v) => setField('telefonoDestino1', v)}
                     disabled={formData.idDestino1 !== '' && formData.idDestino1 !== OTHER_ORIGIN_VALUE}
                 />
-                <FormDateTime label="Fecha Hora Entrega D1" value={formData.fechaHoraEntregaD1} onChange={(v) => setField('fechaHoraEntregaD1', v)} />
-                <FormDateTime label="Fecha Hora Sale D1" value={formData.fechaHoraSaleD1} onChange={(v) => setField('fechaHoraSaleD1', v)} />
+                <FormDateTime label="Fecha Hora Entrega D1" value={formData.fechaHoraEntregaD1} onChange={(v) => setField('fechaHoraEntregaD1', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
+                <FormDateTime label="Fecha Hora Sale D1" value={formData.fechaHoraSaleD1} onChange={(v) => setField('fechaHoraSaleD1', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
             </div>
         </FormSection>
 
@@ -820,8 +827,8 @@ const TransferTab = ({
                         onChange={(v) => setField('telefonoDestino2', v)}
                         disabled={formData.idDestino2 !== '' && formData.idDestino2 !== OTHER_ORIGIN_VALUE}
                     />
-                    <FormDateTime label="Fecha Hora Entrega D2" value={formData.fechaHoraEntregaD2} onChange={(v) => setField('fechaHoraEntregaD2', v)} />
-                    <FormDateTime label="Fecha Hora Sale D2" value={formData.fechaHoraSaleD2} onChange={(v) => setField('fechaHoraSaleD2', v)} />
+                    <FormDateTime label="Fecha Hora Entrega D2" value={formData.fechaHoraEntregaD2} onChange={(v) => setField('fechaHoraEntregaD2', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
+                    <FormDateTime label="Fecha Hora Sale D2" value={formData.fechaHoraSaleD2} onChange={(v) => setField('fechaHoraSaleD2', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
                 </div>
             </FormSection>
         )}
@@ -852,6 +859,8 @@ const ServiceOrderForm = ({
     onOriginCodeKeyDown,
     onOriginPickerChange,
     isManualOrigin,
+    hasAmbulanceAssigned,
+    executionFieldsDisabledReason,
 }) => {
     const scrollContainerRef = useRef(null);
 
@@ -895,6 +904,8 @@ const ServiceOrderForm = ({
                         onOriginCodeKeyDown={onOriginCodeKeyDown}
                         onOriginPickerChange={onOriginPickerChange}
                         isManualOrigin={isManualOrigin}
+                        hasAmbulanceAssigned={hasAmbulanceAssigned}
+                        executionFieldsDisabledReason={executionFieldsDisabledReason}
                     />
                 )}
             </div>
@@ -917,6 +928,10 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [submitting, setSubmitting] = useState(false);
     const cieLookupDebounceRef = useRef(null);
     const cieLookupRequestRef = useRef(0);
+
+    // Restrict execution date/time fields until ambulance is assigned
+    const hasAmbulanceAssigned = Boolean(isEditing && initialData?.ambulanciaAsignada);
+    const executionFieldsDisabledReason = !hasAmbulanceAssigned ? 'Asignar ambulancia primero' : undefined;
 
     const entityOptions = useMemo(() => {
         return [...clientes]
@@ -1814,6 +1829,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         onOriginCodeKeyDown={handleOriginCodeKeyDown}
                         onOriginPickerChange={handleOriginPickerChange}
                         isManualOrigin={isManualOrigin}
+                        hasAmbulanceAssigned={hasAmbulanceAssigned}
+                        executionFieldsDisabledReason={executionFieldsDisabledReason}
                     />
 
                     {submitError && (
