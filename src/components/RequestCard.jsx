@@ -79,10 +79,12 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
     const cardClasses = clsx(
         "relative bg-dark-800 rounded-xl p-4 transition-all w-full flex flex-col gap-3 group select-none",
         {
-            "border-2 border-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]": isSlaBreached,
-            "border border-slate-700 hover:border-slate-500": !isSlaBreached,
+            "border-2 border-amber-500 animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.25)]": isEnRevision,
+            "border-2 border-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]": isSlaBreached && !isEnRevision,
+            "border border-slate-700 hover:border-slate-500": !isSlaBreached && !isEnRevision,
             "z-50 shadow-2xl opacity-90 scale-105 rotate-2 cursor-grabbing": isDragging,
-            "cursor-grab": !isDragging,
+            "cursor-grab": !isDragging && !isEnRevision,
+            "cursor-not-allowed": isEnRevision,
             "opacity-40": isDragging && !!setNodeRef // dim the original item if it's draggable hook
         }
     );
@@ -90,11 +92,20 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
     return (
         <div ref={setNodeRef} style={style} className={cardClasses} {...attributes} {...listeners}>
 
+            {/* En Revisión Indicator */}
+            {isEnRevision && (
+                <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-amber-500 animate-ping"></div>
+            )}
+            {isEnRevision && (
+                <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-amber-500 border-2 border-dark-900 z-10 flex items-center justify-center">
+                </div>
+            )}
+
             {/* SLA Breach Indicator */}
-            {isSlaBreached && (
+            {isSlaBreached && !isEnRevision && (
                 <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 animate-ping"></div>
             )}
-            {isSlaBreached && (
+            {isSlaBreached && !isEnRevision && (
                 <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-600 border-2 border-dark-900 z-10 flex items-center justify-center">
                 </div>
             )}
