@@ -1,35 +1,3 @@
-    // Cambia estado a 'En revisión', guarda justificación y desasigna ambulancia si aplica
-    const requestStatusToReview = async (reqId, justification) => {
-        // Obtener la solicitud actual
-        const req = solicitudes.find(s => s.id === reqId);
-        if (!req) throw new Error('Solicitud no encontrada');
-
-        const batch = writeBatch(db);
-        // Actualizar solicitud: estado, justificación, bloquear edición
-        batch.update(doc(db, 'solicitudes', reqId), {
-            estado: 'En revisión',
-            justificacionCambioEstado: justification,
-            puedeEditar: false,
-            actualizadoAt: serverTimestamp(),
-        });
-
-        // Si tiene ambulancia asignada, desasignar y poner disponible
-        if (req.ambulanciaAsignada) {
-            batch.update(doc(db, 'solicitudes', reqId), {
-                ambulanciaAsignada: null,
-            });
-            batch.update(doc(db, 'flota', req.ambulanciaAsignada), {
-                estado: 'Disponible',
-                destino: null,
-                lastAvailableAt: serverTimestamp(),
-                estadoOperativo: AMBULANCE_OPERATIONAL_STATUS.AVAILABLE,
-                estadoOperativoActualizadoAt: serverTimestamp(),
-                listaAsignacionDesde: serverTimestamp(),
-                tripulacionIncompletaDesde: null,
-            });
-        }
-        await batch.commit();
-    };
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     collection, doc, onSnapshot, query, where,
@@ -108,7 +76,7 @@ const PRENOMINA_MOCK = [
 ];
 
 // ─── Optimization: only these states use a real-time listener ─────────────────
-const ACTIVE_STATES = ['Pendiente', 'Asignado', 'En Traslado', 'En Punto'];
+const ACTIVE_STATES = ['Pendiente', 'Asignado', 'En Traslado', 'En Punto', 'En revisión'];
 // How many days of turnos to keep in real-time listener
 const TURNOS_LOOKBACK_DAYS = 90;
 
@@ -460,6 +428,42 @@ export const useDashboardData = (activeRoute = '/') => {
         await updateDoc(doc(db, 'solicitudes', reqId), { checklist });
     };
 
+    // Cambia estado a 'En revisión', guarda justificación y desasigna ambulancia si aplica
+    const requestStatusToReview = async (reqId, justification) => {
+        // Obtener la solicitud actual
+        const req = solicitudes.find(s => s.id === reqId);
+        if (!req) throw new Error('Solicitud no encontrada');
+
+        const batch = writeBatch(db);
+
+        // Actualizar solicitud: estado, justificación, bloquear edición y desasignar ambulancia
+        const solicitudUpdate = {
+            estado: 'En revisión',
+            justificacionCambioEstado: justification,
+            puedeEditar: false,
+            actualizadoAt: serverTimestamp(),
+        };
+
+        // Si tiene ambulancia asignada, incluir desasignación en el mismo update
+        if (req.ambulanciaAsignada) {
+            solicitudUpdate.ambulanciaAsignada = null;
+
+            // Liberar la ambulancia
+            batch.update(doc(db, 'flota', req.ambulanciaAsignada), {
+                estado: 'Disponible',
+                destino: null,
+                lastAvailableAt: serverTimestamp(),
+                estadoOperativo: AMBULANCE_OPERATIONAL_STATUS.AVAILABLE,
+                estadoOperativoActualizadoAt: serverTimestamp(),
+                listaAsignacionDesde: serverTimestamp(),
+                tripulacionIncompletaDesde: null,
+            });
+        }
+
+        batch.update(doc(db, 'solicitudes', reqId), solicitudUpdate);
+        await batch.commit();
+    };
+
     // ── EMPLOYEE Operations ───────────────────────────────────────────────────
     const addEmpleado = async (empObj) => {
         const { id, ...data } = empObj;
@@ -535,12 +539,21 @@ export const useDashboardData = (activeRoute = '/') => {
         await updateDoc(doc(db, 'flota', flotaId), changes);
     };
 
+    // ── Simple status update (no full payload validation) ─────────────────────
+    const updateRequestStatusDirect = async (reqId, newStatus, extraFields = {}) => {
+        await updateDoc(doc(db, 'solicitudes', reqId), {
+            estado: newStatus,
+            actualizadoAt: serverTimestamp(),
+            ...extraFields,
+        });
+    };
+
     // ── Deprecated stubs (kept for API compatibility) ─────────────────────────
     const updateRequestStatus = async () => { };
     const addMockAmbulance = async () => { };
 
     // ── Memoized derived lists ────────────────────────────────────────────────
-    const solicitudesPendientes = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente'), [solicitudes]);
+    const solicitudesPendientes = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'En revisión'), [solicitudes]);
     const solicitudesAsignadas = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado'), [solicitudes]);
     const solicitudesActivas = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado'), [solicitudes]);
     const historialSolicitudesDerived = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado' || s.estado === 'Finalizado'), [solicitudes]);
@@ -585,6 +598,7 @@ export const useDashboardData = (activeRoute = '/') => {
         closeService,
         updateServiceChecklist,
         updateRequestStatus,
+        updateRequestStatusDirect,
 
         // Estado revisión y desasignación
         requestStatusToReview,

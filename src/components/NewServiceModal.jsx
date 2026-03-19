@@ -1642,11 +1642,17 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [justificationTouched, setJustificationTouched] = useState(false);
     const [showStatusChangeConfirm, setShowStatusChangeConfirm] = useState(false);
 
-    // Llama a este para mostrar el modal de confirmación
+    // Llama a este para mostrar el modal de confirmación (solo para cancelado/negado)
+    // Para fallido se ejecuta directamente
     const handleStatusChangeClick = () => {
         setJustificationTouched(true);
         if (!selectedStatusReason || !statusChangeJustification.trim()) {
             setStatusChangeError('Seleccione una razón y proporcione una justificación');
+            return;
+        }
+        // Fallido no requiere confirmación de gerencia - ejecuta directamente
+        if (selectedStatusReason === 'fallido') {
+            handleStatusChangeRequest();
             return;
         }
         setShowStatusChangeConfirm(true);
@@ -1654,7 +1660,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
 
     // Lógica de cambio de estado: 'fallido' directo, otros pasan a revisión y desasignan ambulancia
-    const { requestStatusToReview, updateRealRequest } = useDashboardData();
+    const { requestStatusToReview, updateRequestStatusDirect } = useDashboardData();
     const handleStatusChangeRequest = async () => {
         setStatusChangeSubmitting(true);
         setStatusChangeError('');
@@ -1663,8 +1669,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             if (!solicitudId) throw new Error('ID de solicitud no encontrado');
 
             if (selectedStatusReason === 'fallido') {
-                // Cambia a 'Fallido' directamente
-                await updateRealRequest({ ...initialData, id: solicitudId, estado: 'Fallido', actualizadoAt: new Date().toISOString() });
+                // Cambia a 'Fallido' directamente (sin aprobación de gerencia)
+                await updateRequestStatusDirect(solicitudId, 'Fallido');
             } else {
                 // Cambia a 'En revisión', guarda justificación y desasigna ambulancia
                 await requestStatusToReview(solicitudId, statusChangeJustification.trim());

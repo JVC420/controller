@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, MapPin, GripVertical, AlertTriangle, Pencil, CalendarClock } from 'lucide-react';
+import { Clock, MapPin, GripVertical, AlertTriangle, Pencil, CalendarClock, Hourglass } from 'lucide-react';
 import { clsx } from 'clsx';
 
 // The visual representation of the card
 export const RequestCardUI = ({ request, client, isDragging, style, attributes, listeners, setNodeRef, onEdit }) => {
+
+    // Check if request is in review state
+    const isEnRevision = request.estado === 'En revisión';
 
     // ── Live wait-time counter ────────────────────────────────────────────────
     // For pending requests: use servicioProgramado - if not yet reached, show scheduled time
@@ -104,12 +107,14 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 </div>
 
                 <div className={clsx("flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md",
+                    isEnRevision ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" :
                     isScheduledFuture ? "bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50" :
                     isSlaBreached ? "bg-red-500/20 text-red-500 ring-1 ring-red-500" : "bg-slate-700/50 text-slate-300"
                 )}>
-                    {isScheduledFuture ? <CalendarClock size={12} /> :
+                    {isEnRevision ? <Hourglass size={12} /> :
+                     isScheduledFuture ? <CalendarClock size={12} /> :
                      isSlaBreached && request.estado !== "Pendiente" ? <AlertTriangle size={12} className="animate-pulse" /> : <Clock size={12} />}
-                    <span>{displayTime}</span>
+                    <span>{isEnRevision ? 'Cambio pendiente por  aprobar' : displayTime}</span>
                 </div>
             </div>
 
@@ -166,9 +171,13 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
 
 // Default exported draggable wrapper
 const RequestCard = ({ request, client, onEdit }) => {
+    // Disable dragging for requests in review state
+    const isEnRevision = request.estado === 'En revisión';
+
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: request.id,
-        data: { type: 'REQUEST', request, client }
+        data: { type: 'REQUEST', request, client },
+        disabled: isEnRevision,
     });
 
     const style = transform ? {
@@ -179,11 +188,11 @@ const RequestCard = ({ request, client, onEdit }) => {
         <RequestCardUI
             request={request}
             client={client}
-            onEdit={onEdit}
+            onEdit={isEnRevision ? undefined : onEdit}
             isDragging={isDragging}
             style={style}
-            attributes={attributes}
-            listeners={listeners}
+            attributes={isEnRevision ? {} : attributes}
+            listeners={isEnRevision ? {} : listeners}
             setNodeRef={setNodeRef}
         />
     );
