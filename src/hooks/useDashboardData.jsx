@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     collection, doc, onSnapshot, query, where,
-    addDoc, updateDoc, setDoc, deleteDoc, getDocs,
+    addDoc, updateDoc, setDoc, deleteDoc,
     writeBatch, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -74,6 +74,8 @@ const PRENOMINA_MOCK = [
     { id_empleado: "EMP-01", nombre: "Dr. Ramírez", ordinariasDiurnas: 120, ordinariasNocturnas: 24, hed: 5, hen: 2, dominicalesFestivos: 16, ausencias: 0 },
     { id_empleado: "EMP-02", nombre: "Juan Pérez", ordinariasDiurnas: 130, ordinariasNocturnas: 10, hed: 2, hen: 0, dominicalesFestivos: 8, ausencias: 1 }
 ];
+
+const TERMINAL_HISTORY_STATES = ['Finalizado', 'Fallido', 'Cancelado', 'Negado'];
 
 // ─── Optimization: only these states use a real-time listener ─────────────────
 const ACTIVE_STATES = ['Pendiente', 'Asignado', 'En Traslado', 'En Punto', 'En revisión'];
@@ -185,7 +187,7 @@ export const useDashboardData = (activeRoute = '/') => {
             }, console.error));
         }
 
-        // Solicitudes ACTIVE — real-time for non-finalized states only
+        // Solicitudes ACTIVE — real-time for operational states
         if (wantSol) {
             unsubs.push(onSnapshot(
                 query(collection(db, 'solicitudes'), where('estado', 'in', ACTIVE_STATES)),
@@ -194,13 +196,18 @@ export const useDashboardData = (activeRoute = '/') => {
                     tryResolve();
                 }, console.error));
 
-            // Solicitudes FINALIZED — one-time fetch
-            getDocs(query(collection(db, 'solicitudes'), where('estado', '==', 'Finalizado')))
-                .then(snap => {
+            // Solicitudes terminales — real-time para historial/lista (Finalizado/Fallido/Cancelado/Negado)
+            unsubs.push(onSnapshot(
+                query(collection(db, 'solicitudes'), where('estado', 'in', TERMINAL_HISTORY_STATES)),
+                snap => {
                     setHistoricalSolicitudes(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
                     tryResolve();
-                })
-                .catch(err => { console.error('Error fetching historical solicitudes:', err); tryResolve(); });
+                },
+                (err) => {
+                    console.error('Error listening terminal solicitudes:', err);
+                    tryResolve();
+                }
+            ));
         }
 
         // Empleados
@@ -556,7 +563,10 @@ export const useDashboardData = (activeRoute = '/') => {
     const solicitudesPendientes = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'En revisión'), [solicitudes]);
     const solicitudesAsignadas = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado'), [solicitudes]);
     const solicitudesActivas = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado'), [solicitudes]);
-    const historialSolicitudesDerived = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado' || s.estado === 'Finalizado' || s.estado === 'En revisión'), [solicitudes]);
+    const historialSolicitudesDerived = useMemo(
+        () => solicitudes.filter((s) => s.estado === 'Asignado' || s.estado === 'En revisión' || TERMINAL_HISTORY_STATES.includes(s.estado)),
+        [solicitudes]
+    );
 
     return {
         // State

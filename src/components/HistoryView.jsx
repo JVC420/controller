@@ -6,6 +6,7 @@ import { ToastContainer, useToast } from './ui/Toast';
 
 const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeService }) => {
     const { toasts, show: showToast, dismiss: dismissToast } = useToast();
+    const terminalStatusLabels = ['Cancelado', 'Negado', 'Fallido'];
     // Current time state to force re-evaluation of 2.5 hour SLAs
     const [now, setNow] = useState(Date.now());
 
@@ -41,6 +42,12 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
 
     const openViewRequestModal = (servicio, cliente) => {
         setViewRequestData({ isOpen: true, servicio, cliente });
+    };
+
+    const isTerminalStatus = (servicio) => {
+        const status = servicio?.estado || '';
+        const approval = servicio?.changeStatusApproval || '';
+        return terminalStatusLabels.some((label) => status === label || approval.includes(label));
     };
 
     const formatCreatedAt = (value) => {
@@ -201,7 +208,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             >
                                                 <Eye size={14} /> Ver Solicitud
                                             </button>
-                                            {servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
+                                            {!isTerminalStatus(servicio) && servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
                                                     className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20 whitespace-nowrap"
@@ -291,7 +298,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             >
                                                 <Eye size={14} /> Ver Solicitud
                                             </button>
-                                            {servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
+                                            {!isTerminalStatus(servicio) && servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
                                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
@@ -440,6 +447,10 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                             <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
                                 <p className="text-xs text-slate-500 mb-1">Observaciones</p>
                                 <p className="text-slate-200 whitespace-pre-wrap">{viewRequestData.servicio?.observaciones || 'Sin observaciones'}</p>
+                            </div>
+                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
+                                <p className="text-xs text-slate-500 mb-1">Justificacion de Cancelacion/Negación</p>
+                                <p className="text-slate-200 whitespace-pre-wrap">{viewRequestData.servicio?.justificacionCambioEstado || 'Sin justificación registrada'}</p>
                             </div>
                         </div>
                     </div>

@@ -105,11 +105,12 @@ function AppLayout() {
   };
 
   const scheduledServicesDashboard = useMemo(() => {
+    const terminalListStates = ['Finalizado', 'Fallido', 'Cancelado', 'Negado'];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return solicitudes
       .filter((s) => {
-        if (s?.estado === 'Finalizado' || s?.estado === 'En revisión') return true;
+        if (terminalListStates.includes(s?.estado) || s?.estado === 'En revisión') return true;
         const programmed = s?.programacionInfo?.servicioProgramado;
         if (!programmed) return false;
         const ms = toMs(programmed);
