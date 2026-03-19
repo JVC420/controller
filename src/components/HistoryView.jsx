@@ -197,6 +197,10 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                                 <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse whitespace-nowrap">
                                                     EN REVISIÓN
                                                 </span>
+                                            ) : terminalStatusLabels.includes(servicio.estado) ? (
+                                                <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
+                                                    {servicio.estado}
+                                                </span>
                                             ) : (
                                                 <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
                                                     {servicio.estado}
@@ -266,6 +270,8 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalizado</span>
                                             ) : servicio.estado === 'En revisión' ? (
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">En revisión</span>
+                                            ) : terminalStatusLabels.includes(servicio.estado) ? (
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">{servicio.estado}</span>
                                             ) : (
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">{servicio.estado}</span>
                                             )}
@@ -436,6 +442,8 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                     )
                                 ) : viewRequestData.servicio?.estado === 'En revisión' ? (
                                     <p className="text-amber-400 font-semibold animate-pulse">{viewRequestData.servicio.estado}</p>
+                                ) : terminalStatusLabels.includes(viewRequestData.servicio?.estado) ? (
+                                    <p className="text-red-400 font-semibold">{viewRequestData.servicio?.estado}</p>
                                 ) : (
                                     <p className="text-slate-200">{viewRequestData.servicio?.estado || 'Sin dato'}</p>
                                 )}
