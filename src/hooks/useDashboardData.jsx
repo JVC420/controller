@@ -556,7 +556,7 @@ export const useDashboardData = (activeRoute = '/') => {
     const solicitudesPendientes = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'En revisión'), [solicitudes]);
     const solicitudesAsignadas = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado'), [solicitudes]);
     const solicitudesActivas = useMemo(() => solicitudes.filter(s => s.estado === 'Pendiente' || s.estado === 'Asignado'), [solicitudes]);
-    const historialSolicitudesDerived = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado' || s.estado === 'Finalizado'), [solicitudes]);
+    const historialSolicitudesDerived = useMemo(() => solicitudes.filter(s => s.estado === 'Asignado' || s.estado === 'Finalizado' || s.estado === 'En revisión'), [solicitudes]);
 
     return {
         // State

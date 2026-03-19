@@ -172,9 +172,23 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                     </td>
                                     <td className="py-4 px-4">
                                         <div className="flex flex-col gap-2">
-                                            {servicio.estado === 'Finalizado' ? (
+                                            {servicio.changeStatusApproval ? (
+                                                ['Cancelado', 'Negado', 'Fallido'].some(s => servicio.changeStatusApproval.includes(s)) ? (
+                                                    <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
+                                                        {servicio.changeStatusApproval}
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap">
+                                                        {servicio.changeStatusApproval}
+                                                    </span>
+                                                )
+                                            ) : servicio.estado === 'Finalizado' ? (
                                                 <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
                                                     FINALIZADO
+                                                </span>
+                                            ) : servicio.estado === 'En revisión' ? (
+                                                <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse whitespace-nowrap">
+                                                    EN REVISIÓN
                                                 </span>
                                             ) : (
                                                 <span className="px-2.5 py-1 w-fit rounded-md text-xs font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20 whitespace-nowrap">
@@ -187,7 +201,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             >
                                                 <Eye size={14} /> Ver Solicitud
                                             </button>
-                                            {servicio.estado !== 'Finalizado' && (
+                                            {servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
                                                     className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20 whitespace-nowrap"
@@ -235,8 +249,16 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                         <div className="flex items-center gap-2 mb-1">
                                             {isAlert && <AlertTriangle size={14} className="text-red-500 animate-pulse" />}
                                             <span className="font-mono text-sm font-bold text-white tracking-wider">{servicio.id}</span>
-                                            {servicio.estado === 'Finalizado' ? (
+                                            {servicio.changeStatusApproval ? (
+                                                ['Cancelado', 'Negado', 'Fallido'].some(s => servicio.changeStatusApproval.includes(s)) ? (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">{servicio.changeStatusApproval}</span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">{servicio.changeStatusApproval}</span>
+                                                )
+                                            ) : servicio.estado === 'Finalizado' ? (
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Finalizado</span>
+                                            ) : servicio.estado === 'En revisión' ? (
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">En revisión</span>
                                             ) : (
                                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">{servicio.estado}</span>
                                             )}
@@ -269,7 +291,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             >
                                                 <Eye size={14} /> Ver Solicitud
                                             </button>
-                                            {servicio.estado !== 'Finalizado' && (
+                                            {servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
                                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
@@ -399,7 +421,17 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                             </div>
                             <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
                                 <p className="text-xs text-slate-500 mb-1">Estado</p>
-                                <p className="text-slate-200">{viewRequestData.servicio?.estado || 'Sin dato'}</p>
+                                {viewRequestData.servicio?.changeStatusApproval ? (
+                                    ['Cancelado', 'Negado', 'Fallido'].some(s => viewRequestData.servicio.changeStatusApproval.includes(s)) ? (
+                                        <p className="text-red-400 font-semibold">{viewRequestData.servicio.changeStatusApproval}</p>
+                                    ) : (
+                                        <p className="text-amber-400 font-semibold">{viewRequestData.servicio.changeStatusApproval}</p>
+                                    )
+                                ) : viewRequestData.servicio?.estado === 'En revisión' ? (
+                                    <p className="text-amber-400 font-semibold animate-pulse">{viewRequestData.servicio.estado}</p>
+                                ) : (
+                                    <p className="text-slate-200">{viewRequestData.servicio?.estado || 'Sin dato'}</p>
+                                )}
                             </div>
                             <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
                                 <p className="text-xs text-slate-500 mb-1">Creado</p>

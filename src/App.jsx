@@ -109,7 +109,7 @@ function AppLayout() {
     today.setHours(0, 0, 0, 0);
     return solicitudes
       .filter((s) => {
-        if (s?.estado === 'Finalizado') return true;
+        if (s?.estado === 'Finalizado' || s?.estado === 'En revisión') return true;
         const programmed = s?.programacionInfo?.servicioProgramado;
         if (!programmed) return false;
         const ms = toMs(programmed);
@@ -326,13 +326,25 @@ function AppLayout() {
                                   <td className="px-4 py-3 text-slate-400 break-words">{s?.destino1Info?.nombre || s.destino || 'Sin destino'}</td>
                                   <td className="px-4 py-3 text-slate-400 break-words">{s?.destino2Info?.nombre || 'No aplica'}</td>
                                   <td className="px-4 py-3 whitespace-nowrap">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                      s.estado === 'Finalizado'
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                    }`}>
-                                      {s.estado || 'Sin estado'}
-                                    </span>
+                                    {s.changeStatusApproval ? (
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                        ['Cancelado', 'Negado', 'Fallido'].some(st => s.changeStatusApproval.includes(st))
+                                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                      }`}>
+                                        {s.changeStatusApproval}
+                                      </span>
+                                    ) : (
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                        s.estado === 'Finalizado'
+                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                          : s.estado === 'En revisión'
+                                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse'
+                                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                      }`}>
+                                        {s.estado || 'Sin estado'}
+                                      </span>
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -356,13 +368,25 @@ function AppLayout() {
                                   <p className="text-[11px] text-slate-500 uppercase tracking-wider">Fecha de programacion</p>
                                   <p className="text-sm text-slate-200 font-semibold">{toColombiaDate(s?.programacionInfo?.servicioProgramado)}</p>
                                 </div>
-                                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                  s.estado === 'Finalizado'
-                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                    : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                }`}>
-                                  {s.estado || 'Sin estado'}
-                                </span>
+                                {s.changeStatusApproval ? (
+                                  <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                    ['Cancelado', 'Negado', 'Fallido'].some(st => s.changeStatusApproval.includes(st))
+                                      ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                  }`}>
+                                    {s.changeStatusApproval}
+                                  </span>
+                                ) : (
+                                  <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                    s.estado === 'Finalizado'
+                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                      : s.estado === 'En revisión'
+                                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse'
+                                      : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                  }`}>
+                                    {s.estado || 'Sin estado'}
+                                  </span>
+                                )}
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
