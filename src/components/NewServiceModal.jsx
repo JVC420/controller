@@ -1670,7 +1670,11 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
             if (selectedStatusReason === 'fallido') {
                 // Cambia a 'Fallido' directamente (sin aprobación de gerencia)
-                await updateRequestStatusDirect(solicitudId, 'Fallido');
+                await updateRequestStatusDirect(solicitudId, 'Fallido', {
+                    estado: 'Fallido',
+                    justificacionCambioEstado: statusChangeJustification.trim(),
+                    puedeEditar: false,
+                });
             } else {
                 // Cambia a 'En revisión', guarda justificación y desasigna ambulancia
                 await requestStatusToReview(solicitudId, statusChangeJustification.trim());
