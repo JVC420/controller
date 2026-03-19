@@ -1,14 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, MapPin, GripVertical, AlertTriangle, Pencil } from 'lucide-react';
+import { Clock, MapPin, GripVertical, AlertTriangle, Pencil, CalendarClock } from 'lucide-react';
 import { clsx } from 'clsx';
 
 // The visual representation of the card
 export const RequestCardUI = ({ request, client, isDragging, style, attributes, listeners, setNodeRef, onEdit }) => {
 
     // ── Live wait-time counter ────────────────────────────────────────────────
+    // For pending requests: use servicioProgramado - if not yet reached, show scheduled time
+    const programadoAt = request.programacionInfo?.servicioProgramado;
+    const programadoMs = programadoAt ? new Date(programadoAt).getTime() : null;
+    const isProgramadoValid = Number.isFinite(programadoMs);
+
     const getElapsedMin = () => {
+        if (request.estado === 'Pendiente') {
+            // If we have a valid scheduled time
+            if (isProgramadoValid) {
+                const diff = Date.now() - programadoMs;
+                // If scheduled time hasn't arrived yet, return negative to signal "not yet"
+                if (diff < 0) return diff / 60000; // negative minutes
+                return Math.floor(diff / 60000);
+            }
+            // Fallback to creadoAt
+            if (request.creadoAt) {
+                const ms = new Date(request.creadoAt).getTime();
+                if (Number.isFinite(ms)) return Math.max(0, Math.floor((Date.now() - ms) / 60000));
+            }
+            return request.tiempoEsperaMin ?? 0;
+        }
+
+        // For other states (assigned/in service), use creadoAt as before
         if (request.creadoAt) {
             const ms = new Date(request.creadoAt).getTime();
             if (Number.isFinite(ms)) return Math.max(0, Math.floor((Date.now() - ms) / 60000));
@@ -21,19 +43,35 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
         const id = setInterval(() => setElapsedMin(getElapsedMin()), 30000);
         return () => clearInterval(id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [request.creadoAt, request.tiempoEsperaMin]);
+    }, [request.creadoAt, request.tiempoEsperaMin, request.estado, request.programacionInfo?.servicioProgramado]);
 
-    // SLA breach: > 10 min waiting, > 150 min in service
+    // Is service scheduled for the future?
+    const isScheduledFuture = request.estado === 'Pendiente' && elapsedMin < 0;
+
+    // SLA breach: > 10 min waiting (only if past scheduled time), > 150 min in service
     const isSlaBreached = request.estado === 'Pendiente'
-        ? elapsedMin > 10
+        ? !isScheduledFuture && elapsedMin > 10
         : request.asignadoAt
             ? (() => { const ms = new Date(request.asignadoAt).getTime(); return Number.isFinite(ms) ? Math.floor((Date.now() - ms) / 60000) > 150 : false; })()
             : false;
 
     // Display
-    const displayTime = elapsedMin >= 60
-        ? `${Math.floor(elapsedMin / 60)}h ${elapsedMin % 60}m`
-        : `${elapsedMin} min`;
+    const formatScheduledDate = () => {
+        if (!isProgramadoValid) return '';
+        const date = new Date(programadoMs);
+        const today = new Date();
+        const isToday = date.toDateString() === today.toDateString();
+        const time = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        if (isToday) return `hoy ${time}`;
+        const dateStr = date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+        return `${dateStr} ${time}`;
+    };
+
+    const displayTime = isScheduledFuture
+        ? `Prog. ${formatScheduledDate()}`
+        : elapsedMin >= 60
+            ? `${Math.floor(elapsedMin / 60)}h ${elapsedMin % 60}m`
+            : `${Math.floor(elapsedMin)} min`;
 
     const cardClasses = clsx(
         "relative bg-dark-800 rounded-xl p-4 transition-all w-full flex flex-col gap-3 group select-none",
@@ -66,9 +104,11 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 </div>
 
                 <div className={clsx("flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md",
+                    isScheduledFuture ? "bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50" :
                     isSlaBreached ? "bg-red-500/20 text-red-500 ring-1 ring-red-500" : "bg-slate-700/50 text-slate-300"
                 )}>
-                    {isSlaBreached && request.estado !== "Pendiente" ? <AlertTriangle size={12} className="animate-pulse" /> : <Clock size={12} />}
+                    {isScheduledFuture ? <CalendarClock size={12} /> :
+                     isSlaBreached && request.estado !== "Pendiente" ? <AlertTriangle size={12} className="animate-pulse" /> : <Clock size={12} />}
                     <span>{displayTime}</span>
                 </div>
             </div>

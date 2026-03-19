@@ -6,14 +6,24 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
+import {
+    AMBULANCE_OPERATIONAL_STATUS,
+    canAssignRequestToAmbulance,
+    getAmbulanceOperationalStatus,
+} from '../utils/fleetStatus';
 
 // ─── Normalize Firestore Timestamps to ISO strings on read ───────────────────
 const normalizeDoc = (data) => {
-    const result = { ...data };
-    for (const key of Object.keys(result)) {
-        if (result[key] && typeof result[key].toDate === 'function') {
-            result[key] = result[key].toDate().toISOString();
-        }
+    if (!data || typeof data !== 'object') return data;
+    if (typeof data.toDate === 'function') {
+        return data.toDate().toISOString();
+    }
+    if (Array.isArray(data)) {
+        return data.map(normalizeDoc);
+    }
+    const result = {};
+    for (const key of Object.keys(data)) {
+        result[key] = normalizeDoc(data[key]);
     }
     return result;
 };
@@ -51,7 +61,7 @@ const assertValidRequestPayload = (data) => {
     if (esParticular && !(valorParticular > 0)) {
         throw new Error('Valor de servicio particular inválido.');
     }
-    if (!esParticular && !(copago >= 0)) {
+    if (!esParticular && data?.servicioInfo?.copagoValor !== '' && !Number.isNaN(copago) && copago < 0) {
         throw new Error('Copago inválido.');
     }
 };
@@ -92,11 +102,11 @@ const writeCache = (key, data) => {
 // ─── Route → required collections mapping ────────────────────────────────────
 // Each route declares which Firestore collections it needs active listeners for.
 const ROUTE_NEEDS = {
-    '/':            { flota: true, solicitudes: true, clientes: true, turnos: true, empleados: false },
-    '/historial':   { flota: false, solicitudes: true, clientes: true, turnos: false, empleados: false },
-    '/metricas':    { flota: true, solicitudes: true, clientes: false, turnos: true, empleados: false },
-    '/directorio':  { flota: false, solicitudes: false, clientes: true, turnos: false, empleados: false },
-    '/personal':    { flota: true, solicitudes: false, clientes: false, turnos: true, empleados: true },
+    '/':            { flota: true, solicitudes: true, clientes: true, turnos: true, empleados: false, statusLog: false },
+    '/historial':   { flota: false, solicitudes: true, clientes: true, turnos: false, empleados: false, statusLog: false },
+    '/metricas':    { flota: true, solicitudes: true, clientes: false, turnos: true, empleados: false, statusLog: true },
+    '/directorio':  { flota: false, solicitudes: false, clientes: true, turnos: false, empleados: false, statusLog: false },
+    '/personal':    { flota: true, solicitudes: false, clientes: false, turnos: true, empleados: true, statusLog: false },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -115,6 +125,7 @@ export const useDashboardData = (activeRoute = '/') => {
     const [sessionFinalized, setSessionFinalized] = useState([]);
     const [empleados, setEmpleados] = useState([]);
     const [turnos, setTurnos] = useState([]);
+    const [flotaStatusLog, setFlotaStatusLog] = useState([]);
 
     const [loading, setLoading] = useState(true);
 
@@ -149,8 +160,9 @@ export const useDashboardData = (activeRoute = '/') => {
         const wantSol         = needs.solicitudes;
         const wantEmpleados   = canReadEmpleados && needs.empleados;
         const wantTurnos      = canReadTurnos && needs.turnos;
+        const wantStatusLog   = needs.statusLog;
         const total = (wantFlota ? 1 : 0) + (wantSol ? 2 : 0) + (wantClientes ? 1 : 0)
-                    + (wantEmpleados ? 1 : 0) + (wantTurnos ? 1 : 0);
+                    + (wantEmpleados ? 1 : 0) + (wantTurnos ? 1 : 0) + (wantStatusLog ? 1 : 0);
         // If nothing is needed, resolve immediately
         if (total === 0) { setLoading(false); return; }
         const tryResolve = () => { resolved++; if (resolved >= total) setLoading(false); };
@@ -212,6 +224,18 @@ export const useDashboardData = (activeRoute = '/') => {
                 }, console.error));
         }
 
+        // Fleet Status Log — date-filtered for metrics
+        if (wantStatusLog) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - TURNOS_LOOKBACK_DAYS);
+            unsubs.push(onSnapshot(
+                query(collection(db, 'flotaStatusLog'), where('timestamp', '>=', cutoff)),
+                snap => {
+                    setFlotaStatusLog(snap.docs.map(d => ({ id: d.id, ...normalizeDoc(d.data()) })));
+                    tryResolve();
+                }, console.error));
+        }
+
         return () => unsubs.forEach(fn => fn());
     }, [role, activeRoute]);
 
@@ -222,6 +246,34 @@ export const useDashboardData = (activeRoute = '/') => {
         return m;
     }, [clientes]);
     const getClienteById = useCallback((id) => clientesMap.get(id), [clientesMap]);
+
+    const syncAmbulanceOperationalFields = useCallback(async (ambulance, turnosOverride) => {
+        if (!ambulance?.id) return;
+
+        const turnosToUse = turnosOverride || turnos;
+        const nextOperationalStatus = getAmbulanceOperationalStatus(ambulance, turnosToUse);
+        const currentOperationalStatus = ambulance.estadoOperativo || '';
+        if (currentOperationalStatus === nextOperationalStatus) return;
+
+        const patch = {
+            estadoOperativo: nextOperationalStatus,
+            estadoOperativoActualizadoAt: serverTimestamp(),
+        };
+
+        if (nextOperationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW) {
+            patch.tripulacionIncompletaDesde = serverTimestamp();
+            patch.listaAsignacionDesde = null;
+        } else if (nextOperationalStatus === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE) {
+            patch.lastAvailableAt = serverTimestamp();
+            patch.listaAsignacionDesde = serverTimestamp();
+            patch.tripulacionIncompletaDesde = null;
+        } else {
+            patch.listaAsignacionDesde = null;
+            patch.tripulacionIncompletaDesde = null;
+        }
+
+        await updateDoc(doc(db, 'flota', ambulance.id), patch);
+    }, [turnos]);
 
     // ── CLIENT Operations ─────────────────────────────────────────────────────
     const createClient = async (clientObj) => {
@@ -242,6 +294,13 @@ export const useDashboardData = (activeRoute = '/') => {
     // ── FLEET Operations ──────────────────────────────────────────────────────
     const createRealAmbulance = async (ambulanceObj) => {
         const { id, ...data } = ambulanceObj;
+        if (!data.estado) {
+            data.estado = 'Disponible';
+        }
+        data.estadoOperativo = AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW;
+        data.estadoOperativoActualizadoAt = serverTimestamp();
+        data.tripulacionIncompletaDesde = serverTimestamp();
+        data.listaAsignacionDesde = null;
         if (id) {
             await setDoc(doc(db, 'flota', id), data);
         } else {
@@ -255,8 +314,16 @@ export const useDashboardData = (activeRoute = '/') => {
         if (newStatus === 'Disponible') {
             update.destino = null;
             update.lastAvailableAt = serverTimestamp();
+            update.estadoOperativo = AMBULANCE_OPERATIONAL_STATUS.AVAILABLE;
+            update.estadoOperativoActualizadoAt = serverTimestamp();
+            update.listaAsignacionDesde = serverTimestamp();
+            update.tripulacionIncompletaDesde = null;
         } else if (newStatus === 'Fuera de Servicio') {
             update.destino = null;
+            update.estadoOperativo = AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE;
+            update.estadoOperativoActualizadoAt = serverTimestamp();
+            update.listaAsignacionDesde = null;
+            update.tripulacionIncompletaDesde = null;
         }
         await updateDoc(ref, update);
     };
@@ -300,6 +367,14 @@ export const useDashboardData = (activeRoute = '/') => {
     };
 
     const assignAmbulance = async (reqId, ambulanceId) => {
+        const ambulance = flota.find((a) => a.id === ambulanceId);
+        if (!ambulance) {
+            throw new Error('Ambulancia no encontrada.');
+        }
+        if (!canAssignRequestToAmbulance(ambulance, turnos)) {
+            throw new Error('No se puede asignar: la ambulancia no tiene la tripulación completa.');
+        }
+
         const batch = writeBatch(db);
         batch.update(doc(db, 'solicitudes', reqId), {
             estado: 'Asignado',
@@ -308,7 +383,11 @@ export const useDashboardData = (activeRoute = '/') => {
         });
         batch.update(doc(db, 'flota', ambulanceId), {
             estado: 'En Servicio',
-            destino: 'Solicitud Asignada'
+            destino: 'Solicitud Asignada',
+            estadoOperativo: AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE,
+            estadoOperativoActualizadoAt: serverTimestamp(),
+            listaAsignacionDesde: null,
+            tripulacionIncompletaDesde: null,
         });
         await batch.commit();
     };
@@ -326,7 +405,11 @@ export const useDashboardData = (activeRoute = '/') => {
             batch.update(doc(db, 'flota', ambulanceId), {
                 estado: 'Disponible',
                 destino: null,
-                lastAvailableAt: serverTimestamp()
+                lastAvailableAt: serverTimestamp(),
+                estadoOperativo: AMBULANCE_OPERATIONAL_STATUS.AVAILABLE,
+                estadoOperativoActualizadoAt: serverTimestamp(),
+                listaAsignacionDesde: serverTimestamp(),
+                tripulacionIncompletaDesde: null,
             });
         }
         await batch.commit();
@@ -363,16 +446,57 @@ export const useDashboardData = (activeRoute = '/') => {
     const addTurno = async (turnoObj) => {
         const { id, ...data } = turnoObj;
         data.creadoAt = serverTimestamp();
+        let turnoId = id;
         if (id) {
             await setDoc(doc(db, 'turnos', id), data);
         } else {
             const ref = await addDoc(collection(db, 'turnos'), data);
-            return ref.id;
+            turnoId = ref.id;
         }
+
+        const movilId = data.movil;
+        if (movilId && movilId !== 'Sin Asignar') {
+            const ambulance = flota.find((a) => a.id === movilId);
+            if (ambulance) {
+                // Build updated turnos list including the new turno
+                const newTurno = { id: turnoId, ...data, creadoAt: new Date().toISOString() };
+                const updatedTurnos = [...turnos, newTurno];
+                await syncAmbulanceOperationalFields(ambulance, updatedTurnos);
+            }
+        }
+
+        return turnoId;
     };
 
     const updateTurno = async (turnoId, changes) => {
+        const existingTurno = turnos.find((t) => t.id === turnoId);
         await updateDoc(doc(db, 'turnos', turnoId), changes);
+
+        // Only re-evaluate operational fleet state when crew composition can change.
+        const crewAffectingFields = ['movil', 'horaFinReal', 'cancelado', 'ausenciaConfirmada'];
+        const shouldSyncFleetState = crewAffectingFields.some((field) => Object.prototype.hasOwnProperty.call(changes || {}, field));
+        if (!shouldSyncFleetState) return;
+
+        // Build updated turnos list with the changes applied
+        const updatedTurnos = turnos.map((t) =>
+            t.id === turnoId ? { ...t, ...changes } : t
+        );
+
+        const impactedMoviles = new Set();
+        if (existingTurno?.movil && existingTurno.movil !== 'Sin Asignar') {
+            impactedMoviles.add(existingTurno.movil);
+        }
+        if (changes?.movil && changes.movil !== 'Sin Asignar') {
+            impactedMoviles.add(changes.movil);
+        }
+
+        for (const movilId of impactedMoviles) {
+            const ambulance = flota.find((a) => a.id === movilId);
+            if (ambulance) {
+                // eslint-disable-next-line no-await-in-loop
+                await syncAmbulanceOperationalFields(ambulance, updatedTurnos);
+            }
+        }
     };
 
     const updateFlota = async (flotaId, changes) => {
@@ -398,6 +522,7 @@ export const useDashboardData = (activeRoute = '/') => {
         flota,
         empleados,
         turnosHoy: turnos,   // alias kept so PersonnelView doesn't need changes
+        flotaStatusLog,
         loading,
 
         // Derived (memoized via useMemo below)

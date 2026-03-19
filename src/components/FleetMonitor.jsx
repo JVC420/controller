@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import AmbulanceCard from './AmbulanceCard';
 import NewAmbulanceModal from './NewAmbulanceModal';
 import { useAuth } from '../contexts/AuthContext';
+import { AMBULANCE_OPERATIONAL_STATUS, getAmbulanceOperationalStatus } from '../utils/fleetStatus';
 
 const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance, onAddRequest, onStatusChange, onEditRequest, headerControl = null }) => {
     const { role } = useAuth();
     const [isAmbulanceModalOpen, setIsAmbulanceModalOpen] = useState(false);
     const canManageFleet = role === 'administrador_general';
 
-    // Group fleet by status
-    const disponibles = flota.filter(a => a.estado === 'Disponible');
-    const enServicio = flota.filter(a => a.estado === 'En Servicio');
-    const fueraDeServicio = flota.filter(a => a.estado === 'Fuera de Servicio');
+    // Group fleet by dynamic operational status
+    const disponibles = flota.filter((a) => getAmbulanceOperationalStatus(a, turnosHoy) === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE);
+    const enServicio = flota.filter((a) => getAmbulanceOperationalStatus(a, turnosHoy) === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE);
+    const fueraDeServicio = flota.filter((a) => getAmbulanceOperationalStatus(a, turnosHoy) === AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE);
+    const disponiblesIncompleta = flota.filter((a) => getAmbulanceOperationalStatus(a, turnosHoy) === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW);
 
     return (
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-dark-900 h-screen flex flex-col">
@@ -37,7 +39,8 @@ const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance,
                     </div>
                     <div className="flex flex-wrap items-center gap-2 lg:gap-4 justify-center lg:justify-end">
                         {headerControl}
-                        <StatBox label="Disponibles" count={disponibles.length} color="text-emerald-400" />
+                        <StatBox label="Listas para Asignación" count={disponibles.length} color="text-emerald-400" />
+                        <StatBox label="Disp. Tripulación Incompleta" count={disponiblesIncompleta.length} color="text-amber-400" />
                         <StatBox label="En Servicio" count={enServicio.length} color="text-blue-400" />
                         <StatBox label="Fuera" count={fueraDeServicio.length} color="text-red-400" />
                     </div>
@@ -45,13 +48,24 @@ const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance,
             </header>
 
             <div className="flex-1 space-y-8">
-                <FleetSection title="Ambulancias Disponibles" color="text-emerald-400" count={disponibles.length}>
+                <FleetSection title="Ambulancias Listas para Asignación" color="text-emerald-400" count={disponibles.length}>
                     {disponibles.map(amb => (
                         <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
                     ))}
                     {disponibles.length === 0 && (
                         <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-700 rounded-xl text-slate-400">
-                            No hay ambulancias disponibles en este momento.
+                            No hay ambulancias listas para asignación en este momento.
+                        </div>
+                    )}
+                </FleetSection>
+
+                <FleetSection title="Disponibles con Tripulación Incompleta" color="text-amber-400" count={disponiblesIncompleta.length}>
+                    {disponiblesIncompleta.map(amb => (
+                        <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
+                    ))}
+                    {disponiblesIncompleta.length === 0 && (
+                        <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-700 rounded-xl text-slate-400">
+                            No hay ambulancias con tripulación incompleta.
                         </div>
                     )}
                 </FleetSection>

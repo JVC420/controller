@@ -3,34 +3,57 @@ import { useDroppable } from '@dnd-kit/core';
 import { clsx } from 'clsx';
 import { Stethoscope, Activity, FileWarning, Pencil } from 'lucide-react';
 import { getRoleDisplayName } from '../utils/roleDisplay';
+import {
+    AMBULANCE_OPERATIONAL_STATUS,
+    canAssignRequestToAmbulance,
+    getActiveCrewForAmbulance,
+    getAmbulanceOperationalStatus,
+    getCrewRulesForAmbulance,
+} from '../utils/fleetStatus';
 
 const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceRequest, onEditRequest }) => {
+    const operationalStatus = getAmbulanceOperationalStatus(ambulance, turnosHoy);
+    const canAcceptRequest = canAssignRequestToAmbulance(ambulance, turnosHoy);
+
     const { isOver, setNodeRef } = useDroppable({
         id: ambulance.id,
+        disabled: !canAcceptRequest,
         data: {
             type: 'AMBULANCE',
-            ambulance
+            ambulance,
+            canAcceptRequest,
+            operationalStatus,
         }
     });
 
-    const isAvailable = ambulance.estado === "Disponible";
-    const inService = ambulance.estado === "En Servicio";
-    const outOfService = ambulance.estado === "Fuera de Servicio";
+    const isAvailable = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE;
+    const inService = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE;
+    const outOfService = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE;
+    const incompleteCrew = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW;
 
     // Derive crew from active shifts instead of fleet document
-    const tripulacion = turnosHoy.filter(t =>
-        t.movil === ambulance.id &&
-        !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
-    );
+    const tripulacion = getActiveCrewForAmbulance(turnosHoy, ambulance.id);
 
     // Calculate Idle Time
     const [idleMinutes, setIdleMinutes] = React.useState(0);
 
     React.useEffect(() => {
         let interval;
-        if (isAvailable && ambulance.lastAvailableAt) {
+        const shouldCalculateIdle = isAvailable || incompleteCrew;
+
+        if (shouldCalculateIdle) {
             const calculateIdle = () => {
-                const ms = new Date(ambulance.lastAvailableAt).getTime();
+                // Use appropriate timestamp based on status
+                const idleStart = incompleteCrew
+                    ? ambulance.tripulacionIncompletaDesde || ambulance.estadoOperativoActualizadoAt
+                    : ambulance.lastAvailableAt || ambulance.listaAsignacionDesde;
+
+                if (!idleStart) {
+                    setIdleMinutes(0);
+                    return;
+                }
+
+                const ms = new Date(idleStart).getTime();
                 const diff = Number.isFinite(ms) ? Date.now() - ms : 0;
                 setIdleMinutes(Math.max(0, Math.floor(diff / 60000)));
             };
@@ -40,13 +63,14 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
             setIdleMinutes(0);
         }
         return () => clearInterval(interval);
-    }, [isAvailable, ambulance.lastAvailableAt]);
+    }, [isAvailable, incompleteCrew, ambulance.lastAvailableAt, ambulance.listaAsignacionDesde, ambulance.tripulacionIncompletaDesde, ambulance.estadoOperativoActualizadoAt]);
 
     const cardClasses = clsx(
         "relative p-4 rounded-xl border transition-all duration-300 flex flex-col h-full",
         {
-            "bg-dark-800 border-slate-700": !isOver && !isAvailable,
+            "bg-dark-800 border-slate-700": !isOver && !isAvailable && !incompleteCrew,
             "bg-dark-800 border-emerald-500/30 hover:border-emerald-500/50 cursor-pointer": !isOver && isAvailable,
+            "bg-dark-800 border-amber-500/35": !isOver && incompleteCrew,
             "bg-emerald-900/40 border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)] ring-2 ring-emerald-500 ring-offset-2 ring-offset-dark-900": isOver && isAvailable,
             "opacity-80": outOfService
         }
@@ -64,6 +88,7 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
                 <div className="flex items-center gap-3 min-w-0">
                     <div className={clsx("p-2 rounded-lg",
                         isAvailable ? "bg-emerald-500/20 text-emerald-400" :
+                            incompleteCrew ? "bg-amber-500/20 text-amber-400" :
                             inService ? "bg-blue-500/20 text-blue-400" :
                                 "bg-red-500/20 text-red-400"
                     )}>
@@ -79,6 +104,7 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
                     className={clsx(
                         "w-full sm:w-auto max-w-full sm:max-w-[170px] text-xs font-semibold px-2 py-1 rounded border appearance-none cursor-pointer focus:outline-none focus:ring-1 transition-colors",
                         isAvailable ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 focus:ring-emerald-500" :
+                            incompleteCrew ? "bg-amber-500/10 text-amber-400 border-amber-500/20 focus:ring-amber-500" :
                             inService ? "bg-blue-500/10 text-blue-400 border-blue-500/20 focus:ring-blue-500" :
                                 "bg-red-500/10 text-red-400 border-red-500/20 focus:ring-red-500"
                     )}
@@ -92,12 +118,17 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
                 </select>
             </div>
 
+            {incompleteCrew && (
+                <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                    No asignable: la tripulación no está completa.
+                </div>
+            )}
+
             <div className="mt-auto space-y-3">
-                {isAvailable && (
+                {(isAvailable || incompleteCrew) && (
                     <div className="bg-dark-900/50 p-3 rounded-lg border border-slate-700/50 space-y-2">
                         {(() => {
-                            const CREW_RULES = { 'Básica': ['Conductor', 'Paramédico'], 'Medicalizada': ['Médico', 'Conductor', 'Paramédico'] };
-                            const rules = CREW_RULES[ambulance.tipo] || [];
+                            const rules = getCrewRulesForAmbulance(ambulance);
                             const isFull = rules.length > 0 && rules.every(role => tripulacion.some(c => c.cargo === role));
                             return (
                                 <div className="space-y-2">

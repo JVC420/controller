@@ -18,6 +18,7 @@ import { useAuth, ROLES } from './contexts/AuthContext';
 import UnauthorizedPage from './components/UnauthorizedPage';
 import { ToastContainer, useToast } from './components/ui/Toast';
 import { Menu } from 'lucide-react';
+import { canAssignRequestToAmbulance } from './utils/fleetStatus';
 
 // Map route paths to tab names for sidebar highlighting
 const pathToTab = {
@@ -43,6 +44,7 @@ function AppLayout() {
     historialSolicitudes,
     solicitudes,
     flota,
+    flotaStatusLog,
     loading,
     getClienteById,
     getNextReqId,
@@ -173,7 +175,7 @@ function AppLayout() {
     setActiveDragItem(event.active.data.current);
   };
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = async (event) => {
     const { active, over } = event;
     setActiveDragItem(null);
 
@@ -182,10 +184,18 @@ function AppLayout() {
     if (active.data.current?.type === 'REQUEST' && over.data.current?.type === 'AMBULANCE') {
       const request = active.data.current.request;
       const ambulance = over.data.current.ambulance;
+      const canAssign = canAssignRequestToAmbulance(ambulance, turnosHoy);
 
-      if (ambulance.estado === "Disponible") {
-        assignAmbulance(request.id, ambulance.id);
+      if (!canAssign) {
+        showToast('No se puede asignar: la ambulancia no tiene la tripulación completa.', 'error');
+        return;
+      }
+
+      try {
+        await assignAmbulance(request.id, ambulance.id);
         showToast('Solicitud asignada exitosamente', 'success');
+      } catch (error) {
+        showToast(error?.message || 'No se pudo asignar la solicitud.', 'error');
       }
     }
   };
@@ -434,7 +444,7 @@ function AppLayout() {
             )} />
 
             <Route path="/metricas" element={guard('/metricas',
-              <MetricsDashboard flota={flota} solicitudes={solicitudes} turnos={turnosHoy} />
+              <MetricsDashboard flota={flota} solicitudes={solicitudes} turnos={turnosHoy} flotaStatusLog={flotaStatusLog} />
             )} />
 
             <Route path="/directorio" element={guard('/directorio',

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Activity, Clock, FileCheck, Truck, Users, AlertTriangle, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
+import { AMBULANCE_OPERATIONAL_STATUS, getAmbulanceOperationalStatus } from '../utils/fleetStatus';
 
 const getColombiaToday = () =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -22,7 +23,7 @@ const toColombiaDateStr = (isoStr) => {
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
 };
 
-const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
+const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStatusLog = [] }) => {
     // ─── State: Date Range ─────────────────────────────────────────────────
     const [dateRange, setDateRange] = useState(() => {
         const today = getColombiaToday();
@@ -42,17 +43,60 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
 
         // --- Fleet Metrics (Always live) ---
         const totalAmbulancias = flota.length || 1; // avoid division by zero
-        const disponibles = flota.filter(a => a.estado === 'Disponible');
-        const enServicio = flota.filter(a => a.estado === 'En Servicio');
+        const disponibles = flota.filter((a) => getAmbulanceOperationalStatus(a, turnos) === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE);
+        const disponiblesIncompleta = flota.filter((a) => getAmbulanceOperationalStatus(a, turnos) === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW);
+        const enServicio = flota.filter((a) => getAmbulanceOperationalStatus(a, turnos) === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE);
         const operativas = disponibles.length + enServicio.length;
         const porcOperativa = Math.round((operativas / totalAmbulancias) * 100);
 
-        // --- Time Metrics (Always live) ---
-        // Idle time = Average minutes since lastAvailableAt for currently AVAILABLE ambulances
+        // --- Time Metrics from Status Log (Filtered by Date Range) ---
+        const logsInRange = flotaStatusLog.filter(log => {
+            const logDate = toColombiaDateStr(log.timestamp);
+            return logDate >= dateRange.desde && logDate <= dateRange.hasta;
+        });
+
+        // Calculate total operational vs idle time from logs
+        let totalOperationalMins = 0;
+        let totalIdleMinsFromLog = 0;
+        logsInRange.forEach(log => {
+            const mins = log.durationMinutes || 0;
+            if (log.wasOperational) {
+                totalOperationalMins += mins;
+            } else if (log.wasIdle) {
+                totalIdleMinsFromLog += mins;
+            }
+        });
+
+        // Group logs by ambulance for per-vehicle stats
+        const logsByAmbulance = new Map();
+        logsInRange.forEach(log => {
+            const ambId = log.ambulanceId || log.movil;
+            if (!logsByAmbulance.has(ambId)) {
+                logsByAmbulance.set(ambId, { operational: 0, idle: 0 });
+            }
+            const stats = logsByAmbulance.get(ambId);
+            if (log.wasOperational) {
+                stats.operational += log.durationMinutes || 0;
+            } else if (log.wasIdle) {
+                stats.idle += log.durationMinutes || 0;
+            }
+        });
+
+        // Calculate utilization rate
+        const totalTrackedMins = totalOperationalMins + totalIdleMinsFromLog;
+        const utilizationRate = totalTrackedMins > 0
+            ? Math.round((totalOperationalMins / totalTrackedMins) * 100)
+            : 0;
+
+        // --- Live Idle Time (current snapshot for ambulances currently idle) ---
         let totalIdleMs = 0;
         let idleCount = 0;
-        disponibles.forEach(a => {
-            const idleStart = safeToMs(a.lastAvailableAt);
+        [...disponibles, ...disponiblesIncompleta].forEach((a) => {
+            const operationalStatus = getAmbulanceOperationalStatus(a, turnos);
+            const idleStart = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW
+                ? safeToMs(a.tripulacionIncompletaDesde) || safeToMs(a.estadoOperativoActualizadoAt) || safeToMs(a.lastAvailableAt)
+                : safeToMs(a.listaAsignacionDesde) || safeToMs(a.lastAvailableAt);
+
             if (idleStart != null) {
                 totalIdleMs += (now - idleStart);
                 idleCount++;
@@ -105,10 +149,23 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
         const ambulanceStats = flota.map(amb => {
             const servicesOnDate = closedOnDate.filter(s => s.ambulanciaAsignada === amb.id).length;
 
+            // Get logged time stats for this ambulance
+            const loggedStats = logsByAmbulance.get(amb.id) || { operational: 0, idle: 0 };
+            const ambTotalTracked = loggedStats.operational + loggedStats.idle;
+            const ambUtilization = ambTotalTracked > 0
+                ? Math.round((loggedStats.operational / ambTotalTracked) * 100)
+                : null;
+
             // Current idle calculation for this specific vehicle ONLY if viewing today
             let currentIdle = null;
-            if (isToday && amb.estado === 'Disponible' && amb.lastAvailableAt) {
-                const idleStart = safeToMs(amb.lastAvailableAt);
+            const operationalStatus = getAmbulanceOperationalStatus(amb, turnos);
+            if (
+                isToday
+                && (operationalStatus === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE || operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW)
+            ) {
+                const idleStart = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW
+                    ? safeToMs(amb.tripulacionIncompletaDesde) || safeToMs(amb.estadoOperativoActualizadoAt) || safeToMs(amb.lastAvailableAt)
+                    : safeToMs(amb.listaAsignacionDesde) || safeToMs(amb.lastAvailableAt);
                 if (idleStart != null) {
                     currentIdle = Math.floor((now - idleStart) / 60000);
                 }
@@ -116,8 +173,12 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
 
             return {
                 ...amb,
+                operationalStatus,
                 servicesToday: servicesOnDate,
-                currentIdle
+                currentIdle,
+                loggedOperational: loggedStats.operational,
+                loggedIdle: loggedStats.idle,
+                utilization: ambUtilization
             };
         });
 
@@ -125,6 +186,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
             isToday,
             porcOperativa,
             disponibles: disponibles.length,
+            disponiblesIncompleta: disponiblesIncompleta.length,
             enServicio: enServicio.length,
             mantenimiento: flota.length - operativas,
             avgIdleMins,
@@ -133,9 +195,13 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
             activeServices: activeServices.length,
             slaBreachRate,
             activeStaff,
+            // New metrics from log
+            totalOperationalMins,
+            totalIdleMinsFromLog,
+            utilizationRate,
             ambulanceStats: ambulanceStats.sort((a, b) => b.servicesToday - a.servicesToday || a.id.localeCompare(b.id))
         };
-    }, [flota, solicitudes, turnos, dateRange]);
+    }, [flota, solicitudes, turnos, dateRange, flotaStatusLog]);
 
 
     // ─── Formatting Helpers ───────────────────────────────────────────────
@@ -216,21 +282,51 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
             </div>
 
             {/* ── Level 2: Secondary Indicators ─────────────────────────────── */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <MiniIndicator
+                    label="Tasa de Utilización"
+                    value={`${metrics.utilizationRate}%`}
+                    alert={metrics.utilizationRate < 50}
+                    positive={metrics.utilizationRate >= 70}
+                />
+                <MiniIndicator
+                    label="Tiempo Operativo (Log)"
+                    value={formatMin(metrics.totalOperationalMins)}
+                    positive={true}
+                />
+                <MiniIndicator
+                    label="Tiempo Muerto (Log)"
+                    value={formatMin(metrics.totalIdleMinsFromLog)}
+                    alert={metrics.totalIdleMinsFromLog > metrics.totalOperationalMins}
+                />
+                <MiniIndicator
+                    label="Tasa de Brecha SLA (>10m)"
+                    value={`${metrics.slaBreachRate}%`}
+                    alert={metrics.slaBreachRate > 15}
+                />
+            </div>
+
+            {/* ── Level 2b: Fleet Status ─────────────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <MiniIndicator
                     label="Ambulancias en Mantenimiento"
                     value={metrics.mantenimiento}
                     alert={metrics.mantenimiento > 0}
                 />
                 <MiniIndicator
-                    label="Tiempo Muerto Promedio Global"
+                    label="Disp. Tripulación Incompleta"
+                    value={metrics.disponiblesIncompleta}
+                    alert={metrics.disponiblesIncompleta > 0}
+                />
+                <MiniIndicator
+                    label="Tiempo Muerto Actual Promedio"
                     value={formatMin(metrics.avgIdleMins)}
                     alert={metrics.avgIdleMins > 60}
                 />
                 <MiniIndicator
-                    label="Tasa de Brecha SLA (>10m)"
-                    value={`${metrics.slaBreachRate}%`}
-                    alert={metrics.slaBreachRate > 15}
+                    label="En Servicio Ahora"
+                    value={metrics.enServicio}
+                    positive={metrics.enServicio > 0}
                 />
             </div>
 
@@ -253,8 +349,11 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                                 <th className="px-6 py-4 rounded-tl-lg">Móvil</th>
                                 <th className="px-6 py-4">Tipo</th>
                                 <th className="px-6 py-4">Estado Actual</th>
-                                <th className="px-6 py-4 text-center">Servicios Hoy</th>
-                                <th className="px-6 py-4">Tiempo Muerto Actual</th>
+                                <th className="px-6 py-4 text-center">Servicios</th>
+                                <th className="px-6 py-4 text-center">T. Operativo</th>
+                                <th className="px-6 py-4 text-center">T. Muerto</th>
+                                <th className="px-6 py-4 text-center">Utilización</th>
+                                <th className="px-6 py-4">T. Muerto Actual</th>
                                 <th className="px-6 py-4 rounded-tr-lg">Novedades</th>
                             </tr>
                         </thead>
@@ -269,17 +368,41 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={clsx("px-2.5 py-1 text-[11px] font-bold rounded-full border",
-                                            amb.estado === 'Disponible' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                                amb.estado === 'En Servicio' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
-                                                    "bg-red-500/10 text-red-400 border-red-500/20"
+                                            amb.operationalStatus === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                                amb.operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                                    amb.operationalStatus === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                                                        "bg-red-500/10 text-red-400 border-red-500/20"
                                         )}>
-                                            {amb.estado}
+                                            {amb.operationalStatus}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         <span className={clsx("font-bold", amb.servicesToday > 0 ? "text-white" : "text-slate-600")}>
                                             {amb.servicesToday}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={clsx("font-mono text-xs", amb.loggedOperational > 0 ? "text-emerald-400" : "text-slate-600")}>
+                                            {amb.loggedOperational > 0 ? formatMin(amb.loggedOperational) : '—'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={clsx("font-mono text-xs", amb.loggedIdle > 0 ? "text-amber-400" : "text-slate-600")}>
+                                            {amb.loggedIdle > 0 ? formatMin(amb.loggedIdle) : '—'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center">
+                                        {amb.utilization !== null ? (
+                                            <span className={clsx("font-bold text-xs px-2 py-0.5 rounded",
+                                                amb.utilization >= 70 ? "bg-emerald-500/20 text-emerald-400" :
+                                                    amb.utilization >= 40 ? "bg-amber-500/20 text-amber-400" :
+                                                        "bg-red-500/20 text-red-400"
+                                            )}>
+                                                {amb.utilization}%
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-600">—</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4">
                                         {amb.currentIdle !== null ? (
@@ -303,7 +426,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-8 text-center text-slate-500">
+                                    <td colSpan="9" className="px-6 py-8 text-center text-slate-500">
                                         No hay flota registrada.
                                     </td>
                                 </tr>
@@ -323,26 +446,55 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [] }) => {
                                         <div className="flex justify-between items-center gap-2 mb-1">
                                             <h3 className="font-bold text-white text-lg">{amb.id}</h3>
                                             <span className={clsx("px-2 py-0.5 text-[10px] uppercase font-bold rounded border tracking-wider",
-                                                amb.estado === 'Disponible' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                                    amb.estado === 'En Servicio' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
-                                                        "bg-red-500/10 text-red-400 border-red-500/20"
+                                                amb.operationalStatus === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                                    amb.operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                                        amb.operationalStatus === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                                                            "bg-red-500/10 text-red-400 border-red-500/20"
                                             )}>
-                                                {amb.estado}
+                                                {amb.operationalStatus}
                                             </span>
                                         </div>
                                         <div className="text-sm font-medium text-slate-400">{amb.tipo}</div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-xs text-slate-500 mb-0.5 uppercase tracking-wider font-bold">Servicios Hoy</div>
+                                        <div className="text-xs text-slate-500 mb-0.5 uppercase tracking-wider font-bold">Servicios</div>
                                         <div className={clsx("text-lg font-black font-mono", amb.servicesToday > 0 ? "text-white" : "text-slate-600")}>
                                             {amb.servicesToday}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800 pt-3">
+                                <div className="grid grid-cols-3 gap-2 text-xs border-t border-slate-800 pt-3">
+                                    <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
+                                        <div className="text-slate-500 mb-1 uppercase tracking-wider font-bold text-[10px]">T. Operativo</div>
+                                        <span className={clsx("font-bold font-mono", amb.loggedOperational > 0 ? "text-emerald-400" : "text-slate-600")}>
+                                            {amb.loggedOperational > 0 ? formatMin(amb.loggedOperational) : '—'}
+                                        </span>
+                                    </div>
                                     <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
                                         <div className="text-slate-500 mb-1 uppercase tracking-wider font-bold text-[10px]">T. Muerto</div>
+                                        <span className={clsx("font-bold font-mono", amb.loggedIdle > 0 ? "text-amber-400" : "text-slate-600")}>
+                                            {amb.loggedIdle > 0 ? formatMin(amb.loggedIdle) : '—'}
+                                        </span>
+                                    </div>
+                                    <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
+                                        <div className="text-slate-500 mb-1 uppercase tracking-wider font-bold text-[10px]">Utilización</div>
+                                        {amb.utilization !== null ? (
+                                            <span className={clsx("font-bold",
+                                                amb.utilization >= 70 ? "text-emerald-400" :
+                                                    amb.utilization >= 40 ? "text-amber-400" : "text-red-400"
+                                            )}>
+                                                {amb.utilization}%
+                                            </span>
+                                        ) : (
+                                            <span className="text-slate-600">—</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="bg-slate-800/30 p-2 rounded-lg border border-slate-700/50">
+                                        <div className="text-slate-500 mb-1 uppercase tracking-wider font-bold text-[10px]">T. Muerto Actual</div>
                                         {amb.currentIdle !== null ? (
                                             <span className={clsx("flex items-center gap-1.5 font-bold font-mono", amb.currentIdle > 60 ? "text-amber-400" : "text-slate-300")}>
                                                 {formatMin(amb.currentIdle)}
@@ -388,10 +540,10 @@ const KPICard = ({ title, value, subtitle, icon, color, bg, border }) => (
     </div>
 );
 
-const MiniIndicator = ({ label, value, alert }) => (
+const MiniIndicator = ({ label, value, alert, positive }) => (
     <div className="bg-dark-800 border border-slate-700/50 rounded-xl p-4 flex justify-between items-center shadow-md">
         <span className="text-sm text-slate-300 font-medium">{label}</span>
-        <span className={clsx("text-xl font-black font-mono", alert ? "text-red-400" : "text-white")}>
+        <span className={clsx("text-xl font-black font-mono", alert ? "text-red-400" : positive ? "text-emerald-400" : "text-white")}>
             {value}
         </span>
     </div>
