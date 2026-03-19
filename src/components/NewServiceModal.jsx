@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import { X, Send, ClipboardList, Ambulance, Ban, AlertTriangle } from 'lucide-react';
 import { Timestamp, collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+
 import { useAuth } from '../contexts/AuthContext';
+import { useDashboardData } from '../hooks/useDashboardData';
 
 // Cloud Function URL for status change approval requests
 const STATUS_CHANGE_APPROVAL_URL = '/api/status-change-approval';
@@ -1637,60 +1639,37 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     };
 
     // Handle status change request (Fallido, Cancelado, Negado)
-    const handleStatusChangeRequest = async () => {
+    const [justificationTouched, setJustificationTouched] = useState(false);
+    const [showStatusChangeConfirm, setShowStatusChangeConfirm] = useState(false);
+
+    // Llama a este para mostrar el modal de confirmación
+    const handleStatusChangeClick = () => {
+        setJustificationTouched(true);
         if (!selectedStatusReason || !statusChangeJustification.trim()) {
             setStatusChangeError('Seleccione una razón y proporcione una justificación');
             return;
         }
+        setShowStatusChangeConfirm(true);
+    };
 
+
+    // Lógica de cambio de estado: 'fallido' directo, otros pasan a revisión y desasignan ambulancia
+    const { requestStatusToReview, updateRealRequest } = useDashboardData();
+    const handleStatusChangeRequest = async () => {
         setStatusChangeSubmitting(true);
         setStatusChangeError('');
-
         try {
-            const solicitudData = initialData || {};
-            const pacienteInfo = solicitudData.pacienteInfo || {};
-            const entidadInfo = solicitudData.entidadInfo || {};
-            const origenInfo = solicitudData.origenInfo || {};
-            const destino1Info = solicitudData.destino1Info || {};
-            const destino2Info = solicitudData.destino2Info || {};
+            const solicitudId = initialData?.id;
+            if (!solicitudId) throw new Error('ID de solicitud no encontrado');
 
-            const servicioInfo = solicitudData.servicioInfo || {};
-            const payload = {
-                solicitudId: solicitudData?.id,
-                razonCambioEstado: selectedStatusReason,
-                justificacion: statusChangeJustification.trim(),
-                solicitadoPor: user?.email || 'desconocido',
-                solicitadoAt: new Date().toISOString(),
-                datosSolicitud: {
-                    idPacienteHC: pacienteInfo.idPacienteHC || '',
-                    nombrePaciente: pacienteInfo.nombre || '',
-                    nombreEntidad: entidadInfo.nombreEntidad || '',
-                    direccionOrigen: origenInfo.direccion || '',
-                    nombreOrigen: origenInfo.nombre || '',
-                    direccionDestino1: destino1Info.direccion || '',
-                    nombreDestino1: destino1Info.nombre || '',
-                    direccionDestino2: destino2Info.direccion || '',
-                    nombreDestino2: destino2Info.nombre || '',
-                    tipoServicio: servicioInfo.complejidad || '',
-                },
-            };
-
-            const authToken = user ? await user.getIdToken() : null;
-
-            const response = await fetch(STATUS_CHANGE_APPROVAL_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                throw new Error('Error al enviar la solicitud de cambio de estado');
+            if (selectedStatusReason === 'fallido') {
+                // Cambia a 'Fallido' directamente
+                await updateRealRequest({ ...initialData, id: solicitudId, estado: 'Fallido', actualizadoAt: new Date().toISOString() });
+            } else {
+                // Cambia a 'En revisión', guarda justificación y desasigna ambulancia
+                await requestStatusToReview(solicitudId, statusChangeJustification.trim());
             }
 
-            // Success - close modal and reset state
             setShowStatusChangeModal(false);
             setSelectedStatusReason('');
             setStatusChangeJustification('');
@@ -1940,6 +1919,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
                     {/* Status Change Request Modal */}
                     {showStatusChangeModal && (
+                        <>
                         <div className="p-4 border border-amber-500/30 bg-amber-500/10 rounded-lg space-y-3">
                             <div className="flex items-center gap-2 text-amber-400 font-semibold">
                                 <AlertTriangle size={18} />
@@ -1975,11 +1955,22 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                                 </label>
                                 <textarea
                                     value={statusChangeJustification}
-                                    onChange={(e) => setStatusChangeJustification(e.target.value)}
+                                    onChange={e => {
+                                        setStatusChangeJustification(e.target.value);
+                                        if (!justificationTouched) setJustificationTouched(true);
+                                    }}
+                                    onBlur={() => setJustificationTouched(true)}
                                     rows={3}
                                     placeholder="Describa el motivo del cambio de estado..."
-                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-600 bg-slate-800/50 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y"
+                                    className={`w-full px-3 py-2 text-sm rounded-lg border bg-slate-800/50 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y ${
+                                        justificationTouched && !statusChangeJustification.trim()
+                                            ? 'border-red-500'
+                                            : 'border-slate-600'
+                                    }`}
                                 />
+                                {justificationTouched && !statusChangeJustification.trim() && (
+                                    <p className="text-xs text-red-400 mt-1">La justificación es obligatoria.</p>
+                                )}
                             </div>
                             {statusChangeError && (
                                 <p className="text-xs text-red-400">{statusChangeError}</p>
@@ -1999,7 +1990,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={handleStatusChangeRequest}
+                                    onClick={handleStatusChangeClick}
                                     disabled={!selectedStatusReason || !statusChangeJustification.trim() || statusChangeSubmitting}
                                     className="px-3 py-1.5 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center gap-1.5"
                                 >
@@ -2007,6 +1998,36 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                                 </button>
                             </div>
                         </div>
+                        {/* Modal de confirmación */}
+                        {showStatusChangeConfirm && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                                <div className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+                                    <h3 className="text-lg font-bold text-white mb-2">¿Desea confirmar el cambio de estado?</h3>
+                                    <p className="text-sm text-slate-300 mb-4">Esto generará una solicitud de confirmación por parte de gerencia, y esta operación no se podrá reversar.</p>
+                                    <div className="flex gap-3 justify-end">
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700/40"
+                                            onClick={() => setShowStatusChangeConfirm(false)}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold"
+                                            onClick={async () => {
+                                                setShowStatusChangeConfirm(false);
+                                                await handleStatusChangeRequest();
+                                            }}
+                                            disabled={statusChangeSubmitting}
+                                        >
+                                            Sí, confirmar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        </>
                     )}
 
                     <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-between shrink-0">

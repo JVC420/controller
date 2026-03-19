@@ -1,3 +1,35 @@
+    // Cambia estado a 'En revisión', guarda justificación y desasigna ambulancia si aplica
+    const requestStatusToReview = async (reqId, justification) => {
+        // Obtener la solicitud actual
+        const req = solicitudes.find(s => s.id === reqId);
+        if (!req) throw new Error('Solicitud no encontrada');
+
+        const batch = writeBatch(db);
+        // Actualizar solicitud: estado, justificación, bloquear edición
+        batch.update(doc(db, 'solicitudes', reqId), {
+            estado: 'En revisión',
+            justificacionCambioEstado: justification,
+            puedeEditar: false,
+            actualizadoAt: serverTimestamp(),
+        });
+
+        // Si tiene ambulancia asignada, desasignar y poner disponible
+        if (req.ambulanciaAsignada) {
+            batch.update(doc(db, 'solicitudes', reqId), {
+                ambulanciaAsignada: null,
+            });
+            batch.update(doc(db, 'flota', req.ambulanciaAsignada), {
+                estado: 'Disponible',
+                destino: null,
+                lastAvailableAt: serverTimestamp(),
+                estadoOperativo: AMBULANCE_OPERATIONAL_STATUS.AVAILABLE,
+                estadoOperativoActualizadoAt: serverTimestamp(),
+                listaAsignacionDesde: serverTimestamp(),
+                tripulacionIncompletaDesde: null,
+            });
+        }
+        await batch.commit();
+    };
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     collection, doc, onSnapshot, query, where,
@@ -553,6 +585,9 @@ export const useDashboardData = (activeRoute = '/') => {
         closeService,
         updateServiceChecklist,
         updateRequestStatus,
+
+        // Estado revisión y desasignación
+        requestStatusToReview,
 
         // Employee actions
         addEmpleado,
