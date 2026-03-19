@@ -941,7 +941,7 @@ const ServiceOrderForm = ({
     );
 };
 
-const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqId, initialData = null, isEditing = false }) => {
+const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqId, initialData = null, isEditing = false, showToast }) => {
     const [activeTab, setActiveTab] = useState('order');
     const [formData, setFormData] = useState(INITIAL_FORM_DATA);
     const [selectedBranchKey, setSelectedBranchKey] = useState('');
@@ -1674,11 +1674,55 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             } else {
                 // Cambia a 'En revisión', guarda justificación y desasigna ambulancia
                 await requestStatusToReview(solicitudId, statusChangeJustification.trim());
+
+                // Enviar notificación a gerencia para aprobación
+                try {
+                    const authToken = user?.getIdToken ? await user.getIdToken() : null;
+                    const reasonLabel = STATUS_CHANGE_REASONS.find(r => r.id === selectedStatusReason)?.label || selectedStatusReason;
+
+                    await fetch(STATUS_CHANGE_APPROVAL_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+                        },
+                        body: JSON.stringify({
+                            solicitudId,
+                            razonCambioEstado: reasonLabel,
+                            justificacion: statusChangeJustification.trim(),
+                            solicitadoPor: user?.email || user?.displayName || 'Usuario desconocido',
+                            solicitadoAt: new Date().toISOString(),
+                            datosSolicitud: {
+                                tipoServicio: initialData?.servicioInfo?.complejidad || '',
+                                nombrePaciente: initialData?.pacienteInfo?.nombre || initialData?.paciente || '',
+                                idPacienteHC: initialData?.pacienteInfo?.idPacienteHC || '',
+                                nombreOrigen: initialData?.origenInfo?.nombre || initialData?.origen || '',
+                                direccionOrigen: initialData?.origenInfo?.direccion || '',
+                                direccionDestino1: initialData?.destino1Info?.direccion || '',
+                                nombreDestino1: initialData?.destino1Info?.nombre || initialData?.destinoNombre || '',
+                                direccionDestino2: initialData?.destino2Info?.direccion || '',
+                                nombreDestino2: initialData?.destino2Info?.nombre || '',
+                                nombreEntidad: initialData?.entidadInfo?.nombreEntidad || initialData?.entidadInfo?.entidadSolicitante || '',
+                                estado: initialData?.estado || '',
+                            },
+                            source: 'lma-status-change-request',
+                        }),
+                    });
+                } catch (webhookError) {
+                    // Log but don't fail the operation if webhook fails
+                    console.error('Error enviando notificación de cambio de estado:', webhookError);
+                }
             }
 
             setShowStatusChangeModal(false);
             setSelectedStatusReason('');
             setStatusChangeJustification('');
+
+            // Mostrar mensaje de éxito
+            if (showToast) {
+                showToast('Operación realizada exitosamente', 'success');
+            }
+
             onClose();
         } catch (err) {
             setStatusChangeError(err.message || 'Error al procesar la solicitud');

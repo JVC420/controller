@@ -495,6 +495,7 @@ function AppLayout() {
           isEditing={!!editingRequest}
           onSubmit={editingRequest ? updateRealRequest : createRealRequest}
           getNextReqId={getNextReqId}
+          showToast={showToast}
         />
       )}
       <SupportChatbot />
