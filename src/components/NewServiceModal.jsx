@@ -1,8 +1,34 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, ClipboardList, Ambulance } from 'lucide-react';
+import { X, Send, ClipboardList, Ambulance, Ban, AlertTriangle } from 'lucide-react';
 import { Timestamp, collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
+
+// Cloud Function URL for status change approval requests
+const STATUS_CHANGE_APPROVAL_URL = '/api/status-change-approval';
+
+// Status change reasons
+const STATUS_CHANGE_REASONS = [
+    {
+        id: 'fallido',
+        label: 'Fallido',
+        description: 'La ambulancia llegó pero el paciente/institución no contaba con los pre-requisitos',
+        color: 'orange'
+    },
+    {
+        id: 'cancelado',
+        label: 'Cancelado',
+        description: 'Servicio cancelado por el cliente',
+        color: 'slate'
+    },
+    {
+        id: 'negado',
+        label: 'Negado',
+        description: 'No había disponibilidad de servicio para realizarlo',
+        color: 'red'
+    },
+];
 
 const TAB_ITEMS = [
     { id: 'order', label: 'Orden de Servicio', icon: <ClipboardList size={15} /> },
@@ -929,6 +955,13 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const cieLookupDebounceRef = useRef(null);
     const cieLookupRequestRef = useRef(0);
 
+    // Status change request state
+    const [showStatusChangeModal, setShowStatusChangeModal] = useState(false);
+    const [selectedStatusReason, setSelectedStatusReason] = useState('');
+    const [statusChangeJustification, setStatusChangeJustification] = useState('');
+    const [statusChangeSubmitting, setStatusChangeSubmitting] = useState(false);
+    const [statusChangeError, setStatusChangeError] = useState('');
+
     // Restrict execution date/time fields until ambulance is assigned
     const hasAmbulanceAssigned = Boolean(isEditing && initialData?.ambulanciaAsignada);
     const executionFieldsDisabledReason = !hasAmbulanceAssigned ? 'Asignar ambulancia primero' : undefined;
@@ -1279,6 +1312,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     if (!isOpen) return null;
     if (typeof document === 'undefined') return null;
 
+    const { user } = useAuth();
+
     const setField = (field, value) => {
         let nextValue = value;
 
@@ -1601,6 +1636,72 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         }));
     };
 
+    // Handle status change request (Fallido, Cancelado, Negado)
+    const handleStatusChangeRequest = async () => {
+        if (!selectedStatusReason || !statusChangeJustification.trim()) {
+            setStatusChangeError('Seleccione una razón y proporcione una justificación');
+            return;
+        }
+
+        setStatusChangeSubmitting(true);
+        setStatusChangeError('');
+
+        try {
+            const solicitudData = initialData || {};
+            const pacienteInfo = solicitudData.pacienteInfo || {};
+            const entidadInfo = solicitudData.entidadInfo || {};
+            const origenInfo = solicitudData.origenInfo || {};
+            const destino1Info = solicitudData.destino1Info || {};
+            const destino2Info = solicitudData.destino2Info || {};
+
+            const servicioInfo = solicitudData.servicioInfo || {};
+            const payload = {
+                solicitudId: solicitudData?.id,
+                razonCambioEstado: selectedStatusReason,
+                justificacion: statusChangeJustification.trim(),
+                solicitadoPor: user?.email || 'desconocido',
+                solicitadoAt: new Date().toISOString(),
+                datosSolicitud: {
+                    idPacienteHC: pacienteInfo.idPacienteHC || '',
+                    nombrePaciente: pacienteInfo.nombre || '',
+                    nombreEntidad: entidadInfo.nombreEntidad || '',
+                    direccionOrigen: origenInfo.direccion || '',
+                    nombreOrigen: origenInfo.nombre || '',
+                    direccionDestino1: destino1Info.direccion || '',
+                    nombreDestino1: destino1Info.nombre || '',
+                    direccionDestino2: destino2Info.direccion || '',
+                    nombreDestino2: destino2Info.nombre || '',
+                    tipoServicio: servicioInfo.complejidad || '',
+                },
+            };
+
+            const authToken = user ? await user.getIdToken() : null;
+
+            const response = await fetch(STATUS_CHANGE_APPROVAL_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error('Error al enviar la solicitud de cambio de estado');
+            }
+
+            // Success - close modal and reset state
+            setShowStatusChangeModal(false);
+            setSelectedStatusReason('');
+            setStatusChangeJustification('');
+            onClose();
+        } catch (err) {
+            setStatusChangeError(err.message || 'Error al procesar la solicitud');
+        } finally {
+            setStatusChangeSubmitting(false);
+        }
+    };
+
     const handleSubmit = (e) => {
         const sanitizeFormData = (data) => ({
             ...data,
@@ -1837,22 +1938,109 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         <p className="text-xs text-red-400 px-1">{submitError}</p>
                     )}
 
-                    <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-end shrink-0">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-700/40 transition-colors"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={!canSubmit || submitting}
-                            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center justify-center gap-2 transition-colors"
-                            title="Requiere: Paciente, Solicitante, Entidad, Complejidad, Autorizaciones, Programación, Diagnóstico CIE, Origen y Destino"
-                        >
-                            <Send size={16} /> {submitting ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear y Enviar a Triage')}
-                        </button>
+                    {/* Status Change Request Modal */}
+                    {showStatusChangeModal && (
+                        <div className="p-4 border border-amber-500/30 bg-amber-500/10 rounded-lg space-y-3">
+                            <div className="flex items-center gap-2 text-amber-400 font-semibold">
+                                <AlertTriangle size={18} />
+                                <span>Solicitar cambio de estado</span>
+                            </div>
+                            <p className="text-xs text-slate-400">
+                                Esta solicitud será enviada para aprobación. El estado actual no cambiará hasta que sea aprobado.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                {STATUS_CHANGE_REASONS.map((reason) => (
+                                    <button
+                                        key={reason.id}
+                                        type="button"
+                                        onClick={() => setSelectedStatusReason(reason.id)}
+                                        className={`p-3 rounded-lg border text-left transition-all ${
+                                            selectedStatusReason === reason.id
+                                                ? 'border-amber-500 bg-amber-500/20 ring-1 ring-amber-500'
+                                                : 'border-slate-600 hover:border-slate-500 bg-slate-800/50'
+                                        }`}
+                                    >
+                                        <span className={`font-semibold text-sm ${
+                                            selectedStatusReason === reason.id ? 'text-amber-400' : 'text-slate-200'
+                                        }`}>
+                                            {reason.label}
+                                        </span>
+                                        <p className="text-[10px] text-slate-400 mt-1">{reason.description}</p>
+                                    </button>
+                                ))}
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                                    Justificación (requerida)
+                                </label>
+                                <textarea
+                                    value={statusChangeJustification}
+                                    onChange={(e) => setStatusChangeJustification(e.target.value)}
+                                    rows={3}
+                                    placeholder="Describa el motivo del cambio de estado..."
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-slate-600 bg-slate-800/50 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-y"
+                                />
+                            </div>
+                            {statusChangeError && (
+                                <p className="text-xs text-red-400">{statusChangeError}</p>
+                            )}
+                            <div className="flex gap-2 justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowStatusChangeModal(false);
+                                        setSelectedStatusReason('');
+                                        setStatusChangeJustification('');
+                                        setStatusChangeError('');
+                                    }}
+                                    className="px-3 py-1.5 text-sm rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700/40"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleStatusChangeRequest}
+                                    disabled={!selectedStatusReason || !statusChangeJustification.trim() || statusChangeSubmitting}
+                                    className="px-3 py-1.5 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center gap-1.5"
+                                >
+                                    {statusChangeSubmitting ? 'Enviando...' : 'Enviar solicitud'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="pt-2 border-t border-slate-700 flex flex-col sm:flex-row gap-2 sm:justify-between shrink-0">
+                        {/* Left side - Status change button (only when editing) */}
+                        <div>
+                            {isEditing && !showStatusChangeModal && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowStatusChangeModal(true)}
+                                    className="px-3 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors inline-flex items-center gap-2 text-sm"
+                                >
+                                    <Ban size={16} /> Solicitar cambio de estado
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Right side - Cancel and Submit */}
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-4 py-2 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-700/40 transition-colors"
+                            >
+                                Cerrar
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={!canSubmit || submitting}
+                                className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+                                title="Requiere: Paciente, Solicitante, Entidad, Complejidad, Autorizaciones, Programación, Diagnóstico CIE, Origen y Destino"
+                            >
+                                <Send size={16} /> {submitting ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear y Enviar a Triage')}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

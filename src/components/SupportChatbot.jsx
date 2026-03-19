@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import { Bot, Loader2, MessageCircle, Send, User, X } from 'lucide-react';
 
-const SUPPORT_WEBHOOK_URL = 'https://enviarmensajesoporte-y25bumqpla-uc.a.run.app';
+const SUPPORT_WEBHOOK_URL = '/api/support-webhook';
 
 const INITIAL_BOT_MESSAGE = `Hola 👋, soy tu asistente de LMA.
 
@@ -20,15 +21,21 @@ Ya hemos registrado tu caso y un ingeniero lo estará revisando para darte soluc
 
 const typingSpeedMs = 14;
 
-const postSupportMessage = async (message) => {
+// Now receives user as argument for Authorization
+const postSupportMessage = async (message, user) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
+        let authToken = null;
+        if (user && user.getIdToken) {
+            authToken = await user.getIdToken();
+        }
         const response = await fetch(SUPPORT_WEBHOOK_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
             },
             body: JSON.stringify({
                 message,
@@ -47,6 +54,7 @@ const postSupportMessage = async (message) => {
 };
 
 const SupportChatbot = () => {
+    const { user } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [draft, setDraft] = useState('');
@@ -151,7 +159,7 @@ const SupportChatbot = () => {
         if (!hasSentToWebhookRef.current) {
             hasSentToWebhookRef.current = true;
             try {
-                await postSupportMessage(userText);
+                await postSupportMessage(userText, user);
             } catch {
                 setSendError('No se pudo enviar el caso al sistema de soporte. Intenta nuevamente.');
                 return;

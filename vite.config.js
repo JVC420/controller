@@ -12,6 +12,18 @@ export default defineConfig({
         secure: true,
         rewrite: () => '/',
       },
+      '/api/status-change-approval': {
+        target: 'https://solicitarcambioestado-y25bumqpla-uc.a.run.app',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => '/',
+      },
+      '/api/support-webhook': {
+        target: 'https://enviarmensajesoporte-y25bumqpla-uc.a.run.app',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => '/',
+      },
     },
   },
 })
