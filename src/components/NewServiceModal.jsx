@@ -1660,7 +1660,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
 
     // Lógica de cambio de estado: 'fallido' directo, otros pasan a revisión y desasignan ambulancia
-    const { requestStatusToReview, updateRequestStatusDirect } = useDashboardData();
+    const { requestStatusToReview, markRequestAsFailed } = useDashboardData();
     const handleStatusChangeRequest = async () => {
         setStatusChangeSubmitting(true);
         setStatusChangeError('');
@@ -1669,12 +1669,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             if (!solicitudId) throw new Error('ID de solicitud no encontrado');
 
             if (selectedStatusReason === 'fallido') {
-                // Cambia a 'Fallido' directamente (sin aprobación de gerencia)
-                await updateRequestStatusDirect(solicitudId, 'Fallido', {
-                    estado: 'Fallido',
-                    justificacionCambioEstado: statusChangeJustification.trim(),
-                    puedeEditar: false,
-                });
+                // Si está asignada se devuelve a triage; si no, queda en Fallido.
+                await markRequestAsFailed(solicitudId, statusChangeJustification.trim());
             } else {
                 // Cambia a 'En revisión', guarda justificación y desasigna ambulancia
                 await requestStatusToReview(solicitudId, statusChangeJustification.trim());

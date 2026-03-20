@@ -7,6 +7,7 @@ import { ToastContainer, useToast } from './ui/Toast';
 const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeService }) => {
     const { toasts, show: showToast, dismiss: dismissToast } = useToast();
     const terminalStatusLabels = ['Cancelado', 'Negado', 'Fallido'];
+    const closureBlockedLabels = ['Cancelado', 'Negado'];
     // Current time state to force re-evaluation of 2.5 hour SLAs
     const [now, setNow] = useState(Date.now());
 
@@ -48,6 +49,14 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
         const status = servicio?.estado || '';
         const approval = servicio?.changeStatusApproval || '';
         return terminalStatusLabels.some((label) => status === label || approval.includes(label));
+    };
+
+    const isClosureBlocked = (servicio) => {
+        const status = servicio?.estado || '';
+        const approval = servicio?.changeStatusApproval || '';
+
+        if (status === 'Finalizado' || status === 'En revisión') return true;
+        return closureBlockedLabels.some((label) => status === label || approval.includes(label));
     };
 
     const formatCreatedAt = (value) => {
@@ -212,7 +221,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             >
                                                 <Eye size={14} /> Ver Solicitud
                                             </button>
-                                            {!isTerminalStatus(servicio) && servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
+                                            {!isClosureBlocked(servicio) && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
                                                     className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow shadow-emerald-900/20 whitespace-nowrap"
@@ -304,7 +313,7 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                                             >
                                                 <Eye size={14} /> Ver Solicitud
                                             </button>
-                                            {!isTerminalStatus(servicio) && servicio.estado !== 'Finalizado' && servicio.estado !== 'En revisión' && (
+                                            {!isClosureBlocked(servicio) && (
                                                 <button
                                                     onClick={() => openClosureModal(servicio, cliente)}
                                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md font-bold transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"

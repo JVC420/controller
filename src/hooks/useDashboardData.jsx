@@ -472,6 +472,40 @@ export const useDashboardData = (activeRoute = '/') => {
         await batch.commit();
     };
 
+    // Marca solicitud como fallida.
+    // Si está asignada, se devuelve a triage (Pendiente) y se libera la ambulancia.
+    const markRequestAsFailed = async (reqId, justification) => {
+        const req = solicitudes.find(s => s.id === reqId);
+        if (!req) throw new Error('Solicitud no encontrada');
+
+        const batch = writeBatch(db);
+        const hasAssignedAmbulance = Boolean(req.ambulanciaAsignada);
+
+        const solicitudUpdate = {
+            estado: 'Fallido',
+            justificacionCambioEstado: justification,
+            puedeEditar: hasAssignedAmbulance,
+            ambulanciaAsignada: null,
+            asignadoAt: null,
+            actualizadoAt: serverTimestamp(),
+        };
+
+        if (hasAssignedAmbulance) {
+            batch.update(doc(db, 'flota', req.ambulanciaAsignada), {
+                estado: 'Disponible',
+                destino: null,
+                lastAvailableAt: serverTimestamp(),
+                estadoOperativo: AMBULANCE_OPERATIONAL_STATUS.AVAILABLE,
+                estadoOperativoActualizadoAt: serverTimestamp(),
+                listaAsignacionDesde: serverTimestamp(),
+                tripulacionIncompletaDesde: null,
+            });
+        }
+
+        batch.update(doc(db, 'solicitudes', reqId), solicitudUpdate);
+        await batch.commit();
+    };
+
     // ── EMPLOYEE Operations ───────────────────────────────────────────────────
     const addEmpleado = async (empObj) => {
         const { id, ...data } = empObj;
@@ -639,6 +673,7 @@ export const useDashboardData = (activeRoute = '/') => {
 
         // Estado revisión y desasignación
         requestStatusToReview,
+        markRequestAsFailed,
 
         // Employee actions
         addEmpleado,
