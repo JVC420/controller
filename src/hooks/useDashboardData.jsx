@@ -11,6 +11,7 @@ import {
     canAssignRequestToAmbulance,
     getAmbulanceOperationalStatus,
 } from '../utils/fleetStatus';
+import { getShiftTimeSemantics } from '../utils/shiftOperations';
 
 // ─── Normalize Firestore Timestamps to ISO strings on read ───────────────────
 const normalizeDoc = (data) => {
@@ -488,6 +489,11 @@ export const useDashboardData = (activeRoute = '/') => {
     // ── SHIFT Operations ──────────────────────────────────────────────────────
     const addTurno = async (turnoObj) => {
         const { id, ...data } = turnoObj;
+        const semantics = getShiftTimeSemantics(data);
+        data.finProgramado = data.finProgramado || data.horaFin || '';
+        data.planningStatus = data.planningStatus || semantics.planningStatus;
+        data.executionStatus = data.executionStatus || semantics.executionStatus;
+        data.incidentFlags = Array.isArray(data.incidentFlags) ? data.incidentFlags : semantics.incidentFlags;
         data.creadoAt = serverTimestamp();
         let turnoId = id;
         if (id) {
@@ -513,10 +519,31 @@ export const useDashboardData = (activeRoute = '/') => {
 
     const updateTurno = async (turnoId, changes) => {
         const existingTurno = turnos.find((t) => t.id === turnoId);
-        await updateDoc(doc(db, 'turnos', turnoId), changes);
+        const mergedTurno = { ...existingTurno, ...changes };
+        const semantics = getShiftTimeSemantics(mergedTurno);
+
+        const enrichedChanges = {
+            ...changes,
+            finProgramado: mergedTurno.finProgramado || mergedTurno.horaFin || '',
+            planningStatus: semantics.planningStatus,
+            executionStatus: semantics.executionStatus,
+            incidentFlags: semantics.incidentFlags,
+        };
+
+        await updateDoc(doc(db, 'turnos', turnoId), enrichedChanges);
 
         // Only re-evaluate operational fleet state when crew composition can change.
-        const crewAffectingFields = ['movil', 'horaFinReal', 'cancelado', 'ausenciaConfirmada'];
+        const crewAffectingFields = [
+            'movil',
+            'inicioProgramado',
+            'horaFin',
+            'finProgramado',
+            'inicioReal',
+            'horaFinReal',
+            'finReal',
+            'cancelado',
+            'ausenciaConfirmada',
+        ];
         const shouldSyncFleetState = crewAffectingFields.some((field) => Object.prototype.hasOwnProperty.call(changes || {}, field));
         if (!shouldSyncFleetState) return;
 

@@ -4,6 +4,8 @@ import { Clock, Calendar, Download, Plus, AlertCircle, FileText, CheckCircle, Tr
 import { clsx } from 'clsx';
 import { ToastContainer, useToast } from './ui/Toast';
 import { getRoleDisplayName, getRoleListDisplay } from '../utils/roleDisplay';
+import { CREW_RULES } from '../utils/fleetStatus';
+import { getActiveCrewNow, getShiftTimeSemantics, validatePlannedShiftAssignment } from '../utils/shiftOperations';
 
 // Imported modular components
 import EmployeeModal from './EmployeeModal';
@@ -147,47 +149,48 @@ const PersonnelView = ({
     const uniqueMoviles = useMemo(() => [...new Set(turnosHoy.map(t => t.movil).filter(Boolean))], [turnosHoy]);
     const hasFilters = Boolean(filters.fecha || filters.estado || filters.cargo || filters.movil);
 
-    // ── Crew rules per ambulance type ──
-    const CREW_RULES = {
-        'Básica': ['Conductor', 'Paramédico'],
-        'Medicalizada': ['Médico', 'Conductor', 'Paramédico']
+    // Active crew now is derived from execution window and current clock.
+    const getActiveCrewForVehicle = useCallback((vehicleId, excludeTurnoId = null) => {
+        return getActiveCrewNow(turnosHoy, vehicleId, Date.now(), excludeTurnoId);
+    }, [turnosHoy]);
+
+    const getValidationMessage = (error) => {
+        if (error === 'Employee has overlapping planned shifts.') return 'El empleado tiene solape de turnos programados en ese rango.';
+        if (error === 'Shift planned interval is invalid.') return 'El rango programado del turno es inválido.';
+        if (error.includes('no available slot for role')) return 'No hay cupo disponible para ese cargo en la móvil y rango seleccionados.';
+        if (error.includes('is not allowed for vehicle type')) return 'El cargo del empleado no es compatible con el tipo de ambulancia.';
+        return error;
     };
 
-    // Active (non-finalized, non-cancelled, non-absent) shifts for a given vehicle
-    const getActiveCrewForVehicle = useCallback((vehicleId, excludeTurnoId = null) => {
-        return turnosHoy.filter(t =>
-            t.movil === vehicleId &&
-            t.movil !== 'Sin Asignar' &&
-            t.id !== excludeTurnoId &&
-            !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
-        );
-    }, [turnosHoy]);
-
-    // Check if employee already has any active shift (not finalized/cancelled/absent)
-    const isEmployeeOnActiveShift = useCallback((empleadoId, excludeTurnoId = null) => {
-        return turnosHoy.some(t =>
-            t.id_empleado === empleadoId &&
-            t.id !== excludeTurnoId &&
-            !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
-        );
-    }, [turnosHoy]);
-
     // Returns vehicles that have room for the given cargo role
-    const getAvailableVehiclesForDate = useCallback((fecha, cargo, excludeTurnoId = null) => {
+    const getAvailableVehiclesForDate = useCallback((fecha, cargo, excludeTurnoId = null, inicioProgramado = null, finProgramado = null, empleadoId = null) => {
+        const plannedStart = inicioProgramado || `${fecha}T00:00`;
+        const plannedEnd = finProgramado || `${fecha}T23:59`;
         return flota.filter(f => {
             if (f.estado === 'Fuera de Servicio') return false;
             const rules = CREW_RULES[f.tipo];
             if (!rules) return false;
-            // Cargo must be one of the allowed roles for this vehicle type
-            if (!rules.includes(cargo)) return false;
-            // Count active crew for this vehicle (all dates — active shift = not finalized)
-            const activeCrew = getActiveCrewForVehicle(f.id, excludeTurnoId);
-            // Check if this specific cargo slot is already taken
-            const sameCargoCount = activeCrew.filter(t => t.cargo === cargo).length;
-            const maxForCargo = rules.filter(r => r === cargo).length; // always 1
-            return sameCargoCount < maxForCargo;
+
+            const validation = validatePlannedShiftAssignment({
+                candidateShift: {
+                    id: excludeTurnoId,
+                    id_empleado: empleadoId,
+                    cargo,
+                    movil: f.id,
+                    fecha,
+                    inicioProgramado: plannedStart,
+                    horaFin: plannedEnd,
+                    finProgramado: plannedEnd,
+                },
+                allShifts: turnosHoy,
+                requiredRoles: rules,
+                vehicleType: f.tipo,
+                excludeShiftId: excludeTurnoId,
+            });
+
+            return validation.valid;
         });
-    }, [turnosHoy, flota, getActiveCrewForVehicle]);
+    }, [turnosHoy, flota]);
 
     // --- Handlers ---
     const handleScheduleSubmit = async (e) => {
@@ -195,11 +198,32 @@ const PersonnelView = ({
         setSubmitting(true);
         try {
             const emp = empleados.find(e => e.id === newShift.empleadoId);
-            // Block if employee already has an active shift
-            if (isEmployeeOnActiveShift(emp.id)) {
-                showToast(`${emp.nombre} ya tiene un turno activo. Finalice o cancele el turno actual antes de asignar otro.`, 'error');
+            if (!emp) {
+                showToast('Empleado inválido para programar turno.', 'error');
                 return;
             }
+
+            const plannedTurno = {
+                id_empleado: emp.id,
+                cargo: emp.cargo,
+                movil: newShift.vehiculo || 'Sin Asignar',
+                fecha: newShift.dtInicio.split('T')[0],
+                inicioProgramado: newShift.dtInicio,
+                horaFin: newShift.dtFin,
+                finProgramado: newShift.dtFin,
+            };
+
+            const employeeValidation = validatePlannedShiftAssignment({
+                candidateShift: { ...plannedTurno, movil: 'Sin Asignar' },
+                allShifts: turnosHoy,
+                requiredRoles: [],
+                vehicleType: '',
+            });
+            if (!employeeValidation.valid) {
+                showToast(getValidationMessage(employeeValidation.errors[0]), 'error');
+                return;
+            }
+
             // Validate vehicle crew capacity
             if (newShift.vehiculo) {
                 const veh = flota.find(f => f.id === newShift.vehiculo);
@@ -209,17 +233,22 @@ const PersonnelView = ({
                         showToast(`Un ${getRoleDisplayName(emp.cargo)} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${getRoleListDisplay(rules)}.`, 'error');
                         return;
                     }
-                    const activeCrew = getActiveCrewForVehicle(veh.id);
-                    if (activeCrew.some(t => t.cargo === emp.cargo)) {
-                        showToast(`La móvil ${veh.id} ya tiene un ${getRoleDisplayName(emp.cargo)} asignado.`, 'error');
-                        return;
-                    }
-                    if (activeCrew.length >= rules.length) {
-                        showToast(`La móvil ${veh.id} ya está completa.`, 'error');
+
+                    const vehicleValidation = validatePlannedShiftAssignment({
+                        candidateShift: plannedTurno,
+                        allShifts: turnosHoy,
+                        requiredRoles: rules,
+                        vehicleType: veh.tipo,
+                    });
+
+                    if (!vehicleValidation.valid) {
+                        showToast(getValidationMessage(vehicleValidation.errors[0]), 'error');
                         return;
                     }
                 }
             }
+
+            const semantics = getShiftTimeSemantics(plannedTurno);
             const turnoData = {
                 id_empleado: emp.id,
                 cedula: emp.cedula,
@@ -228,8 +257,12 @@ const PersonnelView = ({
                 fecha: newShift.dtInicio.split('T')[0],
                 inicioProgramado: newShift.dtInicio,
                 horaFin: newShift.dtFin,
+                finProgramado: newShift.dtFin,
                 movil: newShift.vehiculo || 'Sin Asignar',
                 estadoRegistro: 'Activo',
+                planningStatus: semantics.planningStatus,
+                executionStatus: semantics.executionStatus,
+                incidentFlags: semantics.incidentFlags,
             };
             await addTurno(turnoData);
             showToast('Turno programado exitosamente', 'success');
@@ -245,7 +278,6 @@ const PersonnelView = ({
 
     const handleAssignVehicle = async (turno, newVehicleId) => {
         try {
-            const oldVehicleId = turno.movil;
             // Validate new vehicle if assigning
             if (newVehicleId && newVehicleId !== 'Sin Asignar') {
                 const veh = flota.find(f => f.id === newVehicleId);
@@ -255,13 +287,21 @@ const PersonnelView = ({
                         showToast(`Un ${getRoleDisplayName(turno.cargo)} no puede asignarse a una ambulancia ${veh.tipo}. Roles permitidos: ${getRoleListDisplay(rules)}.`, 'error');
                         return;
                     }
-                    const activeCrew = getActiveCrewForVehicle(veh.id, turno.id);
-                    if (activeCrew.some(t => t.cargo === turno.cargo)) {
-                        showToast(`La móvil ${veh.id} ya tiene un ${getRoleDisplayName(turno.cargo)} asignado.`, 'error');
-                        return;
-                    }
-                    if (activeCrew.length >= rules.length) {
-                        showToast(`La móvil ${veh.id} ya está completa.`, 'error');
+
+                    const vehicleValidation = validatePlannedShiftAssignment({
+                        candidateShift: {
+                            ...turno,
+                            movil: newVehicleId,
+                            finProgramado: turno.finProgramado || turno.horaFin,
+                        },
+                        allShifts: turnosHoy,
+                        requiredRoles: rules,
+                        vehicleType: veh.tipo,
+                        excludeShiftId: turno.id,
+                    });
+
+                    if (!vehicleValidation.valid) {
+                        showToast(getValidationMessage(vehicleValidation.errors[0]), 'error');
                         return;
                     }
                 }
@@ -281,12 +321,12 @@ const PersonnelView = ({
 
     const handleSetShiftField = async (turnoId, field, value) => {
         try {
+            const turno = turnosHoy.find(t => t.id === turnoId);
             const updates = { [field]: value };
             if (field === 'horaFinReal' && value) updates.estadoRegistro = 'Finalizado';
             if (field === 'cancelado' && value) updates.estadoRegistro = 'Cancelado';
             if (field === 'ausenciaConfirmada' && value) updates.estadoRegistro = 'Ausencia';
             if (field === 'inicioReal' && value) {
-                const turno = turnosHoy.find(t => t.id === turnoId);
                 if (turno && turno.inicioProgramado) {
                     const realMs = toMs(value, turno.fecha);
                     const progMs = toMs(turno.inicioProgramado, turno.fecha);
@@ -296,6 +336,19 @@ const PersonnelView = ({
                     }
                 }
             }
+
+            if (turno) {
+                const nextShift = {
+                    ...turno,
+                    ...updates,
+                    finProgramado: turno.finProgramado || turno.horaFin,
+                };
+                const semantics = getShiftTimeSemantics(nextShift);
+                updates.planningStatus = semantics.planningStatus;
+                updates.executionStatus = semantics.executionStatus;
+                updates.incidentFlags = semantics.incidentFlags;
+            }
+
             await updateTurno(turnoId, updates);
             showToast(`Registro actualizado (${field})`, 'success');
         } catch (error) {
@@ -556,7 +609,14 @@ const PersonnelView = ({
                                 <select id="nuevo-movil-select"
                                     className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500">
                                     <option value="">Sin Asignar</option>
-                                    {getAvailableVehiclesForDate(changeMobilTarget.fecha, changeMobilTarget.cargo, changeMobilTarget.id).map(v => (
+                                    {getAvailableVehiclesForDate(
+                                        changeMobilTarget.fecha,
+                                        changeMobilTarget.cargo,
+                                        changeMobilTarget.id,
+                                        changeMobilTarget.inicioProgramado,
+                                        changeMobilTarget.finProgramado || changeMobilTarget.horaFin,
+                                        changeMobilTarget.id_empleado
+                                    ).map(v => (
                                         <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
                                     ))}
                                 </select>

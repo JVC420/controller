@@ -1,3 +1,8 @@
+import {
+    detectAmbulanceOperationalIncidents,
+    getActiveCrewNow,
+} from './shiftOperations';
+
 export const AMBULANCE_OPERATIONAL_STATUS = {
     AVAILABLE: 'Lista para asignación',
     IN_SERVICE: 'En Servicio',
@@ -12,35 +17,57 @@ export const CREW_RULES = {
 
 export const getCrewRulesForAmbulance = (ambulance) => CREW_RULES[ambulance?.tipo] || [];
 
-export const getActiveCrewForAmbulance = (turnosHoy = [], ambulanceId) => {
-    return turnosHoy.filter((t) =>
-        t.movil === ambulanceId && !t.horaFinReal && !t.cancelado && !t.ausenciaConfirmada
-    );
-};
+export const getActiveCrewForAmbulance = (turnosHoy = [], ambulanceId, atMs = Date.now()) =>
+    getActiveCrewNow(turnosHoy, ambulanceId, atMs);
 
-export const isAmbulanceCrewComplete = (ambulance, turnosHoy = []) => {
+export const getAmbulanceOperationalSnapshot = (ambulance, turnosHoy = [], atMs = Date.now()) => {
     const rules = getCrewRulesForAmbulance(ambulance);
-    if (!rules.length) return false;
+    const activeCrew = getActiveCrewForAmbulance(turnosHoy, ambulance?.id, atMs);
+    const missingRoles = rules.filter((role) => !activeCrew.some((member) => member.cargo === role));
+    const incidentFlags = detectAmbulanceOperationalIncidents(turnosHoy, ambulance?.id, rules, atMs);
 
-    const crew = getActiveCrewForAmbulance(turnosHoy, ambulance.id);
-    return rules.every((role) => crew.some((member) => member.cargo === role));
-};
-
-export const getAmbulanceOperationalStatus = (ambulance, turnosHoy = []) => {
-    if (!ambulance) return AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE;
-    if (ambulance.estado === AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE) {
-        return AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE;
-    }
-    if (ambulance.estado === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE) {
-        return AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE;
+    if (!ambulance) {
+        return {
+            status: AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE,
+            activeCrew,
+            missingRoles,
+            incidentFlags,
+        };
     }
 
-    if (!isAmbulanceCrewComplete(ambulance, turnosHoy)) {
-        return AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW;
+    if (ambulance.estado === AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE || ambulance.estado === 'Fuera de Servicio') {
+        return {
+            status: AMBULANCE_OPERATIONAL_STATUS.OUT_OF_SERVICE,
+            activeCrew,
+            missingRoles,
+            incidentFlags,
+        };
     }
-    return AMBULANCE_OPERATIONAL_STATUS.AVAILABLE;
+
+    if (ambulance.estado === AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE || ambulance.estado === 'En Servicio') {
+        return {
+            status: AMBULANCE_OPERATIONAL_STATUS.IN_SERVICE,
+            activeCrew,
+            missingRoles,
+            incidentFlags,
+        };
+    }
+
+    return {
+        status: missingRoles.length > 0
+            ? AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW
+            : AMBULANCE_OPERATIONAL_STATUS.AVAILABLE,
+        activeCrew,
+        missingRoles,
+        incidentFlags,
+    };
 };
 
-export const canAssignRequestToAmbulance = (ambulance, turnosHoy = []) => {
-    return getAmbulanceOperationalStatus(ambulance, turnosHoy) === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE;
-};
+export const isAmbulanceCrewComplete = (ambulance, turnosHoy = [], atMs = Date.now()) =>
+    getAmbulanceOperationalSnapshot(ambulance, turnosHoy, atMs).missingRoles.length === 0;
+
+export const getAmbulanceOperationalStatus = (ambulance, turnosHoy = [], atMs = Date.now()) =>
+    getAmbulanceOperationalSnapshot(ambulance, turnosHoy, atMs).status;
+
+export const canAssignRequestToAmbulance = (ambulance, turnosHoy = [], atMs = Date.now()) =>
+    getAmbulanceOperationalStatus(ambulance, turnosHoy, atMs) === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE;

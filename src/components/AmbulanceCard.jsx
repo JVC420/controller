@@ -3,16 +3,17 @@ import { useDroppable } from '@dnd-kit/core';
 import { clsx } from 'clsx';
 import { Stethoscope, Activity, FileWarning, Pencil } from 'lucide-react';
 import { getRoleDisplayName } from '../utils/roleDisplay';
+import { translateIncidentFlags } from '../utils/shiftOperations';
 import {
     AMBULANCE_OPERATIONAL_STATUS,
     canAssignRequestToAmbulance,
-    getActiveCrewForAmbulance,
-    getAmbulanceOperationalStatus,
+    getAmbulanceOperationalSnapshot,
     getCrewRulesForAmbulance,
 } from '../utils/fleetStatus';
 
 const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceRequest, onEditRequest }) => {
-    const operationalStatus = getAmbulanceOperationalStatus(ambulance, turnosHoy);
+    const operationalSnapshot = getAmbulanceOperationalSnapshot(ambulance, turnosHoy);
+    const operationalStatus = operationalSnapshot.status;
     const canAcceptRequest = canAssignRequestToAmbulance(ambulance, turnosHoy);
 
     const { isOver, setNodeRef } = useDroppable({
@@ -32,7 +33,7 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
     const incompleteCrew = operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW;
 
     // Derive crew from active shifts instead of fleet document
-    const tripulacion = getActiveCrewForAmbulance(turnosHoy, ambulance.id);
+    const tripulacion = operationalSnapshot.activeCrew;
 
     // Calculate Idle Time
     const [idleMinutes, setIdleMinutes] = React.useState(0);
@@ -120,9 +121,15 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
 
             {incompleteCrew && (
                 <div className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
-                    No asignable: la tripulación no está completa.
+                    No asignable: falta {operationalSnapshot.missingRoles.map((r) => getRoleDisplayName(r)).join(', ') || 'tripulación'}.
                 </div>
             )}
+
+            {/* {operationalSnapshot.incidentFlags.length > 0 && (
+                <div className="mb-3 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-[11px] text-orange-300">
+                    Incidencias activas: {translateIncidentFlags(operationalSnapshot.incidentFlags).join(', ')}
+                </div>
+            )} */}
 
             <div className="mt-auto space-y-3">
                 {(isAvailable || incompleteCrew) && (

@@ -101,7 +101,14 @@ const ShiftModal = ({
                             {(() => {
                                 const selEmp = activeEmpleados.find(e => e.id === newShift.empleadoId);
                                 const cargo = selEmp ? selEmp.cargo : '';
-                                return cargo ? getAvailableVehiclesForDate(fechaInicio || getColombiaToday(), cargo).map(v => (
+                                return cargo ? getAvailableVehiclesForDate(
+                                    fechaInicio || getColombiaToday(),
+                                    cargo,
+                                    null,
+                                    newShift.dtInicio,
+                                    newShift.dtFin,
+                                    newShift.empleadoId
+                                ).map(v => (
                                     <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
                                 )) : [];
                             })()}

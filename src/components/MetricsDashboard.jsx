@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Activity, Clock, FileCheck, Truck, Users, AlertTriangle, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
-import { AMBULANCE_OPERATIONAL_STATUS, getAmbulanceOperationalStatus } from '../utils/fleetStatus';
+import { AMBULANCE_OPERATIONAL_STATUS, getAmbulanceOperationalSnapshot, getAmbulanceOperationalStatus } from '../utils/fleetStatus';
+import { getRoleDisplayName } from '../utils/roleDisplay';
+import { translateIncidentFlags } from '../utils/shiftOperations';
 
 const getColombiaToday = () =>
     new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -147,6 +149,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStat
 
         // --- Per-Ambulance Stats (Services closed on Date) ---
         const ambulanceStats = flota.map(amb => {
+            const snapshot = getAmbulanceOperationalSnapshot(amb, turnos, now);
             const servicesOnDate = closedOnDate.filter(s => s.ambulanciaAsignada === amb.id).length;
 
             // Get logged time stats for this ambulance
@@ -158,7 +161,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStat
 
             // Current idle calculation for this specific vehicle ONLY if viewing today
             let currentIdle = null;
-            const operationalStatus = getAmbulanceOperationalStatus(amb, turnos);
+            const operationalStatus = snapshot.status;
             if (
                 isToday
                 && (operationalStatus === AMBULANCE_OPERATIONAL_STATUS.AVAILABLE || operationalStatus === AMBULANCE_OPERATIONAL_STATUS.INCOMPLETE_CREW)
@@ -174,6 +177,8 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStat
             return {
                 ...amb,
                 operationalStatus,
+                missingRoles: snapshot.missingRoles,
+                incidentFlags: snapshot.incidentFlags,
                 servicesToday: servicesOnDate,
                 currentIdle,
                 loggedOperational: loggedStats.operational,
@@ -415,10 +420,20 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStat
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-slate-400 text-xs">
-                                        {amb.notas ? (
-                                            <span className="flex items-center gap-1 text-red-300">
-                                                <AlertTriangle size={12} /> {amb.notas}
-                                            </span>
+                                        {amb.incidentFlags?.length || amb.missingRoles?.length || amb.notas ? (
+                                            <div className="space-y-1">
+                                                {amb.missingRoles?.length > 0 && (
+                                                    <div className="text-amber-300">Faltan: {amb.missingRoles.map(getRoleDisplayName).join(', ')}</div>
+                                                )}
+                                                {amb.incidentFlags?.length > 0 && (
+                                                    <div className="text-orange-300">Incidencias: {translateIncidentFlags(amb.incidentFlags).join(', ')}</div>
+                                                )}
+                                                {amb.notas && (
+                                                    <span className="flex items-center gap-1 text-red-300">
+                                                        <AlertTriangle size={12} /> {amb.notas}
+                                                    </span>
+                                                )}
+                                            </div>
                                         ) : (
                                             <span className="text-slate-600">—</span>
                                         )}
@@ -503,12 +518,22 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStat
                                             <span className="text-slate-600">—</span>
                                         )}
                                     </div>
-                                    <div className={clsx("p-2 rounded-lg border", amb.notas ? "bg-red-950/20 border-red-900/40" : "bg-slate-800/30 border-slate-700/50")}>
-                                        <div className={clsx("mb-1 uppercase tracking-wider font-bold text-[10px]", amb.notas ? "text-red-400/80" : "text-slate-500")}>Novedades</div>
-                                        {amb.notas ? (
-                                            <span className="flex items-center gap-1 text-red-300 font-medium line-clamp-2">
-                                                <AlertTriangle size={12} className="shrink-0" /> {amb.notas}
-                                            </span>
+                                    <div className={clsx("p-2 rounded-lg border", (amb.notas || amb.incidentFlags?.length || amb.missingRoles?.length) ? "bg-red-950/20 border-red-900/40" : "bg-slate-800/30 border-slate-700/50")}>
+                                        <div className={clsx("mb-1 uppercase tracking-wider font-bold text-[10px]", (amb.notas || amb.incidentFlags?.length || amb.missingRoles?.length) ? "text-red-400/80" : "text-slate-500")}>Novedades</div>
+                                        {(amb.notas || amb.incidentFlags?.length || amb.missingRoles?.length) ? (
+                                            <div className="space-y-1">
+                                                {amb.missingRoles?.length > 0 && (
+                                                    <div className="text-amber-300">Faltan: {amb.missingRoles.map(getRoleDisplayName).join(', ')}</div>
+                                                )}
+                                                {amb.incidentFlags?.length > 0 && (
+                                                    <div className="text-orange-300">Incidencias: {translateIncidentFlags(amb.incidentFlags).join(', ')}</div>
+                                                )}
+                                                {amb.notas && (
+                                                    <span className="flex items-center gap-1 text-red-300 font-medium line-clamp-2">
+                                                        <AlertTriangle size={12} className="shrink-0" /> {amb.notas}
+                                                    </span>
+                                                )}
+                                            </div>
                                         ) : (
                                             <span className="text-slate-600">—</span>
                                         )}

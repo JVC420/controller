@@ -139,7 +139,14 @@ const PersonnelLiveShifts = ({
                                                     defaultValue=""
                                                     onChange={e => handleAssignVehicle(turno, e.target.value)}>
                                                     <option value="">Sin Asignar</option>
-                                                    {getAvailableVehiclesForDate(turno.fecha, turno.cargo).map(v => (
+                                                    {getAvailableVehiclesForDate(
+                                                        turno.fecha,
+                                                        turno.cargo,
+                                                        turno.id,
+                                                        turno.inicioProgramado,
+                                                        turno.finProgramado || turno.horaFin,
+                                                        turno.id_empleado
+                                                    ).map(v => (
                                                         <option key={v.id} value={v.id}>{v.id} – {v.tipo}</option>
                                                     ))}
                                                 </select>
@@ -276,7 +283,14 @@ const PersonnelLiveShifts = ({
                                                     onChange={e => handleAssignVehicle(turno, e.target.value)}
                                                 >
                                                     <option value="">Sin Asignar</option>
-                                                    {getAvailableVehiclesForDate(turno.fecha, turno.cargo).map(v => (
+                                                    {getAvailableVehiclesForDate(
+                                                        turno.fecha,
+                                                        turno.cargo,
+                                                        turno.id,
+                                                        turno.inicioProgramado,
+                                                        turno.finProgramado || turno.horaFin,
+                                                        turno.id_empleado
+                                                    ).map(v => (
                                                         <option key={v.id} value={v.id}>{v.id} – {v.tipo}</option>
                                                     ))}
                                                 </select>
