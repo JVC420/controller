@@ -40,7 +40,7 @@ const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance,
                     <div className="flex flex-wrap items-center gap-2 lg:gap-4 justify-center lg:justify-end">
                         {headerControl}
                         <StatBox label="Listas para Asignación" count={disponibles.length} color="text-emerald-400" />
-                        <StatBox label="Disp. Tripulación Incompleta" count={disponiblesIncompleta.length} color="text-amber-400" />
+                        <StatBox label="Incompleta" count={disponiblesIncompleta.length} color="text-amber-400" />
                         <StatBox label="En Servicio" count={enServicio.length} color="text-blue-400" />
                         <StatBox label="Fuera" count={fueraDeServicio.length} color="text-red-400" />
                     </div>
