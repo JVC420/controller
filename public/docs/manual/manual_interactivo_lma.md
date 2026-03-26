@@ -1,9 +1,9 @@
-# 📋 Manual Interactivo — LMA Control
+# 📋 Manual — LMA Control
 ### Logística Médica de Ambulancias · Centro de Operaciones
 
 ---
 
-> [!NOTE]
+
 > Este manual cubre las funcionalidades disponibles para cada uno de los **tres roles** del sistema. Cada sección indica claramente qué rol tiene acceso a cada módulo.
 
 ---
@@ -44,7 +44,6 @@
 | Demasiados intentos fallidos | Mensaje: *"Demasiados intentos. Intenta más tarde"* |
 | Ya tiene sesión activa | Redirige directo a su página principal |
 
-> [!TIP]
 > Si olvidó su contraseña, contacte al administrador del sistema. No hay opción de recuperación de contraseña en la app.
 
 ---
@@ -70,7 +69,6 @@ La barra lateral izquierda muestra los módulos disponibles según su rol:
 - **Badge**: El Dashboard muestra un contador con las solicitudes activas.
 - **Perfil**: Abajo se muestra su nombre, rol y botón de **"Cerrar sesión"**.
 
-> [!IMPORTANT]
 > Si intenta acceder a una ruta no autorizada para su rol, verá la página de **"Acceso no autorizado"**.
 
 ---
@@ -106,7 +104,6 @@ Se divide en dos paneles:
 3. Si la ambulancia tiene tripulación completa, la asignación se confirma con un mensaje de éxito.
 4. Si la tripulación está incompleta, se mostrará un error.
 
-> [!WARNING]
 > Solo se pueden asignar solicitudes a ambulancias con **tripulación completa**. Asegúrese de que los turnos del personal estén programados antes de asignar.
 
 #### Botones de acción
@@ -178,7 +175,6 @@ El formulario de solicitud es el componente más completo de la aplicación, org
 - Se abrirá el mismo formulario con los datos prellenados.
 - Modifique lo necesario y guarde.
 
-> [!NOTE]
 > Algunos campos de ejecución (fechas de llegada/salida) solo se habilitan cuando la solicitud tiene una ambulancia asignada.
 
 ---
@@ -233,7 +229,7 @@ Panel analítico con indicadores clave de rendimiento:
 - **Indicadores de personal**: Puntualidad, horas extras, ausencias.
 - **Selector de período**: Filtro por rango de fechas para análisis temporal.
 
-> [!TIP]
+
 > Use las métricas para identificar patrones, como ambulancias con mayor tiempo ocioso o empleados con mayor índice de tardanzas.
 
 ---
@@ -277,7 +273,6 @@ Panel analítico con indicadores clave de rendimiento:
 
 **Acceso:** Recurso Humano · Administrador General
 
-> [!NOTE]
 > Este es el **único módulo** accesible por el rol de **Recurso Humano (RH)**. El Administrador General también tiene acceso completo.
 
 El módulo de Personal tiene **tres sub-pestañas**:
@@ -329,7 +324,6 @@ Vista en tiempo real de todos los turnos programados y en ejecución.
 4. Seleccione el **vehículo** (solo muestra los que tienen cupo disponible para el cargo del empleado).
 5. Haga clic en **"Programar"**.
 
-> [!WARNING]
 > El sistema valida automáticamente:
 > - Que el empleado no tenga **solapamiento** de turnos en el rango seleccionado.
 > - Que el **cargo sea compatible** con el tipo de ambulancia (TAB vs TAM).
@@ -388,7 +382,6 @@ El sistema calcula **8 categorías de horas** por empleado:
 | Extra Dominical/Festivo Diurna | Horas extra 06:00 - 19:00 (domingos/festivos) |
 | Extra Dominical/Festivo Nocturna | Horas extra 19:00 - 06:00 (domingos/festivos) |
 
-> [!TIP]
 > Se consideran **horas extra** cuando el fin real del turno excede el fin programado por más de 30 minutos. Los **festivos colombianos** (incluyendo Ley Emiliani) se calculan automáticamente.
 
 #### Exportar CSV
@@ -411,7 +404,7 @@ Un botón flotante en la esquina inferior derecha abre el chatbot de soporte té
 4. Haga clic en **"Enviar"** o presione Enter.
 5. El bot registrará su caso y confirmará que un ingeniero lo revisará.
 
-> [!NOTE]
+
 > El chatbot envía los mensajes directamente al equipo de soporte técnico. No es un chatbot con IA — su mensaje será atendido por un humano.
 
 ---
@@ -465,5 +458,5 @@ Módulos disponibles:
 
 ---
 
-> [!CAUTION]
+
 > **Cerrar sesión**: Siempre use el botón "Cerrar sesión" en la parte inferior del sidebar. No cierre simplemente el navegador, ya que la sesión podría persistir.

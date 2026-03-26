@@ -1,8 +1,86 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Book, FileVideo, ExternalLink, ChevronLeft, Loader2, Search } from 'lucide-react';
+import rehypeRaw from 'rehype-raw';
+import { Book, FileVideo, ChevronLeft, ChevronRight, Info, PlayCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+
+const ImageCarousel = ({ images }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    if (!images || images.length === 0) return null;
+
+    const handleNext = (e) => {
+        e.stopPropagation();
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+    };
+
+    const handlePrev = (e) => {
+        e.stopPropagation();
+        setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    };
+
+    const isVideo = images[currentIndex].src.endsWith('.webp') || images[currentIndex].src.endsWith('.mp4');
+
+    return (
+        <div className="relative group my-12 bg-slate-900 rounded-3xl overflow-hidden border border-slate-700/50 shadow-2xl ring-1 ring-white/5">
+            <div className="relative aspect-video flex items-center justify-center bg-black/40">
+                {isVideo && (
+                    <div className="absolute top-5 left-5 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-600/90 backdrop-blur-xl text-white border border-blue-400/30">
+                        <PlayCircle size={14} className="animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Vista Interactiva</span>
+                    </div>
+                )}
+                
+                <img 
+                    src={images[currentIndex].src} 
+                    alt={images[currentIndex].alt} 
+                    className="max-w-full max-h-full object-contain transition-all duration-1000 group-hover:scale-105"
+                />
+                
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-8 pt-24">
+                    <div className="flex items-end justify-between gap-6">
+                        <div className="flex-1">
+                            <h4 className="text-white font-black text-xl tracking-tight leading-none mb-2.5">
+                                {images[currentIndex].alt || 'Guía Visual LMA'}
+                            </h4>
+                            <div className="flex items-center gap-3">
+                                <span className="h-1 w-8 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
+                                <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">Centro de Operaciones</p>
+                            </div>
+                        </div>
+                        {images.length > 1 && (
+                            <div className="flex items-center gap-3 bg-slate-900 border border-slate-700/60 rounded-2xl p-2 pl-4 shadow-xl">
+                                <span className="text-[10px] font-black text-slate-500 uppercase tabular-nums">{currentIndex + 1} / {images.length}</span>
+                                <div className="flex gap-1">
+                                    <button onClick={handlePrev} className="h-8 w-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-blue-600 transition-all active:scale-90"><ChevronLeft size={16}/></button>
+                                    <button onClick={handleNext} className="h-8 w-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-white hover:bg-blue-600 transition-all active:scale-90"><ChevronRight size={16}/></button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            {images.length > 1 && (
+                <div className="absolute top-1/2 -translate-y-12 left-0 right-0 px-5 flex justify-between pointer-events-none z-30">
+                    <button 
+                        onClick={handlePrev} 
+                        className="h-14 w-14 rounded-full bg-black/60 backdrop-blur-2xl border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:border-blue-400 pointer-events-auto hover:scale-110 active:scale-90"
+                    >
+                        <ChevronLeft size={32} />
+                    </button>
+                    <button 
+                        onClick={handleNext} 
+                        className="h-14 w-14 rounded-full bg-black/60 backdrop-blur-2xl border border-white/10 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-600 hover:border-blue-400 pointer-events-auto hover:scale-110 active:scale-90"
+                    >
+                        <ChevronRight size={32} />
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const ManualPage = () => {
     const navigate = useNavigate();
@@ -16,6 +94,14 @@ const ManualPage = () => {
         { id: 'manual visual', label: 'Manual Visual', icon: FileVideo, file: 'video_manual_lma.md' }
     ];
 
+    const getSafeTextContent = (node) => {
+        if (!node) return '';
+        if (typeof node === 'string') return node;
+        if (Array.isArray(node)) return node.map(getSafeTextContent).join(' ');
+        if (node.props && node.props.children) return getSafeTextContent(node.props.children);
+        return '';
+    };
+
     useEffect(() => {
         const fetchContent = async () => {
             setLoading(true);
@@ -23,13 +109,43 @@ const ManualPage = () => {
             try {
                 const tab = tabs.find(t => t.id === activeTab);
                 const response = await fetch(`/docs/manual/${tab.file}`);
-                if (!response.ok) throw new Error('No se pudo cargar el manual');
+                if (!response.ok) throw new Error('No se pudo cargar el archivo');
                 let text = await response.text();
-                
-                // Rewrite image paths to point to the correct public location
                 text = text.replace(/\.\/assets\//g, '/docs/manual/assets/');
                 
-                setContent(text);
+                const lines = text.split('\n');
+                const newLines = [];
+                let currentGallery = [];
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
+
+                    if (imgMatch) {
+                        currentGallery.push({ alt: imgMatch[1], src: imgMatch[2] });
+                    } else {
+                        if (currentGallery.length > 0) {
+                            if (currentGallery.length >= 2) {
+                                const json = JSON.stringify(currentGallery).replace(/'/g, "&apos;");
+                                newLines.push(`<gallery data-images='${json}'></gallery>`);
+                            } else {
+                                newLines.push(`![${currentGallery[0].alt}](${currentGallery[0].src})`);
+                            }
+                            currentGallery = [];
+                        }
+                        newLines.push(lines[i]);
+                    }
+                }
+                if (currentGallery.length > 0) {
+                    if (currentGallery.length >= 2) {
+                        const json = JSON.stringify(currentGallery).replace(/'/g, "&apos;");
+                        newLines.push(`<gallery data-images='${json}'></gallery>`);
+                    } else {
+                        newLines.push(`![${currentGallery[0].alt}](${currentGallery[0].src})`);
+                    }
+                }
+
+                setContent(newLines.join('\n'));
             } catch (err) {
                 setError(err.message);
             } finally {
@@ -41,90 +157,95 @@ const ManualPage = () => {
     }, [activeTab]);
 
     return (
-        <div className="flex flex-col h-full bg-[#0B1121] overflow-hidden">
-            {/* Header section with glassmorphism */}
-            <div className="flex-none p-4 md:p-6 border-b border-slate-700/60 bg-dark-900/40 backdrop-blur-md">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-3">
+        <div className="flex flex-col h-full bg-[#0f172a] overflow-hidden text-slate-100 font-sans">
+            {/* Header */}
+            <header className="flex-none px-6 py-4 border-b border-slate-800 bg-[#0f172a]/95 backdrop-blur-2xl z-50">
+                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-6">
                         <button 
                             onClick={() => navigate('/')}
-                            className="p-2 mr-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
-                            title="Volver al Dashboard"
+                            className="h-10 w-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all active:scale-95"
                         >
                             <ChevronLeft size={20} />
                         </button>
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                                <Book className="text-blue-500" size={24} />
-                                Centro de Ayuda LMA
-                            </h1>
-                            <p className="text-slate-400 text-sm mt-0.5">Documentación oficial y guías de uso del sistema</p>
+                            <h1 className="text-xl font-black text-white italic tracking-tighter">LMA <span className="text-blue-500">HELP</span></h1>
+                            <p className="text-[9px] text-slate-500 font-black tracking-widest uppercase mt-0.5">Soporte Técnico</p>
                         </div>
                     </div>
-                </div>
 
-                {/* Custom Tabs */}
-                <div className="flex items-center gap-2 p-1 bg-dark-900/80 border border-slate-700/60 rounded-xl w-fit">
-                    {tabs.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                activeTab === tab.id
-                                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
-                                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent'
-                            }`}
-                        >
-                            <tab.icon size={18} />
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Content area with smooth scrolling */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar bg-dark-900/20">
-                <div className="max-w-5xl mx-auto px-4 py-8 md:px-8">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                            <Loader2 className="animate-spin text-blue-500" size={40} />
-                            <p className="text-slate-400 font-medium">Cargando material de ayuda...</p>
-                        </div>
-                    ) : error ? (
-                        <div className="p-8 rounded-2xl bg-red-500/10 border border-red-500/20 text-center">
-                            <p className="text-red-400 mb-4">{error}</p>
-                            <button 
-                                onClick={() => setActiveTab(activeTab)} 
-                                className="px-4 py-2 bg-red-600/20 border border-red-500/30 text-red-300 rounded-lg hover:bg-red-600/30 transition-all font-medium"
+                    <div className="flex gap-2 p-1.5 bg-slate-900 border border-slate-800 rounded-2xl">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-2.5 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    activeTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                                }`}
                             >
-                                Reintentar
+                                <tab.icon size={16} />
+                                {tab.label}
                             </button>
+                        ))}
+                    </div>
+                </div>
+            </header>
+
+            {/* Content Body */}
+            <main className="flex-1 overflow-y-auto custom-scrollbar bg-[#0f172a]">
+                <div className="max-w-4xl mx-auto px-8 py-16 pb-40">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-40 gap-8">
+                            <div className="h-12 w-12 border-t-2 border-blue-600 rounded-full animate-spin"></div>
+                            <p className="text-[10px] font-black text-slate-500 tracking-widest uppercase">Cargando Manual</p>
                         </div>
                     ) : (
-                        <div className="prose prose-invert prose-slate max-w-none 
-                                        prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight
-                                        prose-h1:text-4xl prose-h1:mb-10 prose-h1:border-b prose-h1:border-slate-800 prose-h1:pb-6
-                                        prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:text-blue-400/90
-                                        prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4
-                                        prose-p:text-slate-300 prose-p:leading-relaxed prose-p:mb-5
-                                        prose-li:text-slate-300 prose-li:mb-2
-                                        prose-strong:text-white prose-strong:font-semibold
-                                        prose-blockquote:bg-blue-500/10 prose-blockquote:border-l-4 prose-blockquote:border-blue-500 prose-blockquote:rounded-r-lg prose-blockquote:py-1 prose-blockquote:px-5 prose-blockquote:italic prose-blockquote:mt-8 prose-blockquote:mb-8
-                                        prose-code:text-cyan-300 prose-code:bg-slate-800/50 prose-code:rounded prose-code:px-1
-                                        prose-table:border prose-table:border-slate-700
-                                        prose-th:bg-dark-900/60 prose-th:text-slate-300 prose-th:font-bold prose-th:px-4 prose-th:py-3
-                                        prose-td:border-b prose-td:border-slate-800 prose-td:px-4 prose-td:py-3 prose-td:text-slate-400
-                                        markdown-content">
+                        <div className="prose prose-invert prose-indigo max-w-none markdown-content">
                             <ReactMarkdown 
                                 remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeRaw]}
                                 components={{
+                                    p: ({ children }) => {
+                                        const hasBlock = React.Children.toArray(children).some(
+                                            (child) => child && child.type && (typeof child.type === 'string' && ['div', 'gallery'].includes(child.type))
+                                        );
+                                        return hasBlock ? <>{children}</> : <p className="mb-8 text-slate-300 text-lg leading-relaxed">{children}</p>;
+                                    },
+                                    gallery: ({ node, ...props }) => {
+                                        const images = JSON.parse(props['data-images'].replace(/&apos;/g, "'"));
+                                        return <ImageCarousel images={images} />;
+                                    },
                                     img: ({ node, ...props }) => (
-                                        <div className="my-10 rounded-2xl overflow-hidden border border-slate-700/60 shadow-2xl shadow-black/50 bg-slate-900 group">
-                                            <img {...props} className="w-full h-auto transition-transform duration-700 group-hover:scale-105" loading="lazy" />
-                                            {props.title && <div className="p-3 bg-dark-900/80 text-xs text-slate-400 border-t border-slate-700/50 italic text-center">{props.title}</div>}
+                                        <div className="my-12 rounded-[2rem] overflow-hidden border border-slate-700 shadow-xl bg-black group relative">
+                                            <img {...props} className="w-full h-auto transition-transform duration-1000 group-hover:scale-105" loading="lazy" />
+                                            {props.alt && (
+                                                <div className="p-6 bg-slate-900 border-t border-slate-800 text-center uppercase font-black text-[10px] tracking-widest text-slate-500">
+                                                    {props.alt}
+                                                </div>
+                                            )}
                                         </div>
                                     ),
-                                    hr: () => <hr className="my-12 border-slate-800/60 shadow-inner" />
+                                    hr: () => <div className="my-16 h-1 w-24 bg-blue-600/30 mx-auto rounded-full"></div>,
+                                    table: ({ children }) => (
+                                        <div className="my-12 overflow-hidden rounded-[2rem] border border-slate-700 bg-slate-900/40 backdrop-blur-2xl shadow-xl">
+                                            <table className="w-full text-left border-collapse">{children}</table>
+                                        </div>
+                                    ),
+                                    thead: ({ children }) => <thead className="bg-slate-800 border-b border-slate-700">{children}</thead>,
+                                    th: ({ children }) => <th className="px-8 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">{children}</th>,
+                                    td: ({ children }) => <td className="px-8 py-4 text-sm font-medium text-slate-300 border-b border-white/5 last:border-0">{children}</td>,
+                                    blockquote: ({ children }) => {
+                                        const fullText = getSafeTextContent(children);
+                                        const types = { '[!TIP]': 'emerald', '[!WARNING]': 'amber', '[!IMPORTANT]': 'blue', '[!CAUTION]': 'red' };
+                                        const color = Object.keys(types).find(k => fullText.includes(k)) ? types[Object.keys(types).find(k => fullText.includes(k))] : 'slate';
+
+                                        return (
+                                            <div className={`my-12 p-8 rounded-[2rem] border border-${color}-500/20 bg-${color}-500/5 relative overflow-hidden group shadow`}>
+                                                <div className={`absolute top-0 left-0 w-1 h-full bg-${color}-500 shadow-[0_0_10px_rgba(59,130,246,0.3)]`}></div>
+                                                <div className="text-slate-300 text-lg leading-relaxed italic">{children}</div>
+                                            </div>
+                                        );
+                                    }
                                 }}
                             >
                                 {content}
@@ -132,36 +253,56 @@ const ManualPage = () => {
                         </div>
                     )}
                 </div>
-            </div>
+            </main>
             
-            {/* Minimal CSS for custom styling not covered by Tailwind prose */}
             <style dangerouslySetInnerHTML={{ __html: `
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 6px;
+                .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 20px; }
+                
+                .markdown-content blockquote p { display: inline !important; margin: 0 !important; }
+                
+                /* NORMALIZED HEADING SIZES */
+                .markdown-content h1 { 
+                    font-size: 3rem !important; 
+                    font-weight: 900 !important; 
+                    margin-bottom: 2.5rem !important; 
+                    letter-spacing: -0.03em !important; 
+                    color: white !important;
+                    text-transform: uppercase;
                 }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
+                .markdown-content h2 { 
+                    font-size: 2rem !important; 
+                    font-weight: 900 !important; 
+                    margin-top: 4.5rem !important; 
+                    margin-bottom: 1.5rem !important; 
+                    color: #3b82f6 !important;
                 }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: #1e293b;
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: #334155;
+                .markdown-content h3 { 
+                    font-size: 1.5rem !important; 
+                    font-weight: 900 !important; 
+                    margin-top: 3rem !important; 
+                    margin-bottom: 1rem !important; 
+                    color: white !important;
                 }
                 
-                .markdown-content table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 2rem 0;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    border: 1px solid rgba(51, 65, 85, 0.4);
+                /* BALANCED LIST SPACING */
+                .markdown-content ol, .markdown-content ul { 
+                    margin-top: 2rem !important; 
+                    margin-bottom: 2rem !important; 
+                    padding-left: 2rem !important; 
                 }
-                
-                /* Support for alerts in markdown if they follow [!TYPE] syntax */
-                .markdown-content blockquote p {
-                    margin-bottom: 0 !important;
+                .markdown-content p + ol, .markdown-content p + ul {
+                    margin-top: 2.5rem !important;
+                }
+                .markdown-content li { 
+                    margin-bottom: 1rem !important; 
+                    padding-left: 1rem !important;
+                }
+                .markdown-content li::marker { 
+                    color: #3b82f6 !important; 
+                    font-weight: 900 !important; 
+                    font-size: 1.2rem !important;
                 }
             `}} />
         </div>
