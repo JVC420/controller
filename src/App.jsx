@@ -13,12 +13,14 @@ import HistoryView from './components/HistoryView';
 import MetricsDashboard from './components/MetricsDashboard';
 import PersonnelView from './components/PersonnelView';
 import SupportChatbot from './components/SupportChatbot';
+import ManualPage from './components/ManualPage';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useAuth, ROLES } from './contexts/AuthContext';
 import UnauthorizedPage from './components/UnauthorizedPage';
 import { ToastContainer, useToast } from './components/ui/Toast';
-import { Menu } from 'lucide-react';
+import { Menu, CircleHelp } from 'lucide-react';
 import { canAssignRequestToAmbulance } from './utils/fleetStatus';
+import { Link } from 'react-router-dom';
 
 // Map route paths to tab names for sidebar highlighting
 const pathToTab = {
@@ -27,6 +29,7 @@ const pathToTab = {
   '/metricas': 'metricas',
   '/directorio': 'directorio',
   '/personal': 'personal',
+  '/manual': 'manual',
 };
 
 function AppLayout() {
@@ -493,6 +496,8 @@ function AppLayout() {
               />
             )} />
 
+            <Route path="/manual" element={<ManualPage />} />
+
 
             {/* Catch-all: unknown paths show unauthorized */}
             <Route path="*" element={<UnauthorizedPage />} />
@@ -527,6 +532,19 @@ function AppLayout() {
           showToast={showToast}
         />
       )}
+      
+      {/* Floating Help Button */}
+      <Link
+        to="/manual"
+        className="fixed bottom-24 right-5 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-900/35 flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-40 group"
+        title="Manual de usuario y ayuda"
+      >
+        <CircleHelp size={28} className="group-hover:rotate-12 transition-transform" />
+        <span className="absolute right-full mr-3 px-3 py-1.5 bg-dark-800 border border-slate-700 rounded-lg text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+          ¿Necesitas ayuda?
+        </span>
+      </Link>
+
       <SupportChatbot />
       <ToastContainer toasts={toasts} dismiss={dismissToast} />
     </DndContext>
