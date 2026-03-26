@@ -12,7 +12,7 @@ Recorrido visual completo por la aplicación **LMA Control** para los tres roles
 
 ## 🟢 Rol: Administrador General
 
-**Usuario:** `admin@lma.com` · **Acceso:** Todos los módulos
+**Usuario:** `ejemplo@lma.com` · **Acceso:** Todos los módulos
 
 ### Video del recorrido completo
 
@@ -47,7 +47,7 @@ Recorrido visual completo por la aplicación **LMA Control** para los tres roles
 
 ## 🔵 Rol: Controlador
 
-**Usuario:** `controlador@lma.com` · **Acceso:** Dashboard, Historial, Directorio
+**Usuario:** `ejemplo@lma.com` · **Acceso:** Dashboard, Historial, Directorio
 
 ### Módulos visibles en el sidebar
 | Módulo | Disponible |
@@ -141,7 +141,7 @@ El controlador consulta la información de entidades/clientes registrados.
 
 ## 🟡 Rol: Recurso Humano (RH)
 
-**Usuario:** `rh@lma.com` · **Acceso:** Solo Personal
+**Usuario:** `ejemplo@lma.com` · **Acceso:** Solo Personal
 
 ### Módulos visibles en el sidebar
 | Módulo | Disponible |
