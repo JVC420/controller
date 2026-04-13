@@ -73,6 +73,29 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
         }).format(d);
     };
 
+    const formatFieldValue = (value) => {
+        if (value == null || value === '') return 'Sin dato';
+        if (typeof value === 'boolean') return value ? 'Si' : 'No';
+        if (typeof value === 'number') return String(value);
+        return String(value);
+    };
+
+    const formatDateField = (value) => {
+        if (!value) return 'Sin dato';
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return formatFieldValue(value);
+        return new Intl.DateTimeFormat('es-CO', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(d);
+    };
+
+    const detailGridClass = "grid grid-cols-1 md:grid-cols-2 gap-2 [&>p]:rounded-md [&>p]:border [&>p]:border-slate-700/60 [&>p]:bg-slate-800/30 [&>p]:px-2.5 [&>p]:py-2 [&>p]:leading-relaxed [&>p>span:first-child]:block [&>p>span:first-child]:text-[10px] [&>p>span:first-child]:uppercase [&>p>span:first-child]:tracking-wider [&>p>span:first-child]:font-semibold [&>p>span:first-child]:text-slate-500 [&>p>span:last-child]:block [&>p>span:last-child]:mt-1 [&>p>span:last-child]:text-slate-100 [&>p>span:last-child]:break-words";
+
     // ── Memoized filtered + sorted list ────────────────────────────────────────
     const processedHistorial = useMemo(() => {
         const filtered = historial.filter(s => {
@@ -412,63 +435,111 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                             </button>
                         </div>
 
-                        <div className="p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Paciente</p>
-                                <p className="text-slate-200 font-semibold">{viewRequestData.servicio?.pacienteInfo?.nombre || 'Sin dato'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Entidad</p>
-                                <p className="text-slate-200 font-semibold">{viewRequestData.servicio?.entidadInfo?.nombreEntidad || viewRequestData.cliente?.nombre || 'Sin dato'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
-                                <p className="text-xs text-slate-500 mb-1">Solicitante</p>
-                                <p className="text-slate-200">{viewRequestData.servicio?.solicitanteInfo?.nombre || 'Sin dato'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Origen</p>
-                                <p className="text-slate-200">{viewRequestData.servicio?.origenInfo?.nombre || 'Sin dato'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Destino 1</p>
-                                <p className="text-slate-200">{viewRequestData.servicio?.destino1Info?.nombre || 'Sin dato'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Destino 2</p>
-                                <p className="text-slate-200">{viewRequestData.servicio?.destino2Info?.nombre || 'No aplica'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Complejidad</p>
-                                <p className="text-slate-200">{viewRequestData.servicio?.servicioInfo?.complejidad || 'Sin dato'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Estado</p>
-                                {viewRequestData.servicio?.changeStatusApproval ? (
-                                    ['Cancelado', 'Negado', 'Fallido'].some(s => viewRequestData.servicio.changeStatusApproval.includes(s)) ? (
-                                        <p className="text-red-400 font-semibold">{viewRequestData.servicio.changeStatusApproval}</p>
-                                    ) : (
-                                        <p className="text-amber-400 font-semibold">{viewRequestData.servicio.changeStatusApproval}</p>
-                                    )
-                                ) : viewRequestData.servicio?.estado === 'En revisión' ? (
-                                    <p className="text-amber-400 font-semibold animate-pulse">{viewRequestData.servicio.estado}</p>
-                                ) : terminalStatusLabels.includes(viewRequestData.servicio?.estado) ? (
-                                    <p className="text-red-400 font-semibold">{viewRequestData.servicio?.estado}</p>
-                                ) : (
-                                    <p className="text-slate-200">{viewRequestData.servicio?.estado || 'Sin dato'}</p>
-                                )}
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3">
-                                <p className="text-xs text-slate-500 mb-1">Creado</p>
-                                <p className="text-slate-200">{formatCreatedAt(viewRequestData.servicio?.creadoAt)}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
-                                <p className="text-xs text-slate-500 mb-1">Observaciones</p>
-                                <p className="text-slate-200 whitespace-pre-wrap">{viewRequestData.servicio?.observaciones || 'Sin observaciones'}</p>
-                            </div>
-                            <div className="bg-dark-900 border border-slate-700 rounded-lg p-3 md:col-span-2">
-                                <p className="text-xs text-slate-500 mb-1">Justificacion de Cancelacion/Negación</p>
-                                <p className="text-slate-200 whitespace-pre-wrap">{viewRequestData.servicio?.justificacionCambioEstado || 'Sin justificación registrada'}</p>
-                            </div>
+                        <div className="p-5 overflow-y-auto space-y-4 text-sm">
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Resumen operativo</h4>
+                                <div className={detailGridClass}>
+                                    <p><span className="text-slate-500">ID:</span> <span className="text-slate-200 font-mono">{formatFieldValue(viewRequestData.servicio?.id)}</span></p>
+                                    <p><span className="text-slate-500">Estado:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.changeStatusApproval || viewRequestData.servicio?.estado)}</span></p>
+                                    <p><span className="text-slate-500">Cliente:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.entidadInfo?.nombreEntidad || viewRequestData.cliente?.nombre)}</span></p>
+                                    <p><span className="text-slate-500">Ambulancia:</span> <span className="text-slate-200 font-mono">{formatFieldValue(viewRequestData.servicio?.ambulanciaAsignada)}</span></p>
+                                    <p><span className="text-slate-500">Creado:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.creadoAt)}</span></p>
+                                    <p><span className="text-slate-500">Asignado:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.asignadoAt)}</span></p>
+                                    <p><span className="text-slate-500">Finalizado:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.finalizadoAt)}</span></p>
+                                    <p><span className="text-slate-500">Actualizado:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.actualizadoAt)}</span></p>
+                                </div>
+                            </section>
+
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Paciente</h4>
+                                <div className={detailGridClass}>
+                                    <p><span className="text-slate-500">ID Paciente/H.C.:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.pacienteInfo?.idPacienteHC)}</span></p>
+                                    <p><span className="text-slate-500">Tipo identidad:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.pacienteInfo?.tipoIdentidad)}</span></p>
+                                    <p><span className="text-slate-500">Nombre:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.pacienteInfo?.nombre || viewRequestData.servicio?.paciente)}</span></p>
+                                    <p><span className="text-slate-500">Sexo:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.pacienteInfo?.sexo)}</span></p>
+                                    <p><span className="text-slate-500">Fecha nacimiento:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.pacienteInfo?.fechaNacimiento)}</span></p>
+                                    <p><span className="text-slate-500">Edad:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.pacienteInfo?.edad)} {formatFieldValue(viewRequestData.servicio?.pacienteInfo?.tipoEdad)}</span></p>
+                                </div>
+                            </section>
+
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Solicitante y entidad</h4>
+                                <div className={detailGridClass}>
+                                    <p><span className="text-slate-500">ID solicitante:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.solicitanteInfo?.idSolicitante)}</span></p>
+                                    <p><span className="text-slate-500">Solicitante:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.solicitanteInfo?.nombre)}</span></p>
+                                    <p><span className="text-slate-500">Entidad ID:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.entidadInfo?.idEntidad)}</span></p>
+                                    <p><span className="text-slate-500">Entidad:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.entidadInfo?.nombreEntidad)}</span></p>
+                                    <p><span className="text-slate-500">Sucursal ID:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.entidadInfo?.idSucursal)}</span></p>
+                                    <p><span className="text-slate-500">Sucursal:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.entidadInfo?.nombreSucursal || viewRequestData.servicio?.entidadInfo?.sucursal)}</span></p>
+                                    <p className="md:col-span-2"><span className="text-slate-500">Obs. solicitante:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.solicitanteInfo?.observaciones)}</span></p>
+                                </div>
+                            </section>
+
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Servicio y autorizaciones</h4>
+                                <div className={detailGridClass}>
+                                    <p><span className="text-slate-500">Cod. complejidad:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.codComplejidad)}</span></p>
+                                    <p><span className="text-slate-500">Complejidad:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.complejidad)}</span></p>
+                                    <p><span className="text-slate-500">Confirma autorización:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.confirmaAutorizacion)}</span></p>
+                                    <p><span className="text-slate-500">Nro autorización:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.numeroAutorizacion)}</span></p>
+                                    <p><span className="text-slate-500">Copago:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.copagoValor)}</span></p>
+                                    <p><span className="text-slate-500">Servicio particular:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.esServicioParticular)}</span></p>
+                                    <p><span className="text-slate-500">Valor particular:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.servicioInfo?.servicioParticularValor)}</span></p>
+                                    <p><span className="text-slate-500">Servicio solicitado:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.programacionInfo?.servicioSolicitado)}</span></p>
+                                    <p><span className="text-slate-500">Servicio programado:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.programacionInfo?.servicioProgramado)}</span></p>
+                                </div>
+                            </section>
+
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Diagnóstico y estado clínico</h4>
+                                <div className={detailGridClass}>
+                                    <p><span className="text-slate-500">Cod. CIE:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.diagnosticoInfo?.codCIE)}</span></p>
+                                    <p><span className="text-slate-500">Nombre CIE:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.diagnosticoInfo?.nombreCIE)}</span></p>
+                                    <p className="md:col-span-2"><span className="text-slate-500">Obs. CIE:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.diagnosticoInfo?.observacionesCIE)}</span></p>
+                                    <p className="md:col-span-2"><span className="text-slate-500">Estado clínico actual:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.diagnosticoInfo?.estadoClinicoActual)}</span></p>
+                                </div>
+                            </section>
+
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Traslado (origen y destinos)</h4>
+                                <div className={detailGridClass}>
+                                    <p><span className="text-slate-500">ID origen:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.origenInfo?.id)}</span></p>
+                                    <p><span className="text-slate-500">Origen:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.origenInfo?.nombre || viewRequestData.servicio?.origen)}</span></p>
+                                    <p><span className="text-slate-500">Dirección origen:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.origenInfo?.direccion)}</span></p>
+                                    <p><span className="text-slate-500">Ciudad origen:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.origenInfo?.ciudad)}</span></p>
+                                    <p><span className="text-slate-500">Teléfono origen:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.origenInfo?.telefono)}</span></p>
+                                    <p><span className="text-slate-500">Contacto origen:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.origenInfo?.fechaHoraContacto)}</span></p>
+                                    <p><span className="text-slate-500">Salida origen:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.origenInfo?.fechaHoraSalida)}</span></p>
+                                    <p className="md:col-span-2"><span className="text-slate-500">Obs. origen:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.origenInfo?.observaciones)}</span></p>
+
+                                    <p><span className="text-slate-500">ID destino 1:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino1Info?.id)}</span></p>
+                                    <p><span className="text-slate-500">Destino 1:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino1Info?.nombre || viewRequestData.servicio?.destino)}</span></p>
+                                    <p><span className="text-slate-500">Dirección destino 1:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino1Info?.direccion)}</span></p>
+                                    <p><span className="text-slate-500">Ciudad destino 1:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino1Info?.ciudad)}</span></p>
+                                    <p><span className="text-slate-500">Teléfono destino 1:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino1Info?.telefono)}</span></p>
+                                    <p><span className="text-slate-500">Entrega destino 1:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.destino1Info?.fechaHoraEntrega)}</span></p>
+                                    <p><span className="text-slate-500">Salida destino 1:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.destino1Info?.fechaHoraSalida)}</span></p>
+                                    <p className="md:col-span-2"><span className="text-slate-500">Obs. destino 1:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.destino1Info?.observaciones)}</span></p>
+
+                                    <p><span className="text-slate-500">ID destino 2:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino2Info?.id)}</span></p>
+                                    <p><span className="text-slate-500">Destino 2:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino2Info?.nombre)}</span></p>
+                                    <p><span className="text-slate-500">Dirección destino 2:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino2Info?.direccion)}</span></p>
+                                    <p><span className="text-slate-500">Ciudad destino 2:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino2Info?.ciudad)}</span></p>
+                                    <p><span className="text-slate-500">Teléfono destino 2:</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.destino2Info?.telefono)}</span></p>
+                                    <p><span className="text-slate-500">Entrega destino 2:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.destino2Info?.fechaHoraEntrega)}</span></p>
+                                    <p><span className="text-slate-500">Salida destino 2:</span> <span className="text-slate-200">{formatDateField(viewRequestData.servicio?.destino2Info?.fechaHoraSalida)}</span></p>
+                                    <p className="md:col-span-2"><span className="text-slate-500">Obs. destino 2:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.destino2Info?.observaciones)}</span></p>
+                                </div>
+                            </section>
+
+                            <section className="bg-dark-900 border border-slate-700 rounded-lg p-3">
+                                <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Observaciones y auditoría</h4>
+                                <div className="grid grid-cols-1 gap-2 [&>p]:rounded-md [&>p]:border [&>p]:border-slate-700/60 [&>p]:bg-slate-800/30 [&>p]:px-2.5 [&>p]:py-2 [&>p>span:first-child]:block [&>p>span:first-child]:text-[10px] [&>p>span:first-child]:uppercase [&>p>span:first-child]:tracking-wider [&>p>span:first-child]:font-semibold [&>p>span:first-child]:text-slate-500 [&>p>span:last-child]:block [&>p>span:last-child]:mt-1 [&>p>span:last-child]:text-slate-100 [&>p>span:last-child]:break-words">
+                                    <p><span className="text-slate-500">Observaciones:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.observaciones)}</span></p>
+                                    <p><span className="text-slate-500">Justificación cambio estado:</span> <span className="text-slate-200 whitespace-pre-wrap">{formatFieldValue(viewRequestData.servicio?.justificacionCambioEstado)}</span></p>
+                                    <p><span className="text-slate-500">Tiempo espera (min):</span> <span className="text-slate-200">{formatFieldValue(viewRequestData.servicio?.tiempoEsperaMin)}</span></p>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 </div>
