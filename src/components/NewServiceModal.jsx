@@ -328,6 +328,22 @@ const FormSelect = ({
         setQuery('');
     }, [label]);
 
+    useEffect(() => {
+        if (!searchable || !searchInline) return;
+
+        const q = String(query || '').trim().toLowerCase();
+        if (!q) {
+            return;
+        }
+
+        const match = options.find((opt) => String(opt?.label || '').toLowerCase().includes(q));
+        if (match) {
+            if (String(match.value) !== String(value ?? '')) onChange(match.value);
+        } else if (value) {
+            onChange('');
+        }
+    }, [options, onChange, query, searchable, searchInline, value]);
+
     return (
         <div className={`w-full ${className}`.trim()}>
             <label className="block text-[11px] font-semibold text-slate-400 mb-1">{label}</label>
@@ -548,6 +564,7 @@ const OrderTab = ({
                         onChange={onEntityChange}
                         options={entityOptions}
                         searchable
+                        searchInline
                         searchPlaceholder="Buscar entidad..."
                         placeholder="Seleccione una entidad..."
                     />
@@ -557,6 +574,7 @@ const OrderTab = ({
                         onChange={onBranchChange}
                         options={branchOptions}
                         searchable
+                        searchInline
                         searchPlaceholder="Buscar sucursal..."
                         placeholder={formData.idEntidad ? 'Seleccione una sucursal...' : 'Primero seleccione una entidad'}
                     />
