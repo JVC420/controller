@@ -47,7 +47,7 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
             });
             }, [solicitudes, selectedClientId, patientQuery, getClienteById]);
 
-            const useCompactCards = sortedSolicitudes.length > 5;
+            const useCompactCards = sortedSolicitudes.length > 10;
 
     return (
         <div className="w-full lg:w-80 xl:w-96 bg-dark-900 lg:border-r border-b lg:border-b-0 border-slate-700 h-[50vh] lg:h-full flex flex-col pt-4 lg:pt-6 pb-2 relative z-10 shadow-lg lg:shadow-2xl mt-16 lg:mt-0">
