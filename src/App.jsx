@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, pointerWithin, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import LoginPage from './components/LoginPage';
@@ -81,6 +81,11 @@ function AppLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProgrammedDashboardView, setShowProgrammedDashboardView] = useState(false);
   const [floatingActionsVisible, setFloatingActionsVisible] = useState(true);
+  const [listSearch, setListSearch] = useState('');
+  const [listStatus, setListStatus] = useState('');
+  const [listDateFrom, setListDateFrom] = useState('');
+  const [listDateTo, setListDateTo] = useState('');
+  const [listPage, setListPage] = useState(1);
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
   const toMs = (value) => {
@@ -114,6 +119,7 @@ function AppLayout() {
     today.setHours(0, 0, 0, 0);
     return solicitudes
       .filter((s) => {
+        if (s?.estado === 'Pendiente') return true;
         if (terminalListStates.includes(s?.estado) || s?.estado === 'En revisión') return true;
         const programmed = s?.programacionInfo?.servicioProgramado;
         if (!programmed) return false;
@@ -121,14 +127,64 @@ function AppLayout() {
         return ms != null && ms >= today.getTime();
       })
       .sort((a, b) => {
-        const aFinal = a?.estado === 'Finalizado';
-        const bFinal = b?.estado === 'Finalizado';
-        if (aFinal !== bFinal) return aFinal ? 1 : -1;
-        const aMs = toMs(a?.programacionInfo?.servicioProgramado) ?? 0;
-        const bMs = toMs(b?.programacionInfo?.servicioProgramado) ?? 0;
-        return aMs - bMs;
+        const aMs = toMs(a?.programacionInfo?.servicioProgramado) ?? toMs(a?.creadoAt) ?? Number.MAX_SAFE_INTEGER;
+        const bMs = toMs(b?.programacionInfo?.servicioProgramado) ?? toMs(b?.creadoAt) ?? Number.MAX_SAFE_INTEGER;
+        if (aMs !== bMs) return bMs - aMs;
+        return String(a?.id || '').localeCompare(String(b?.id || ''));
       });
   }, [solicitudes]);
+
+  const getServiceDateMs = (s) => toMs(s?.programacionInfo?.servicioProgramado) ?? toMs(s?.creadoAt);
+
+  const listStatusOptions = useMemo(() => {
+    return Array.from(new Set(scheduledServicesDashboard.map((s) => s?.estado).filter(Boolean)));
+  }, [scheduledServicesDashboard]);
+
+  const filteredScheduledServices = useMemo(() => {
+    const query = listSearch.trim().toLowerCase();
+    const fromMs = listDateFrom ? new Date(`${listDateFrom}T00:00:00`).getTime() : null;
+    const toMsValue = listDateTo ? new Date(`${listDateTo}T23:59:59`).getTime() : null;
+
+    return scheduledServicesDashboard.filter((s) => {
+      if (listStatus && s?.estado !== listStatus) return false;
+
+      const serviceMs = getServiceDateMs(s);
+      if (fromMs != null && (serviceMs == null || serviceMs < fromMs)) return false;
+      if (toMsValue != null && (serviceMs == null || serviceMs > toMsValue)) return false;
+
+      if (!query) return true;
+      const haystack = [
+        s?.id,
+        s?.estado,
+        s?.ambulanciaAsignada,
+        s?.pacienteInfo?.nombre,
+        s?.paciente,
+        s?.entidadInfo?.nombreEntidad,
+        s?.origenInfo?.nombre,
+        s?.destino1Info?.nombre,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [scheduledServicesDashboard, listSearch, listStatus, listDateFrom, listDateTo]);
+
+  const LIST_PAGE_SIZE = 12;
+  const listTotalPages = Math.max(1, Math.ceil(filteredScheduledServices.length / LIST_PAGE_SIZE));
+  const paginatedScheduledServices = useMemo(() => {
+    const start = (listPage - 1) * LIST_PAGE_SIZE;
+    return filteredScheduledServices.slice(start, start + LIST_PAGE_SIZE);
+  }, [filteredScheduledServices, listPage]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [listSearch, listStatus, listDateFrom, listDateTo, showProgrammedDashboardView]);
+
+  useEffect(() => {
+    if (listPage > listTotalPages) setListPage(listTotalPages);
+  }, [listPage, listTotalPages]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -295,9 +351,42 @@ function AppLayout() {
             <Route path="/" element={guard('/',
               <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0B1121]">
                 {showProgrammedDashboardView ? (
-                  <div className="flex-1 overflow-auto p-4 md:p-6">
+                  <div className="flex-1 overflow-auto p-4 md:p-6 ">
                     <div className="mb-4 flex justify-end">
                       {dashboardViewSwitch}
+                    </div>
+                    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                      <input
+                        type="text"
+                        value={listSearch}
+                        onChange={(e) => setListSearch(e.target.value)}
+                        placeholder="Buscar por ID, paciente, móvil..."
+                        className="xl:col-span-2 bg-dark-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 outline-none"
+                      />
+                      <select
+                        value={listStatus}
+                        onChange={(e) => setListStatus(e.target.value)}
+                        className="bg-dark-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
+                      >
+                        <option value="">Todos los estados</option>
+                        {listStatusOptions.map((st) => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="date"
+                        value={listDateFrom}
+                        onChange={(e) => setListDateFrom(e.target.value)}
+                        className="bg-dark-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
+                        title="Desde"
+                      />
+                      <input
+                        type="date"
+                        value={listDateTo}
+                        onChange={(e) => setListDateTo(e.target.value)}
+                        className="bg-dark-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
+                        title="Hasta"
+                      />
                     </div>
                     <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-hidden">
                       <div className="overflow-x-auto">
@@ -317,7 +406,7 @@ function AppLayout() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800/80">
-                            {scheduledServicesDashboard.map((s) => {
+                            {paginatedScheduledServices.map((s) => {
                               const movil = flota.find((a) => a.id === s.ambulanciaAsignada);
                               return (
                                 <tr key={s.id} className="hover:bg-slate-800/20 transition-colors">
@@ -343,6 +432,8 @@ function AppLayout() {
                                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
                                         s.estado === 'Finalizado'
                                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                          : s.estado === 'Pendiente'
+                                          ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                                           : s.estado === 'En revisión'
                                           ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse'
                                           : ['Cancelado', 'Negado', 'Fallido'].includes(s.estado)
@@ -356,9 +447,9 @@ function AppLayout() {
                                 </tr>
                               );
                             })}
-                            {scheduledServicesDashboard.length === 0 && (
+                            {paginatedScheduledServices.length === 0 && (
                               <tr>
-                                <td colSpan="10" className="px-4 py-10 text-center text-slate-500">No hay servicios programados.</td>
+                                <td colSpan="10" className="px-4 py-10 text-center text-slate-500">No hay servicios para mostrar.</td>
                               </tr>
                             )}
                           </tbody>
@@ -366,7 +457,7 @@ function AppLayout() {
                       </div>
 
                       <div className="min-[1600px]:hidden p-3 md:p-4 flex flex-col gap-3">
-                        {scheduledServicesDashboard.map((s) => {
+                        {paginatedScheduledServices.map((s) => {
                           const movil = flota.find((a) => a.id === s.ambulanciaAsignada);
                           return (
                             <div key={s.id} className="bg-dark-900 border border-slate-700/60 rounded-xl p-3 md:p-4 space-y-3">
@@ -387,6 +478,8 @@ function AppLayout() {
                                   <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
                                     s.estado === 'Finalizado'
                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                      : s.estado === 'Pendiente'
+                                      ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
                                       : s.estado === 'En revisión'
                                       ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse'
                                       : ['Cancelado', 'Negado', 'Fallido'].includes(s.estado)
@@ -436,11 +529,40 @@ function AppLayout() {
                           );
                         })}
 
-                        {scheduledServicesDashboard.length === 0 && (
-                          <div className="px-4 py-10 text-center text-slate-500">No hay servicios programados.</div>
+                        {paginatedScheduledServices.length === 0 && (
+                          <div className="px-4 py-10 text-center text-slate-500">No hay servicios para mostrar.</div>
                         )}
                       </div>
                     </div>
+
+                    {filteredScheduledServices.length > 0 && (
+                      <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-slate-400">
+                        <span>
+                          Mostrando {(listPage - 1) * LIST_PAGE_SIZE + 1}-{Math.min(listPage * LIST_PAGE_SIZE, filteredScheduledServices.length)} de {filteredScheduledServices.length}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                            disabled={listPage === 1}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                          >
+                            Anterior
+                          </button>
+                          <span className="text-slate-500">{listPage}/{listTotalPages}</span>
+                          <button
+                            type="button"
+                            onClick={() => setListPage((p) => Math.min(listTotalPages, p + 1))}
+                            disabled={listPage === listTotalPages}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+                          >
+                            Siguiente
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pb-10" />
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">

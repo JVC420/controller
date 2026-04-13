@@ -217,7 +217,7 @@ const MetricsDashboard = ({ flota = [], solicitudes = [], turnos = [], flotaStat
             <header className="flex flex-col md:flex-row justify-between md:items-end gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">Métricas de Operación</h1>
-                    <p className="text-slate-400 mt-1">Indicadores vivos calculados desde Firestore.</p>
+                    <p className="text-slate-400 mt-1">Indicadores vivos.</p>
                 </div>
                 <div className="flex items-center gap-2 bg-dark-800 border border-slate-700 p-2 rounded-xl flex-wrap">
                     <Calendar size={18} className="text-blue-400 ml-2 hidden sm:block" />
