@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    collection, doc, onSnapshot, query, where,
+    collection, doc, getDoc, onSnapshot, query, where,
     addDoc, updateDoc, setDoc, deleteDoc,
     writeBatch, serverTimestamp
 } from 'firebase/firestore';
@@ -30,6 +30,38 @@ const normalizeDoc = (data) => {
 };
 
 const sanitizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const buildPatientCacheId = (tipoIdentidad, idPacienteHC) => {
+    const tipo = sanitizeText(tipoIdentidad).toUpperCase();
+    const id = sanitizeText(idPacienteHC).replace(/\s+/g, '').toUpperCase();
+    if (!tipo || !id) return '';
+    return `${tipo}_${id}`;
+};
+
+const upsertPatientCache = async ({ solicitudId, pacienteInfo }) => {
+    const cacheId = buildPatientCacheId(pacienteInfo?.tipoIdentidad, pacienteInfo?.idPacienteHC);
+    if (!cacheId) return;
+
+    const ref = doc(db, 'pacientes_cache', cacheId);
+    const current = await getDoc(ref);
+
+    const payload = {
+        idPacienteHC: sanitizeText(pacienteInfo?.idPacienteHC),
+        tipoIdentidad: sanitizeText(pacienteInfo?.tipoIdentidad).toUpperCase(),
+        nombre: sanitizeText(pacienteInfo?.nombre),
+        sexo: sanitizeText(pacienteInfo?.sexo),
+        fechaNacimiento: sanitizeText(pacienteInfo?.fechaNacimiento),
+        edad: sanitizeText(pacienteInfo?.edad),
+        tipoEdad: sanitizeText(pacienteInfo?.tipoEdad),
+        updatedAt: serverTimestamp(),
+        lastSolicitudId: sanitizeText(solicitudId),
+    };
+
+    if (!current.exists()) {
+        payload.createdAt = serverTimestamp();
+    }
+
+    await setDoc(ref, payload, { merge: true });
+};
 
 const assertValidRequestPayload = (data) => {
     const paciente = sanitizeText(data?.pacienteInfo?.nombre || data?.paciente);
@@ -359,10 +391,21 @@ export const useDashboardData = (activeRoute = '/') => {
         const { id, ...data } = requestObj;
         assertValidRequestPayload(data);
         data.creadoAt = serverTimestamp();
+        let solicitudId = id;
         if (id) {
             await setDoc(doc(db, 'solicitudes', id), data);
         } else {
-            await addDoc(collection(db, 'solicitudes'), data);
+            const createdRef = await addDoc(collection(db, 'solicitudes'), data);
+            solicitudId = createdRef.id;
+        }
+
+        try {
+            await upsertPatientCache({
+                solicitudId,
+                pacienteInfo: data?.pacienteInfo || {},
+            });
+        } catch (error) {
+            console.warn('No se pudo actualizar pacientes_cache:', error);
         }
     };
 

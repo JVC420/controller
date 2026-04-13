@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, ClipboardList, Ambulance, Ban, AlertTriangle } from 'lucide-react';
-import { Timestamp, collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { Timestamp, collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -256,6 +256,12 @@ const sanitizeText = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
 
 const sanitizeAmount = (value) => String(value ?? '').replace(/[^\d]/g, '');
 const sanitizeAuthorizationCode = (value) => String(value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+const buildPatientCacheId = (tipoIdentidad, idPacienteHC) => {
+    const tipo = String(tipoIdentidad ?? '').trim().toUpperCase();
+    const id = String(idPacienteHC ?? '').trim().replace(/\s+/g, '').toUpperCase();
+    if (!tipo || !id) return '';
+    return `${tipo}_${id}`;
+};
 
 const sanitizeName = (value) => String(value ?? '')
     .replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s'-]/g, '')
@@ -378,6 +384,7 @@ const Tabs = ({ activeTab, setActiveTab }) => (
 const OrderTab = ({
     formData,
     setField,
+    patientCacheState,
     entityOptions,
     branchOptions,
     selectedBranchValue,
@@ -436,6 +443,20 @@ const OrderTab = ({
                             { value: 'Días', label: 'Días' },
                         ]}
                     />
+                </div>
+                <div className="min-h-5 mt-2">
+                    {patientCacheState.loading && (
+                        <p className="text-xs text-blue-400">Buscando paciente en cache...</p>
+                    )}
+                    {!patientCacheState.loading && patientCacheState.error && (
+                        <p className="text-xs text-red-400">{patientCacheState.error}</p>
+                    )}
+                    {!patientCacheState.loading && !patientCacheState.error && patientCacheState.found && (
+                        <p className="text-xs text-emerald-400">Paciente encontrado: datos básicos autocompletados.</p>
+                    )}
+                    {!patientCacheState.loading && !patientCacheState.error && !patientCacheState.found && patientCacheState.lookupAttempted && (
+                        <p className="text-xs text-slate-400">Paciente no encontrado en cache. Continúa con el registro manual.</p>
+                    )}
                 </div>
             </FormSection>
 
@@ -866,6 +887,7 @@ const TransferTab = ({
 const ServiceOrderForm = ({
     formData,
     setField,
+    patientCacheState,
     activeTab,
     setActiveTab,
     entityOptions,
@@ -907,6 +929,7 @@ const ServiceOrderForm = ({
                     <OrderTab
                         formData={formData}
                         setField={setField}
+                        patientCacheState={patientCacheState}
                         entityOptions={entityOptions}
                         branchOptions={branchOptions}
                         selectedBranchValue={selectedBranchValue}
@@ -952,10 +975,13 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
     const [origins, setOrigins] = useState([]);
     const [originsState, setOriginsState] = useState({ loading: false, error: '' });
     const [originLookupState, setOriginLookupState] = useState({ error: '', success: false });
+    const [patientCacheState, setPatientCacheState] = useState({ loading: false, found: false, error: '', lookupAttempted: false });
     const [submitError, setSubmitError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const cieLookupDebounceRef = useRef(null);
     const cieLookupRequestRef = useRef(0);
+    const patientLookupDebounceRef = useRef(null);
+    const patientLookupRequestRef = useRef(0);
 
     // Status change request state
     const [showStatusChangeModal, setShowStatusChangeModal] = useState(false);
@@ -1268,6 +1294,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                 observaciones: initialData.observaciones || '',
             }));
 
+            setPatientCacheState({ loading: false, found: false, error: '', lookupAttempted: false });
+
             return;
         }
 
@@ -1281,7 +1309,69 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             servicioProgramado: fmt(todayStart),
             servicioSolicitado: fmt(now),
         }));
+        setPatientCacheState({ loading: false, found: false, error: '', lookupAttempted: false });
     }, [isOpen, isEditing, initialData]);
+
+    useEffect(() => {
+        if (!isOpen || isEditing) return;
+
+        if (patientLookupDebounceRef.current) {
+            clearTimeout(patientLookupDebounceRef.current);
+        }
+
+        const cacheId = buildPatientCacheId(formData.tipoIdentidad, formData.idPacienteHC);
+        if (!cacheId) {
+            setPatientCacheState({ loading: false, found: false, error: '', lookupAttempted: false });
+            return;
+        }
+
+        patientLookupDebounceRef.current = setTimeout(async () => {
+            const requestId = ++patientLookupRequestRef.current;
+            setPatientCacheState({ loading: true, found: false, error: '', lookupAttempted: false });
+
+            try {
+                const patientRef = doc(db, 'pacientes_cache', cacheId);
+                const snap = await getDoc(patientRef);
+
+                if (requestId !== patientLookupRequestRef.current) return;
+
+                if (!snap.exists()) {
+                    setPatientCacheState({ loading: false, found: false, error: '', lookupAttempted: true });
+                    return;
+                }
+
+                const cached = snap.data() || {};
+                setFormData((prev) => {
+                    const birthDate = String(cached.fechaNacimiento || '').trim();
+                    const ageData = calculateAge(birthDate);
+                    return {
+                        ...prev,
+                        paciente: String(cached.nombre || '').trim(),
+                        sexo: String(cached.sexo || '').trim(),
+                        fechaNacimiento: birthDate,
+                        edad: String(cached.edad ?? ageData.edad ?? ''),
+                        tipoEdad: String(cached.tipoEdad || ageData.tipoEdad || prev.tipoEdad || ''),
+                    };
+                });
+
+                setPatientCacheState({ loading: false, found: true, error: '', lookupAttempted: true });
+            } catch (error) {
+                if (requestId !== patientLookupRequestRef.current) return;
+                setPatientCacheState({
+                    loading: false,
+                    found: false,
+                    error: error?.message || 'No se pudo consultar el cache de pacientes.',
+                    lookupAttempted: true,
+                });
+            }
+        }, 320);
+
+        return () => {
+            if (patientLookupDebounceRef.current) {
+                clearTimeout(patientLookupDebounceRef.current);
+            }
+        };
+    }, [formData.tipoIdentidad, formData.idPacienteHC, isOpen, isEditing]);
 
     const canSubmit = useMemo(() => {
         const validatorsMap = {
@@ -1938,6 +2028,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                     <ServiceOrderForm
                         formData={formData}
                         setField={setField}
+                        patientCacheState={patientCacheState}
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
                         entityOptions={entityOptions}
