@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 
 const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
     const [selectedClientId, setSelectedClientId] = useState('');
+    const [patientQuery, setPatientQuery] = useState('');
 
     const clientOptions = useMemo(() => {
         const map = new Map();
@@ -22,8 +23,14 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
 
     // Auto-Sorting Logic: First by Nivel Prioridad (Ascending 1->3), then by Waiting Time (Descending)
     const sortedSolicitudes = useMemo(() => {
+        const query = patientQuery.trim().toLowerCase();
         return solicitudes
-            .filter((s) => !selectedClientId || s?.clienteId === selectedClientId)
+            .filter((s) => {
+                if (selectedClientId && s?.clienteId !== selectedClientId) return false;
+                if (!query) return true;
+                const patientName = String(s?.pacienteInfo?.nombre || s?.paciente || '').toLowerCase();
+                return patientName.includes(query);
+            })
             .sort((a, b) => {
             const clientA = getClienteById(a.clienteId);
             const clientB = getClienteById(b.clienteId);
@@ -38,7 +45,9 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
             // If same priority, sort by wait time descending
             return b.tiempoEsperaMin - a.tiempoEsperaMin;
             });
-    }, [solicitudes, selectedClientId, getClienteById]);
+            }, [solicitudes, selectedClientId, patientQuery, getClienteById]);
+
+            const useCompactCards = sortedSolicitudes.length > 5;
 
     return (
         <div className="w-full lg:w-80 xl:w-96 bg-dark-900 lg:border-r border-b lg:border-b-0 border-slate-700 h-[50vh] lg:h-full flex flex-col pt-4 lg:pt-6 pb-2 relative z-10 shadow-lg lg:shadow-2xl mt-16 lg:mt-0">
@@ -54,7 +63,14 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
                 </div>
             </div>
 
-            <div className="px-5 mb-2 flex items-center gap-2">
+            <div className="px-5 mb-2 flex flex-col gap-2">
+                <input
+                    type="text"
+                    value={patientQuery}
+                    onChange={(e) => setPatientQuery(e.target.value)}
+                    placeholder="Buscar por paciente..."
+                    className="w-full bg-dark-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-blue-500 outline-none"
+                />
                 <select
                     value={selectedClientId}
                     onChange={(e) => setSelectedClientId(e.target.value)}
@@ -75,6 +91,7 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
                             request={request}
                             client={getClienteById(request.clienteId)}
                             onEdit={onEditRequest}
+                            compact={useCompactCards}
                         />
                     ))
                 ) : (
