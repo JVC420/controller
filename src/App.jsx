@@ -18,7 +18,7 @@ import { useDashboardData } from './hooks/useDashboardData';
 import { useAuth, ROLES } from './contexts/AuthContext';
 import UnauthorizedPage from './components/UnauthorizedPage';
 import { ToastContainer, useToast } from './components/ui/Toast';
-import { Menu, CircleHelp } from 'lucide-react';
+import { Menu, CircleHelp, Eye, EyeOff } from 'lucide-react';
 import { canAssignRequestToAmbulance } from './utils/fleetStatus';
 import { Link } from 'react-router-dom';
 
@@ -80,6 +80,7 @@ function AppLayout() {
   const [editingRequest, setEditingRequest] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProgrammedDashboardView, setShowProgrammedDashboardView] = useState(false);
+  const [floatingActionsVisible, setFloatingActionsVisible] = useState(true);
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
   const toMs = (value) => {
@@ -533,19 +534,33 @@ function AppLayout() {
         />
       )}
       
-      {/* Floating Help Button */}
-      <Link
-        to="/manual"
-        className="fixed bottom-24 right-5 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-900/35 flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-40 group"
-        title="Manual de usuario y ayuda"
+      <button
+        type="button"
+        onClick={() => setFloatingActionsVisible((v) => !v)}
+        className={`fixed ${floatingActionsVisible ? 'bottom-44 right-5' : 'bottom-5 right-5'} h-9 w-9 rounded-full bg-slate-800/95 hover:bg-slate-700 text-slate-200 border border-slate-600 shadow-lg flex items-center justify-center transition-colors z-50`}
+        title={floatingActionsVisible ? 'Ocultar accesos flotantes' : 'Mostrar accesos flotantes'}
+        aria-label={floatingActionsVisible ? 'Ocultar accesos flotantes' : 'Mostrar accesos flotantes'}
       >
-        <CircleHelp size={28} className="group-hover:rotate-12 transition-transform" />
-        <span className="absolute right-full mr-3 px-3 py-1.5 bg-dark-800 border border-slate-700 rounded-lg text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-          ¿Necesitas ayuda?
-        </span>
-      </Link>
+        {floatingActionsVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
 
-      <SupportChatbot />
+      {floatingActionsVisible && (
+        <>
+          {/* Floating Help Button */}
+          <Link
+            to="/manual"
+            className="fixed bottom-24 right-5 h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-xl shadow-blue-900/35 flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-40 group"
+            title="Manual de usuario y ayuda"
+          >
+            <CircleHelp size={28} className="group-hover:rotate-12 transition-transform" />
+            <span className="absolute right-full mr-3 px-3 py-1.5 bg-dark-800 border border-slate-700 rounded-lg text-xs font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+              ¿Necesitas ayuda?
+            </span>
+          </Link>
+
+          <SupportChatbot />
+        </>
+      )}
       <ToastContainer toasts={toasts} dismiss={dismissToast} />
     </DndContext>
   );

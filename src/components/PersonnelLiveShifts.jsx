@@ -52,7 +52,7 @@ const PersonnelLiveShifts = ({
     const timeStr = now.toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
 
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 pb-10">
             {/* Filters */}
             <div className="flex flex-wrap gap-3 mb-4 items-center">
                 <select className="bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:border-blue-500 outline-none w-full md:w-auto"
