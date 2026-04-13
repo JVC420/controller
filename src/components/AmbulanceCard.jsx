@@ -174,12 +174,24 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
                     </div>
                 )}
 
-                {inService && ambulance.destino && (
+                {inService && (
                     <div className="space-y-2">
-                        <div className="flex items-start gap-2 text-sm text-blue-300">
-                            <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
-                            <span className="line-clamp-2">Destino: {ambulance.destino}</span>
-                        </div>
+                        {serviceRequest && (
+                            <div className="rounded-md border border-blue-500/25 bg-blue-500/10 px-3 py-2 space-y-1">
+                                <p className="text-[11px] text-blue-300 font-semibold">
+                                    Solicitud asignada: <span className="font-mono text-blue-200">{serviceRequest.id}</span>
+                                </p>
+                                <p className="text-[11px] text-blue-200 leading-tight break-words">
+                                    Paciente: {serviceRequest?.pacienteInfo?.nombre || serviceRequest?.paciente || 'Sin paciente'}
+                                </p>
+                            </div>
+                        )}
+                        {ambulance.destino && (
+                            <div className="flex items-start gap-2 text-sm text-blue-300">
+                                <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                                <span className="line-clamp-2">Destino: {ambulance.destino}</span>
+                            </div>
+                        )}
                         {serviceRequest && onEditRequest && (
                             <button
                                 type="button"
