@@ -149,8 +149,8 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
     };
 
     return (
-        <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-dark-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 modal-overlay-enter">
+            <div className="bg-dark-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden modal-panel-enter">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center bg-dark-900/50">
                     <div>

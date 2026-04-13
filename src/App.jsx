@@ -289,7 +289,7 @@ function AppLayout() {
           />
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col h-full pt-16 lg:pt-0">
+        <div key={location.pathname} className="flex-1 min-w-0 flex flex-col h-full pt-16 lg:pt-0 route-fade">
           <Routes>
             <Route path="/" element={guard('/',
               <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#0B1121]">

@@ -6,8 +6,8 @@ const EmployeeModal = ({ isOpen, onClose, onSubmit, empForm, setEmpForm, editing
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-dark-800 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+        <div className="fixed inset-0 bg-dark-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 modal-overlay-enter">
+            <div className="bg-dark-800 border border-slate-700 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden modal-panel-enter">
                 <div className="px-6 py-4 border-b border-slate-700 flex justify-between items-center bg-dark-900/50">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         <User size={20} className="text-emerald-500" />

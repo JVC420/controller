@@ -1903,7 +1903,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
 
     return createPortal(
         <div
-            className="flex items-center justify-center px-4 py-4 md:px-8"
+            className="flex items-center justify-center px-4 py-4 md:px-8 modal-overlay-enter"
             style={{
                 position: 'fixed',
                 inset: 0,
@@ -1914,7 +1914,7 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             }}
         >
             <div
-                className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col"
+                className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden modal-panel-enter flex flex-col"
                 style={{
                     width: 'min(960px, calc(100vw - 32px))',
                     maxWidth: '960px',
@@ -2050,8 +2050,8 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
                         </div>
                         {/* Modal de confirmación */}
                         {showStatusChangeConfirm && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                                <div className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in fade-in zoom-in-95 duration-200">
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 modal-overlay-enter">
+                                <div className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl p-6 max-w-sm w-full modal-panel-enter">
                                     <h3 className="text-lg font-bold text-white mb-2">¿Desea confirmar el cambio de estado?</h3>
                                     <p className="text-sm text-slate-300 mb-4">Esto generará una solicitud de confirmación por parte de gerencia, y esta operación no se podrá reversar.</p>
                                     <div className="flex gap-3 justify-end">
