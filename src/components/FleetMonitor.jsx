@@ -48,6 +48,19 @@ const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance,
             </header>
 
             <div className="flex-1 space-y-8">
+                <FleetSection title="En Servicio" color="text-blue-400" count={enServicio.length}>
+                    {enServicio.map(amb => (
+                        <AmbulanceCard
+                            key={amb.id}
+                            ambulance={amb}
+                            turnosHoy={turnosHoy}
+                            onStatusChange={onStatusChange}
+                            serviceRequest={solicitudes.find((s) => s.ambulanciaAsignada === amb.id && s.estado !== 'Finalizado')}
+                            onEditRequest={onEditRequest}
+                        />
+                    ))}
+                </FleetSection>
+
                 <FleetSection title="Ambulancias Listas para Asignación" color="text-emerald-400" count={disponibles.length}>
                     {disponibles.map(amb => (
                         <AmbulanceCard key={amb.id} ambulance={amb} turnosHoy={turnosHoy} onStatusChange={onStatusChange} />
@@ -68,19 +81,6 @@ const FleetMonitor = ({ flota, solicitudes = [], turnosHoy = [], onAddAmbulance,
                             No hay ambulancias con tripulación incompleta.
                         </div>
                     )}
-                </FleetSection>
-
-                <FleetSection title="En Servicio" color="text-blue-400" count={enServicio.length}>
-                    {enServicio.map(amb => (
-                        <AmbulanceCard
-                            key={amb.id}
-                            ambulance={amb}
-                            turnosHoy={turnosHoy}
-                            onStatusChange={onStatusChange}
-                            serviceRequest={solicitudes.find((s) => s.ambulanciaAsignada === amb.id && s.estado !== 'Finalizado')}
-                            onEditRequest={onEditRequest}
-                        />
-                    ))}
                 </FleetSection>
 
                 <FleetSection title="Fuera de Servicio / Mantenimiento" color="text-slate-500" count={fueraDeServicio.length}>
