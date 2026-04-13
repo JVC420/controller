@@ -6,6 +6,7 @@ import { clsx } from 'clsx';
 
 // The visual representation of the card
 export const RequestCardUI = ({ request, client, isDragging, style, attributes, listeners, setNodeRef, onEdit }) => {
+    const patientName = request?.pacienteInfo?.nombre || request?.paciente || 'Sin paciente';
 
     // Check if request is in review state
     const isEnRevision = request.estado === 'En revisión';
@@ -157,6 +158,11 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                     <p className="text-xs text-slate-400">{client.tipo}</p>
                 </div>
             )}
+
+            <div className="rounded-lg border border-slate-800 bg-dark-900/40 px-3 py-2">
+                <span className="text-[10px] uppercase font-bold text-slate-500">Paciente</span>
+                <p className="text-sm text-slate-100 font-medium leading-tight mt-1">{patientName}</p>
+            </div>
 
             {/* Locations */}
             <div className="mt-2 space-y-2 bg-dark-900/50 rounded-lg p-3 border border-slate-800">

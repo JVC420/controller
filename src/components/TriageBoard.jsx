@@ -1,12 +1,30 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import RequestCard from './RequestCard';
 import { AlertCircle } from 'lucide-react';
 
 const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
+    const [selectedClientId, setSelectedClientId] = useState('');
+
+    const clientOptions = useMemo(() => {
+        const map = new Map();
+        solicitudes.forEach((s) => {
+            const id = s?.clienteId;
+            if (!id || map.has(id)) return;
+            const client = getClienteById(id);
+            map.set(id, {
+                id,
+                nombre: client?.nombre || id,
+            });
+        });
+
+        return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }, [solicitudes, getClienteById]);
 
     // Auto-Sorting Logic: First by Nivel Prioridad (Ascending 1->3), then by Waiting Time (Descending)
     const sortedSolicitudes = useMemo(() => {
-        return [...solicitudes].sort((a, b) => {
+        return solicitudes
+            .filter((s) => !selectedClientId || s?.clienteId === selectedClientId)
+            .sort((a, b) => {
             const clientA = getClienteById(a.clienteId);
             const clientB = getClienteById(b.clienteId);
 
@@ -19,8 +37,8 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
 
             // If same priority, sort by wait time descending
             return b.tiempoEsperaMin - a.tiempoEsperaMin;
-        });
-    }, [solicitudes, getClienteById]);
+            });
+    }, [solicitudes, selectedClientId, getClienteById]);
 
     return (
         <div className="w-full lg:w-80 xl:w-96 bg-dark-900 lg:border-r border-b lg:border-b-0 border-slate-700 h-[50vh] lg:h-full flex flex-col pt-4 lg:pt-6 pb-2 relative z-10 shadow-lg lg:shadow-2xl mt-16 lg:mt-0">
@@ -29,11 +47,24 @@ const TriageBoard = ({ solicitudes, getClienteById, onEditRequest }) => {
                     <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
                         Bandeja de Triage
                         <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                            {solicitudes.length}
+                            {sortedSolicitudes.length}
                         </span>
                     </h2>
                     <p className="text-xs text-slate-400 mt-1">Ordenado por Prioridad y SLA</p>
                 </div>
+            </div>
+
+            <div className="px-5 mb-2 flex items-center gap-2">
+                <select
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full bg-dark-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-blue-500 outline-none"
+                >
+                    <option value="">Todos los clientes</option>
+                    {clientOptions.map((c) => (
+                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                </select>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
