@@ -173,17 +173,17 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
             <div className={clsx("space-y-1.5 bg-dark-900/50 rounded-lg border border-slate-800", compact ? "mt-0.5 p-2" : "mt-2 p-3 space-y-2")}>
                 <div className="flex items-start gap-2 min-w-0">
                     <MapPin size={compact ? 12 : 14} className="text-emerald-500 mt-0.5 shrink-0" />
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0">
                         <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Origen</span>
-                        <span className={clsx("text-slate-200 leading-tight truncate", compact ? "text-[11px]" : "text-sm")}>{request.origen}</span>
+                        <span className={clsx("text-slate-200 leading-tight whitespace-normal break-all", compact ? "text-[11px]" : "text-sm")}>{request.origen}</span>
                     </div>
                 </div>
 
                 <div className="flex items-start gap-2 min-w-0">
                     <MapPin size={compact ? 12 : 14} className="text-blue-500 mt-0.5 shrink-0" />
-                    <div className="flex flex-col">
+                    <div className="flex flex-col min-w-0">
                         <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Destino</span>
-                        <span className={clsx("text-slate-200 leading-tight truncate", compact ? "text-[11px]" : "text-sm")}>{request.destino}</span>
+                        <span className={clsx("text-slate-200 leading-tight whitespace-normal break-all", compact ? "text-[11px]" : "text-sm")}>{request.destino}</span>
                     </div>
                 </div>
             </div>

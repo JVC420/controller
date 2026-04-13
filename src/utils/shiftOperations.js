@@ -109,6 +109,12 @@ export const getShiftTimeSemantics = (shift, nowMs = Date.now()) => {
 
 export const isShiftActiveAt = (shift, nowMs = Date.now()) => {
     if (isShiftCanceledOrAbsent(shift)) return false;
+
+    // A shift with an explicit real end must never count as active crew,
+    // even if its stored date format is inconsistent and cannot be parsed.
+    if (shift?.horaFinReal || shift?.finReal) return false;
+    if (String(shift?.executionStatus || '').toLowerCase() === 'finished') return false;
+
     const { execution } = getShiftTimeSemantics(shift, nowMs);
     if (execution.startMs == null) return false;
     if (execution.endMs != null) return nowMs >= execution.startMs && nowMs < execution.endMs;
