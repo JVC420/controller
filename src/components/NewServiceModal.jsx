@@ -305,21 +305,84 @@ const FormInput = ({
     </div>
 );
 
-const FormSelect = ({ label, value, onChange, options, placeholder = 'Seleccione...' }) => (
-    <div>
-        <label className="block text-[11px] font-semibold text-slate-400 mb-1">{label}</label>
-        <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className={baseFieldClass}
-        >
-            <option value="">{placeholder}</option>
-            {options.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-        </select>
-    </div>
-);
+const FormSelect = ({
+    label,
+    value,
+    onChange,
+    options,
+    placeholder = 'Seleccione...',
+    searchable = false,
+    searchPlaceholder = 'Buscar...',
+    searchInline = false,
+    className = ''
+}) => {
+    const [query, setQuery] = useState('');
+
+    const filteredOptions = useMemo(() => {
+        const q = String(query || '').trim().toLowerCase();
+        if (!q) return options;
+        return options.filter((opt) => String(opt?.label || '').toLowerCase().includes(q));
+    }, [options, query]);
+
+    useEffect(() => {
+        setQuery('');
+    }, [label]);
+
+    return (
+        <div className={`w-full ${className}`.trim()}>
+            <label className="block text-[11px] font-semibold text-slate-400 mb-1">{label}</label>
+            {searchable && searchInline ? (
+                <>
+                    <div className="flex flex-col md:flex-row gap-2">
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={searchPlaceholder}
+                            className="w-full md:flex-1 md:min-w-0 bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[12px] text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                        />
+                        <select
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            className={`${baseFieldClass} w-full md:flex-1 md:min-w-0`}
+                        >
+                            <option value="">{placeholder}</option>
+                            {filteredOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1">{filteredOptions.length} resultado(s)</p>
+                </>
+            ) : (
+                <>
+                    {searchable && (
+                        <div className="mb-1.5">
+                            <input
+                                type="text"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder={searchPlaceholder}
+                                className="w-full bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[12px] text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">{filteredOptions.length} resultado(s)</p>
+                        </div>
+                    )}
+                    <select
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className={baseFieldClass}
+                    >
+                        <option value="">{placeholder}</option>
+                        {filteredOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                    </select>
+                </>
+            )}
+        </div>
+    );
+};
 
 const FormDateTime = ({ label, value, onChange, disabled = false, disabledReason }) => (
     <div className={disabled ? 'opacity-60' : ''}>
@@ -484,6 +547,8 @@ const OrderTab = ({
                         value={formData.idEntidad}
                         onChange={onEntityChange}
                         options={entityOptions}
+                        searchable
+                        searchPlaceholder="Buscar entidad..."
                         placeholder="Seleccione una entidad..."
                     />
                     <FormSelect
@@ -491,6 +556,8 @@ const OrderTab = ({
                         value={selectedBranchValue}
                         onChange={onBranchChange}
                         options={branchOptions}
+                        searchable
+                        searchPlaceholder="Buscar sucursal..."
                         placeholder={formData.idEntidad ? 'Seleccione una sucursal...' : 'Primero seleccione una entidad'}
                     />
                     <div className="hidden"><FormInput label="Nombre Entidad" value={formData.nombreEntidad || formData.entidadSolicitante} onChange={(v) => setField('nombreEntidad', v)} disabled /></div>
@@ -500,19 +567,16 @@ const OrderTab = ({
 
             <FormSection title="Información del servicio">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <FormInput
-                        label="Cod. Complejidad"
-                        value={formData.codComplejidad}
-                        onChange={(v) => setField('codComplejidad', v)}
-                        onKeyDown={onComplexityCodeKeyDown}
-                        placeholder="Escriba el código y presione Enter"
-                    />
                     <FormSelect
                         label="Complejidad"
                         value={formData.codComplejidad}
                         onChange={onComplexityPickerChange}
                         options={serviceTypeOptions}
+                        searchable
+                        searchInline
+                        searchPlaceholder="Buscar complejidad..."
                         placeholder="Seleccione una complejidad..."
+                        className="md:col-span-2"
                     />
                     <div className="md:col-span-2 min-h-5">
                         {serviceTypesState.loading && (
@@ -636,30 +700,22 @@ const TransferTab = ({
 
         <FormSection title="Origen">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                <FormInput
-                    label="Id. Origen"
-                    value={formData.idOrigen}
-                    onChange={(v) => setField('idOrigen', v)}
-                    onKeyDown={onOriginCodeKeyDown}
-                    placeholder="Escriba el código y presione Enter"
-                />
                 <FormSelect
                     label="Origen"
                     value={isManualOrigin ? OTHER_ORIGIN_VALUE : formData.idOrigen}
                     onChange={onOriginPickerChange}
                     options={originOptions}
+                    searchable
+                    searchInline
+                    searchPlaceholder="Buscar origen..."
                     placeholder="Seleccione un origen..."
+                    className="md:col-span-2 xl:col-span-2 2xl:col-span-2"
                 />
                 <FormInput
                     label="Nombre de origen"
                     value={formData.nombreOrigen}
                     onChange={(v) => setField('nombreOrigen', v)}
                     disabled={!isManualOrigin}
-                />
-                <FormInput
-                    label="Observaciones Origen"
-                    value={formData.observacionesOrigen}
-                    onChange={(v) => setField('observacionesOrigen', v)}
                 />
                 <FormInput
                     label="Dirección Origen"
@@ -681,6 +737,14 @@ const TransferTab = ({
                 />
                 <FormDateTime label="Fecha Hora Contacto" value={formData.fechaHoraContacto} onChange={(v) => setField('fechaHoraContacto', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
                 <FormDateTime label="Fecha Hora Sale Origen" value={formData.fechaHoraSaleOrigen} onChange={(v) => setField('fechaHoraSaleOrigen', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
+                <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4">
+                    <FormTextarea
+                        label="Observaciones Origen"
+                        value={formData.observacionesOrigen}
+                        onChange={(v) => setField('observacionesOrigen', v)}
+                        rows={3}
+                    />
+                </div>
                 <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4 min-h-5">
                     {originsState.loading && (
                         <p className="text-xs text-blue-400">Cargando catálogo de orígenes...</p>
@@ -700,25 +764,6 @@ const TransferTab = ({
 
         <FormSection title="Destino 1">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                <FormInput
-                    label="Id. Destino 1"
-                    value={formData.idDestino1}
-                    onChange={(v) => setField('idDestino1', v)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const origin = origins.find((o) => normalizeLookupValue(o?.id) === normalizeLookupValue(formData.idDestino1));
-                            if (origin) {
-                                setField('idDestino1', String(origin?.id ?? ''));
-                                setField('nombreDestino1', String(origin?.name || origin?.reference || ''));
-                                setField('direccionDestino1', String(origin?.DIRECCIÓN || origin?.direccion || ''));
-                                setField('ciudadDestino1', String(origin?.CIUDAD || origin?.ciudad || ''));
-                                setField('telefonoDestino1', String(origin?.TELÉFONO || origin?.telefono || ''));
-                            }
-                        }
-                    }}
-                    placeholder="Escriba el código y presione Enter"
-                />
                 <FormSelect
                     label="Destino 1"
                     value={formData.idDestino1 === OTHER_ORIGIN_VALUE ? OTHER_ORIGIN_VALUE : formData.idDestino1}
@@ -753,18 +798,17 @@ const TransferTab = ({
                         }
                     }}
                     options={originOptions}
+                    searchable
+                    searchInline
+                    searchPlaceholder="Buscar destino 1..."
                     placeholder="Seleccione un destino..."
+                    className="md:col-span-2 xl:col-span-2 2xl:col-span-2"
                 />
                 <FormInput
                     label="Nombre de destino 1"
                     value={formData.nombreDestino1}
                     onChange={(v) => setField('nombreDestino1', v)}
                     disabled={formData.idDestino1 !== '' && formData.idDestino1 !== OTHER_ORIGIN_VALUE}
-                />
-                <FormInput
-                    label="Observaciones Destino 1"
-                    value={formData.observacionesDestino1}
-                    onChange={(v) => setField('observacionesDestino1', v)}
                 />
                 <FormInput
                     label="Dirección Destino 1"
@@ -786,31 +830,20 @@ const TransferTab = ({
                 />
                 <FormDateTime label="Fecha Hora Entrega D1" value={formData.fechaHoraEntregaD1} onChange={(v) => setField('fechaHoraEntregaD1', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
                 <FormDateTime label="Fecha Hora Sale D1" value={formData.fechaHoraSaleD1} onChange={(v) => setField('fechaHoraSaleD1', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
+                <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4">
+                    <FormTextarea
+                        label="Observaciones Destino 1"
+                        value={formData.observacionesDestino1}
+                        onChange={(v) => setField('observacionesDestino1', v)}
+                        rows={3}
+                    />
+                </div>
             </div>
         </FormSection>
 
         {showSecondDestination && (
             <FormSection title="Destino 2">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                    <FormInput
-                        label="Id. Destino 2"
-                        value={formData.idDestino2}
-                        onChange={(v) => setField('idDestino2', v)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const origin = origins.find((o) => normalizeLookupValue(o?.id) === normalizeLookupValue(formData.idDestino2));
-                                if (origin) {
-                                    setField('idDestino2', String(origin?.id ?? ''));
-                                    setField('nombreDestino2', String(origin?.name || origin?.reference || ''));
-                                    setField('direccionDestino2', String(origin?.DIRECCIÓN || origin?.direccion || ''));
-                                    setField('ciudadDestino2', String(origin?.CIUDAD || origin?.ciudad || ''));
-                                    setField('telefonoDestino2', String(origin?.TELÉFONO || origin?.telefono || ''));
-                                }
-                            }
-                        }}
-                        placeholder="Escriba el código y presione Enter"
-                    />
                     <FormSelect
                         label="Destino 2"
                         value={formData.idDestino2 === OTHER_ORIGIN_VALUE ? OTHER_ORIGIN_VALUE : formData.idDestino2}
@@ -845,18 +878,17 @@ const TransferTab = ({
                             }
                         }}
                         options={originOptions}
+                        searchable
+                        searchInline
+                        searchPlaceholder="Buscar destino 2..."
                         placeholder="Seleccione un destino..."
+                        className="md:col-span-2 xl:col-span-2 2xl:col-span-2"
                     />
                     <FormInput
                         label="Nombre de destino 2"
                         value={formData.nombreDestino2}
                         onChange={(v) => setField('nombreDestino2', v)}
                         disabled={formData.idDestino2 !== '' && formData.idDestino2 !== OTHER_ORIGIN_VALUE}
-                    />
-                    <FormInput
-                        label="Observaciones Destino 2"
-                        value={formData.observacionesDestino2}
-                        onChange={(v) => setField('observacionesDestino2', v)}
                     />
                     <FormInput
                         label="Dirección Destino 2"
@@ -878,6 +910,14 @@ const TransferTab = ({
                     />
                     <FormDateTime label="Fecha Hora Entrega D2" value={formData.fechaHoraEntregaD2} onChange={(v) => setField('fechaHoraEntregaD2', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
                     <FormDateTime label="Fecha Hora Sale D2" value={formData.fechaHoraSaleD2} onChange={(v) => setField('fechaHoraSaleD2', v)} disabled={!hasAmbulanceAssigned} disabledReason={executionFieldsDisabledReason} />
+                    <div className="md:col-span-2 xl:col-span-3 2xl:col-span-4">
+                        <FormTextarea
+                            label="Observaciones Destino 2"
+                            value={formData.observacionesDestino2}
+                            onChange={(v) => setField('observacionesDestino2', v)}
+                            rows={3}
+                        />
+                    </div>
                 </div>
             </FormSection>
         )}

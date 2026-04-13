@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, X } from 'lucide-react';
 import { getRoleDisplayName } from '../utils/roleDisplay';
 
@@ -22,6 +22,32 @@ const ShiftModal = ({
     const [horaInicio, setHoraInicio] = useState('');
     const [fechaFin, setFechaFin] = useState(getColombiaToday);
     const [horaFin, setHoraFin] = useState('');
+    const [employeeSearch, setEmployeeSearch] = useState('');
+
+    const filteredEmployees = useMemo(() => {
+        const q = employeeSearch.trim().toLowerCase();
+        if (!q) return activeEmpleados;
+        return activeEmpleados.filter((emp) => {
+            const name = String(emp?.nombre || '').toLowerCase();
+            const cedula = String(emp?.cedula || '').toLowerCase();
+            const cargo = String(getRoleDisplayName(emp?.cargo || '') || '').toLowerCase();
+            return name.includes(q) || cedula.includes(q) || cargo.includes(q);
+        });
+    }, [activeEmpleados, employeeSearch]);
+
+    const availableVehicles = useMemo(() => {
+        const selEmp = activeEmpleados.find((e) => e.id === newShift.empleadoId);
+        const cargo = selEmp ? selEmp.cargo : '';
+        if (!cargo) return [];
+        return getAvailableVehiclesForDate(
+            fechaInicio || getColombiaToday(),
+            cargo,
+            null,
+            newShift.dtInicio,
+            newShift.dtFin,
+            newShift.empleadoId
+        );
+    }, [activeEmpleados, newShift.empleadoId, newShift.dtInicio, newShift.dtFin, getAvailableVehiclesForDate, fechaInicio]);
 
     // Reset to today with empty hours when modal opens
     useEffect(() => {
@@ -31,6 +57,7 @@ const ShiftModal = ({
             setHoraInicio('');
             setFechaFin(t);
             setHoraFin('');
+            setEmployeeSearch('');
             setNewShift(s => ({ ...s, dtInicio: '', dtFin: '' }));
         }
     }, [isOpen]);
@@ -76,6 +103,13 @@ const ShiftModal = ({
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">
                             Empleado <span className="text-slate-500 font-normal">(solo activos)</span>
                         </label>
+                        <input
+                            type="text"
+                            value={employeeSearch}
+                            onChange={e => setEmployeeSearch(e.target.value)}
+                            placeholder="Buscar empleado por nombre, cédula o cargo..."
+                            className="w-full mb-2 bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                        />
                         <select
                             required
                             className="w-full bg-dark-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
@@ -83,10 +117,11 @@ const ShiftModal = ({
                             onChange={e => setNewShift({ ...newShift, empleadoId: e.target.value })}
                         >
                             <option value="" disabled>Seleccione un empleado...</option>
-                            {activeEmpleados.map(emp => (
+                            {filteredEmployees.map(emp => (
                                 <option key={emp.id} value={emp.id}>{emp.nombre} — {getRoleDisplayName(emp.cargo)}</option>
                             ))}
                         </select>
+                        <p className="text-xs text-slate-500 mt-1">{filteredEmployees.length} empleado(s)</p>
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-slate-300 mb-1.5">
@@ -98,21 +133,11 @@ const ShiftModal = ({
                             onChange={e => setNewShift({ ...newShift, vehiculo: e.target.value })}
                         >
                             <option value="">Sin Asignar (Retén / Base)</option>
-                            {(() => {
-                                const selEmp = activeEmpleados.find(e => e.id === newShift.empleadoId);
-                                const cargo = selEmp ? selEmp.cargo : '';
-                                return cargo ? getAvailableVehiclesForDate(
-                                    fechaInicio || getColombiaToday(),
-                                    cargo,
-                                    null,
-                                    newShift.dtInicio,
-                                    newShift.dtFin,
-                                    newShift.empleadoId
-                                ).map(v => (
-                                    <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
-                                )) : [];
-                            })()}
+                            {availableVehicles.map(v => (
+                                <option key={v.id} value={v.id}>{v.id} — {v.tipo}</option>
+                            ))}
                         </select>
+                        {!!newShift.empleadoId && <p className="text-xs text-slate-500 mt-1">{availableVehicles.length} vehículo(s)</p>}
                         {!newShift.empleadoId && <p className="text-xs text-slate-500 mt-1">Seleccione un empleado primero para ver vehículos disponibles</p>}
                     </div>
                     <div className="space-y-3">
