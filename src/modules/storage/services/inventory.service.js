@@ -15,6 +15,22 @@ import {
 import { db } from '../../../firebase/config';
 
 export const InventoryService = {
+  getCategoryCodeMeta(category) {
+    const normalized = String(category || '').trim().toLowerCase();
+
+    if (normalized === 'dispositivo') {
+      return { prefix: 'DIS', counterDocId: 'products_dispositivo' };
+    }
+    if (normalized === 'reactivo') {
+      return { prefix: 'REACT', counterDocId: 'products_reactivo' };
+    }
+    if (normalized === 'gas') {
+      return { prefix: 'GAS', counterDocId: 'products_gas' };
+    }
+
+    return { prefix: 'MED', counterDocId: 'products_medicamento' };
+  },
+
   async getProducts() {
     const q = query(collection(db, 'products'), orderBy('name'));
     const snapshot = await getDocs(q);
@@ -52,8 +68,9 @@ export const InventoryService = {
     return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
   },
 
-  async generateNextCode() {
-    const counterRef = doc(db, 'counters', 'products');
+  async generateNextCode(category) {
+    const { prefix, counterDocId } = this.getCategoryCodeMeta(category);
+    const counterRef = doc(db, 'counters', counterDocId);
 
     try {
       const newCode = await runTransaction(db, async (transaction) => {
@@ -68,10 +85,10 @@ export const InventoryService = {
         return newCount;
       });
 
-      return `MED-${String(newCode).padStart(4, '0')}`;
+      return `${prefix}-${String(newCode).padStart(4, '0')}`;
     } catch (error) {
       console.error('Error generating code:', error);
-      return `MED-${Math.floor(Math.random() * 10000)}`;
+      return `${prefix}-${Math.floor(Math.random() * 10000)}`;
     }
   },
 

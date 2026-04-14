@@ -73,7 +73,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
     setGeneratingCode(true);
     setError(null);
     try {
-      const code = await InventoryService.generateNextCode();
+      const code = await InventoryService.generateNextCode(formData.category);
       setFormData((prev) => ({ ...prev, code }));
     } catch (err) {
       setError(`Error generando codigo: ${err.message}`);
@@ -84,7 +84,14 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    const nextValue = type === 'checkbox' ? checked : value;
+    setFormData((prev) => {
+      if (name === 'category' && !initialData) {
+        // Reset code so each category gets its own sequential namespace.
+        return { ...prev, [name]: nextValue, code: '' };
+      }
+      return { ...prev, [name]: nextValue };
+    });
   };
 
   const handleSubmit = async (e) => {
