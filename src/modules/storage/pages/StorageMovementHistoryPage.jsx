@@ -53,6 +53,7 @@ export default function StorageMovementHistoryPage() {
                   <th className="py-3 px-4 font-semibold">Tipo</th>
                   <th className="py-3 px-4 font-semibold text-right">Cantidad</th>
                   <th className="py-3 px-4 font-semibold">Motivo</th>
+                  <th className="py-3 px-4 font-semibold">Destino consumo</th>
                   <th className="py-3 px-4 font-semibold">Usuario</th>
                 </tr>
               </thead>
@@ -80,12 +81,19 @@ export default function StorageMovementHistoryPage() {
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-slate-300">{mov.quantity}</td>
                       <td className="py-3 px-4 text-slate-400">{mov.reason}</td>
+                      <td className="py-3 px-4 text-slate-400 text-xs">
+                        {mov.consumptionType === 'ambulance'
+                          ? `Movil ${mov.ambulanceId || 'N/A'}`
+                          : mov.consumptionType === 'personal'
+                            ? 'Personal'
+                            : '-'}
+                      </td>
                       <td className="py-3 px-4 text-slate-500 text-xs">{mov.performedBy || 'Sistema'}</td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="text-center text-slate-500 py-12">
+                    <td colSpan="7" className="text-center text-slate-500 py-12">
                       <ClipboardList className="w-8 h-8 mx-auto mb-2 text-slate-600" />
                       No hay movimientos registrados.
                     </td>

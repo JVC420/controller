@@ -136,7 +136,7 @@ export const InventoryService = {
     });
   },
 
-  async registerMovement(productId, type, quantity, reason, userId) {
+  async registerMovement(productId, type, quantity, reason, userId, extraData = null) {
     if (quantity <= 0) throw new Error('La cantidad debe ser mayor a 0.');
 
     const productRef = doc(db, 'products', productId);
@@ -168,7 +168,7 @@ export const InventoryService = {
       });
 
       const newMovementRef = doc(movementsRef);
-      transaction.set(newMovementRef, {
+      const payload = {
         productId,
         productName,
         type,
@@ -177,7 +177,13 @@ export const InventoryService = {
         performedBy: userId,
         timestamp: serverTimestamp(),
         stockSnapshot: newStock,
-      });
+      };
+
+      if (extraData && typeof extraData === 'object') {
+        Object.assign(payload, extraData);
+      }
+
+      transaction.set(newMovementRef, payload);
     });
 
     return { success: true, message: 'Inventario actualizado correctamente.' };

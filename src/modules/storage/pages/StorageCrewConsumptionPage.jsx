@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ShoppingCart, Trash2, CheckCircle, AlertTriangle, Activity, ArrowLeft } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { Search, ShoppingCart, Trash2, CheckCircle, AlertTriangle, Activity, ArrowLeft, Truck, UserRound } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { db } from '../../../firebase/config';
 import { InventoryService } from '../services/inventory.service';
 import { useStorageData } from '../context/StorageDataContext';
 
@@ -10,8 +12,41 @@ export default function StorageCrewConsumptionPage() {
   const { products, loadingProducts, errorProducts } = useStorageData();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
+  const [consumptionMode, setConsumptionMode] = useState('ambulance');
+  const [fleet, setFleet] = useState([]);
+  const [selectedAmbulanceId, setSelectedAmbulanceId] = useState('');
+  const [loadingFleet, setLoadingFleet] = useState(true);
+  const [errorFleet, setErrorFleet] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+
+  React.useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, 'flota'),
+      (snapshot) => {
+        const next = snapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() }))
+          .sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
+
+        setFleet(next);
+        setErrorFleet('');
+        setLoadingFleet(false);
+      },
+      (error) => {
+        console.error('Error listening fleet for storage consumption:', error);
+        setErrorFleet('No se pudo cargar la flota de ambulancias.');
+        setLoadingFleet(false);
+      }
+    );
+
+    return () => unsub();
+  }, []);
+
+  React.useEffect(() => {
+    if (consumptionMode === 'personal') {
+      setSelectedAmbulanceId('');
+    }
+  }, [consumptionMode]);
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
@@ -39,20 +74,37 @@ export default function StorageCrewConsumptionPage() {
 
   const handleSubmit = async () => {
     if (cart.length === 0) return;
+
+    if (consumptionMode === 'ambulance' && !selectedAmbulanceId) {
+      setMessage({ type: 'error', text: 'Debes seleccionar una ambulancia para registrar consumo por flota.' });
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
 
     try {
       for (const item of cart) {
+        const movementContext = consumptionMode === 'ambulance'
+          ? {
+            consumptionType: 'ambulance',
+            ambulanceId: selectedAmbulanceId,
+          }
+          : {
+            consumptionType: 'personal',
+          };
+
         await InventoryService.registerMovement(
           item.product.id,
           'OUT',
           item.quantity,
-          'Consumo Tripulacion',
-          user?.uid || 'anonymous'
+          consumptionMode === 'ambulance' ? 'Consumo por ambulancia' : 'Consumo personal',
+          user?.uid || 'anonymous',
+          movementContext
         );
       }
       setCart([]);
+      setSelectedAmbulanceId('');
       setMessage({ type: 'success', text: 'Consumo registrado correctamente.' });
     } catch (error) {
       setMessage({ type: 'error', text: `Error al registrar consumo: ${error.message}` });
@@ -95,6 +147,70 @@ export default function StorageCrewConsumptionPage() {
             Cargando inventario desde Firebase...
           </div>
         )}
+
+        {errorFleet && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {errorFleet}
+          </div>
+        )}
+
+        <div className="mb-6 rounded-xl border border-slate-700 bg-dark-800 p-4 space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Tipo de consumo</h2>
+            <p className="text-xs text-slate-500 mt-1">Selecciona si el consumo corresponde a una ambulancia o a uso personal.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setConsumptionMode('ambulance')}
+              className={`p-3 rounded-lg border text-left transition-colors ${
+                consumptionMode === 'ambulance'
+                  ? 'border-blue-500/40 bg-blue-500/10 text-blue-200'
+                  : 'border-slate-700 bg-dark-900 text-slate-300 hover:bg-slate-800/70'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                <Truck className="w-4 h-4" /> Consumo por ambulancia
+              </span>
+              <p className="text-xs mt-1 opacity-80">Queda trazado el movil que uso el insumo.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setConsumptionMode('personal')}
+              className={`p-3 rounded-lg border text-left transition-colors ${
+                consumptionMode === 'personal'
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                  : 'border-slate-700 bg-dark-900 text-slate-300 hover:bg-slate-800/70'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                <UserRound className="w-4 h-4" /> Consumo personal
+              </span>
+              <p className="text-xs mt-1 opacity-80">Registra salida sin asociar ambulancia.</p>
+            </button>
+          </div>
+
+          {consumptionMode === 'ambulance' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">Ambulancia (movil) *</label>
+              <select
+                value={selectedAmbulanceId}
+                onChange={(e) => setSelectedAmbulanceId(e.target.value)}
+                disabled={loadingFleet || fleet.length === 0}
+                className="w-full bg-dark-900 border border-slate-700 rounded-lg py-2.5 px-3 text-white focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="">Seleccionar movil...</option>
+                {fleet.map((ambulance) => (
+                  <option key={ambulance.id} value={ambulance.id}>
+                    {ambulance.id}{ambulance.tipo ? ` - ${ambulance.tipo}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
 
         <div className="mb-8 relative">
           <label className="block text-sm font-medium text-slate-400 mb-2">Buscar insumo</label>
