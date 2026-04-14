@@ -49,6 +49,7 @@ const FIELD_MAX_LENGTHS = {
   observacionesTrazabilidad: 250,
 };
 const NUMERIC_ONLY_FIELDS = new Set(['vidaUtil']);
+const NON_UPPERCASE_INPUT_TYPES = new Set(['number', 'date', 'checkbox']);
 
 const getFieldMaxLength = (name) => FIELD_MAX_LENGTHS[name] ?? MAX_LENGTH_DEFAULT;
 
@@ -105,6 +106,12 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
       const maxLength = getFieldMaxLength(name);
       if (nextValue.length > maxLength) {
         nextValue = nextValue.slice(0, maxLength);
+      }
+
+      const tag = String(e.target?.tagName || '').toUpperCase();
+      const isTextField = (tag === 'INPUT' || tag === 'TEXTAREA') && !NON_UPPERCASE_INPUT_TYPES.has(type);
+      if (isTextField) {
+        nextValue = nextValue.toUpperCase();
       }
     }
 

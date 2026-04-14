@@ -92,17 +92,29 @@ export const InventoryService = {
     }
   },
 
-  async createProduct(productData) {
+  async assertCodeAvailable(code, excludeProductId = null) {
+    const normalizedCode = String(code || '').trim();
+    if (!normalizedCode) {
+      throw new Error('El codigo del producto es obligatorio.');
+    }
+
     const productsRef = collection(db, 'products');
-    const duplicateCodeQuery = query(productsRef, where('code', '==', productData.code));
+    const duplicateCodeQuery = query(productsRef, where('code', '==', normalizedCode));
     const querySnapshot = await getDocs(duplicateCodeQuery);
 
-    if (!querySnapshot.empty) {
-      throw new Error(`El codigo del producto ${productData.code} ya existe.`);
+    const hasConflict = querySnapshot.docs.some((item) => item.id !== excludeProductId);
+    if (hasConflict) {
+      throw new Error(`El codigo del producto ${normalizedCode} ya existe.`);
     }
+  },
+
+  async createProduct(productData) {
+    const productsRef = collection(db, 'products');
+    await this.assertCodeAvailable(productData.code);
 
     const newProduct = {
       ...productData,
+      code: String(productData.code || '').trim(),
       stockCurrent: Number(productData.stockCurrent) || 0,
       minStock: Number(productData.minStock) || 0,
       createdAt: serverTimestamp(),
@@ -114,9 +126,12 @@ export const InventoryService = {
   },
 
   async updateProduct(productId, updates) {
+    await this.assertCodeAvailable(updates.code, productId);
+
     const productRef = doc(db, 'products', productId);
     await updateDoc(productRef, {
       ...updates,
+      code: String(updates.code || '').trim(),
       updatedAt: serverTimestamp(),
     });
   },
