@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Box, Info, Tag, FileText, Activity, AlertTriangle } from 'lucide-react';
 
 function Field({ label, value }) {
@@ -13,7 +14,7 @@ function Field({ label, value }) {
 export default function ProductDetailModal({ product, onClose }) {
   if (!product) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-overlay-enter">
       <div className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden modal-panel-enter flex flex-col max-h-[90vh]">
         <div className="bg-dark-900/40 px-6 py-4 border-b border-slate-700/70 flex justify-between items-start shrink-0">
@@ -115,6 +116,7 @@ export default function ProductDetailModal({ product, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

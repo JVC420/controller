@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, AlertCircle, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { InventoryService } from '../services/inventory.service';
@@ -37,7 +38,7 @@ export default function StockAdjustmentModal({ product, onClose, onAdjustmentCom
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-overlay-enter">
       <div className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-panel-enter">
         <div className="bg-dark-900/40 px-6 py-4 border-b border-slate-700/70 flex justify-between items-center">
@@ -131,6 +132,7 @@ export default function StockAdjustmentModal({ product, onClose, onAdjustmentCom
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
