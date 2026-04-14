@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, ShoppingCart, Trash2, CheckCircle, AlertTriangle, Activity } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, ShoppingCart, Trash2, CheckCircle, AlertTriangle, Activity, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { InventoryService } from '../services/inventory.service';
 
@@ -68,6 +69,16 @@ export default function StorageCrewConsumptionPage() {
   return (
     <div className="flex-1 min-w-0 p-6 overflow-y-auto overflow-x-hidden bg-dark-900 h-screen">
       <div className="max-w-3xl mx-auto route-fade">
+        <div className="mb-4">
+          <Link
+            to="/almacen"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 bg-dark-800 text-slate-300 hover:bg-slate-700/70 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver al panel
+          </Link>
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
             <Activity className="w-6 h-6 text-emerald-400" />

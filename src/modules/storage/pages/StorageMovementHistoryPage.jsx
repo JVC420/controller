@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ClipboardList, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ClipboardList, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft } from 'lucide-react';
 import { InventoryService } from '../services/inventory.service';
 
 export default function StorageMovementHistoryPage() {
@@ -38,6 +39,16 @@ export default function StorageMovementHistoryPage() {
   return (
     <div className="flex-1 min-w-0 p-6 overflow-y-auto overflow-x-hidden bg-dark-900 h-screen">
       <div className="max-w-7xl mx-auto route-fade">
+        <div className="mb-4">
+          <Link
+            to="/almacen"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 bg-dark-800 text-slate-300 hover:bg-slate-700/70 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Volver al panel
+          </Link>
+        </div>
+
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
             <ClipboardList className="w-6 h-6 text-amber-400" />

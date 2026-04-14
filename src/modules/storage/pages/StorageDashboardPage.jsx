@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Package, AlertCircle, Clock, TrendingUp, ArrowRight, Activity, BarChart3 } from 'lucide-react';
+import { Package, AlertCircle, Clock, TrendingUp, ArrowRight, ArrowLeft, Activity, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { InventoryService } from '../services/inventory.service';
 
