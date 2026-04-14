@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, AlertCircle, Wand2, Info } from 'lucide-react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { InventoryService } from '../services/inventory.service';
 
 const baseState = {
@@ -50,9 +51,29 @@ const FIELD_MAX_LENGTHS = {
 const NUMERIC_ONLY_FIELDS = new Set(['vidaUtil']);
 const NON_UPPERCASE_INPUT_TYPES = new Set(['number', 'date', 'checkbox']);
 
+const normalizeInvimaStatus = (value) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+
+  const lower = normalized.toLowerCase();
+  if (lower === 'vigente') return 'Vigente';
+  if (lower === 'en tramite' || lower === 'en trámite') return 'En tramite';
+  if (lower === 'vencido') return 'Vencido';
+  if (lower === 'cancelado') return 'Cancelado';
+  return '';
+};
+
+const getInvimaStatusTextClass = (value) => {
+  if (value === 'Vigente') return 'text-emerald-400';
+  if (value === 'En tramite') return 'text-yellow-400';
+  if (value === 'Vencido' || value === 'Cancelado') return 'text-red-400';
+  return 'text-slate-300';
+};
+
 const getFieldMaxLength = (name) => FIELD_MAX_LENGTHS[name] ?? MAX_LENGTH_DEFAULT;
 
 export default function ProductForm({ onClose, onProductCreated, initialData = null }) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState(baseState);
   const [loading, setLoading] = useState(false);
   const [generatingCode, setGeneratingCode] = useState(false);
@@ -70,6 +91,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
       fechaHidrostatica: initialData.fechaHidrostatica && initialData.fechaHidrostatica.toDate
         ? new Date(initialData.fechaHidrostatica.toDate()).toISOString().split('T')[0]
         : initialData.fechaHidrostatica || '',
+      vigInvima: normalizeInvimaStatus(initialData.vigInvima),
     });
   }, [initialData]);
 
@@ -151,7 +173,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
       if (initialData) {
         await InventoryService.updateProduct(initialData.id, payload);
       } else {
-        await InventoryService.createProduct(payload);
+        await InventoryService.createProduct(payload, user?.uid || 'anonymous');
       }
 
       onProductCreated();
@@ -264,10 +286,28 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                     <input name="concentracion" value={formData.concentracion} onChange={handleChange} className={inputClasses} />
                   </div>
                 )}
-                {['Dispositivo', 'Reactivo'].includes(formData.category) && (
+                {formData.category === 'Dispositivo' && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1.5">Clasificacion riesgo</label>
-                    <input name="clasifRiesgo" value={formData.clasifRiesgo} onChange={handleChange} className={inputClasses} />
+                    <label className="block text-sm font-medium text-slate-400 mb-1.5">Clasificación de riesgo</label>
+                    <select name="clasifRiesgo" value={formData.clasifRiesgo} onChange={handleChange} className={inputClasses}>
+                      <option value="">Seleccionar</option>
+                      <option value="Clase I">Clase I</option>
+                      <option value="Clase IIa">Clase IIa</option>
+                      <option value="Clase IIb">Clase IIb</option>
+                      <option value="Clase III">Clase III</option>
+                    </select>
+                  </div>
+                )}
+                {formData.category === 'Reactivo' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-1.5">Clasificación de riesgo</label>
+                    <select name="clasifRiesgo" value={formData.clasifRiesgo} onChange={handleChange} className={inputClasses}>
+                      <option value="">Seleccionar</option>
+                      <option value="Clase I">Clase I</option>
+                      <option value="Clase IIa">Clase IIa</option>
+                      <option value="Clase IIb">Clase IIb</option>
+                      <option value="Clase III">Clase III</option>
+                    </select>
                   </div>
                 )}
                 <div>
@@ -326,7 +366,18 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                   <>
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-1.5">Vigencia INVIMA</label>
-                      <input name="vigInvima" type="date" value={formData.vigInvima} onChange={handleChange} className={inputClasses} />
+                      <select
+                        name="vigInvima"
+                        value={formData.vigInvima}
+                        onChange={handleChange}
+                        className={`${inputClasses} ${getInvimaStatusTextClass(formData.vigInvima)}`}
+                      >
+                        <option value="">Seleccione estado</option>
+                        <option value="Vigente">Vigente</option>
+                        <option value="En tramite">En tramite</option>
+                        <option value="Vencido">Vencido</option>
+                        <option value="Cancelado">Cancelado</option>
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-1.5">Fecha hidrostatica</label>
@@ -340,7 +391,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-1.5">Motivo</label>
                   <select name="motivo" value={formData.motivo} onChange={handleChange} className={inputClasses}>
-                    <option value="">Seleccionar (opcional)</option>
+                    <option value="">Seleccionar</option>
                     <option value="Compra">Compra</option>
                     <option value="Reposición de stock">Reposición de stock</option>
                     <option value="Devolución de ambulancia">Devolución de ambulancia</option>

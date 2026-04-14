@@ -108,8 +108,9 @@ export const InventoryService = {
     }
   },
 
-  async createProduct(productData) {
+  async createProduct(productData, createdBy = 'system') {
     const productsRef = collection(db, 'products');
+    const movementsRef = collection(db, 'movements');
     await this.assertCodeAvailable(productData.code);
 
     const newProduct = {
@@ -122,6 +123,23 @@ export const InventoryService = {
     };
 
     const docRef = await addDoc(productsRef, newProduct);
+
+    const normalizedCategory = String(productData.category || '').trim().toLowerCase();
+    const initialStock = Number(newProduct.stockCurrent) || 0;
+
+    if (normalizedCategory === 'medicamento' && initialStock > 0) {
+      await addDoc(movementsRef, {
+        productId: docRef.id,
+        productName: String(newProduct.name || '').trim(),
+        type: 'IN',
+        quantity: initialStock,
+        reason: 'Ingreso inicial por creacion de medicamento',
+        performedBy: createdBy,
+        timestamp: serverTimestamp(),
+        stockSnapshot: initialStock,
+      });
+    }
+
     return { id: docRef.id, ...newProduct };
   },
 
