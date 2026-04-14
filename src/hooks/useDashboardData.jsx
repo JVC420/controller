@@ -142,12 +142,14 @@ const ROUTE_NEEDS = {
     '/metricas':    { flota: true, solicitudes: true, clientes: false, turnos: true, empleados: false, statusLog: true },
     '/directorio':  { flota: false, solicitudes: false, clientes: true, turnos: false, empleados: false, statusLog: false },
     '/personal':    { flota: true, solicitudes: false, clientes: false, turnos: true, empleados: true, statusLog: false },
+    '/almacen':     { flota: false, solicitudes: false, clientes: false, turnos: false, empleados: false, statusLog: false },
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export const useDashboardData = (activeRoute = '/') => {
     const { role } = useAuth();
-    const needs = ROUTE_NEEDS[activeRoute] || ROUTE_NEEDS['/'];
+    const normalizedRoute = activeRoute.startsWith('/almacen') ? '/almacen' : activeRoute;
+    const needs = ROUTE_NEEDS[normalizedRoute] || ROUTE_NEEDS['/'];
     const [sesionActual] = useState(SESION_ACTUAL);
     const [metricas] = useState(STATIC_METRICAS);
     const [prenominaMensual] = useState(PRENOMINA_MOCK);

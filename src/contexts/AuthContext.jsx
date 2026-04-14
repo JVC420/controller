@@ -10,7 +10,7 @@ export const useAuth = () => useContext(AuthContext);
 export const ROLES = {
   administrador_general: {
     label: 'Administrador General',
-    routes: ['/', '/historial', '/metricas', '/directorio', '/personal'],
+    routes: ['/', '/historial', '/metricas', '/directorio', '/personal', '/almacen'],
   },
   controlador: {
     label: 'Controlador',
@@ -19,6 +19,10 @@ export const ROLES = {
   recurso_humano: {
     label: 'Recurso Humano',
     routes: ['/personal'],
+  },
+  almacen: {
+    label: 'Almacen',
+    routes: ['/almacen'],
   },
 };
 

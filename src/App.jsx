@@ -14,6 +14,7 @@ import MetricsDashboard from './components/MetricsDashboard';
 import PersonnelView from './components/PersonnelView';
 import SupportChatbot from './components/SupportChatbot';
 import ManualPage from './components/ManualPage';
+import StorageModulePage from './components/storage/StorageModulePage';
 import { useDashboardData } from './hooks/useDashboardData';
 import { useAuth, ROLES } from './contexts/AuthContext';
 import UnauthorizedPage from './components/UnauthorizedPage';
@@ -29,6 +30,7 @@ const pathToTab = {
   '/metricas': 'metricas',
   '/directorio': 'directorio',
   '/personal': 'personal',
+  '/almacen': 'almacen',
   '/manual': 'manual',
 };
 
@@ -70,7 +72,9 @@ function AppLayout() {
   } = useDashboardData(activeRoute);
 
   const { hasAccess, role, loading: authLoading } = useAuth();
-  const activeTab = pathToTab[location.pathname] || 'dashboard';
+  const activeTab = location.pathname.startsWith('/almacen')
+    ? 'almacen'
+    : (pathToTab[location.pathname] || 'dashboard');
 
   // Compute the default landing page for this role
   const defaultRoute = ROLES[role]?.routes[0] || '/login';
@@ -618,6 +622,8 @@ function AppLayout() {
                 updateTurno={updateTurno}
               />
             )} />
+
+            <Route path="/almacen/*" element={guard('/almacen', <StorageModulePage />)} />
 
             <Route path="/manual" element={<ManualPage />} />
 

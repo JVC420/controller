@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, History, Users, Activity, BarChart, UserCog, LogOut } from 'lucide-react';
+import { LayoutDashboard, History, Users, Activity, BarChart, UserCog, Package, LogOut } from 'lucide-react';
 import { useAuth, ROLES } from '../contexts/AuthContext';
 
 const tabToPath = {
@@ -9,6 +9,7 @@ const tabToPath = {
     metricas: '/metricas',
     directorio: '/directorio',
     personal: '/personal',
+    almacen: '/almacen',
 };
 
 const Sidebar = ({ activeTab, onMobileClose, stats }) => {
@@ -54,6 +55,9 @@ const Sidebar = ({ activeTab, onMobileClose, stats }) => {
                     )}
                     {hasAccess('/personal') && (
                         <NavItem icon={<UserCog size={24} />} label="Personal" active={activeTab === 'personal'} onClick={() => goTo('personal')} />
+                    )}
+                    {hasAccess('/almacen') && (
+                        <NavItem icon={<Package size={24} />} label="Almacen" active={activeTab === 'almacen'} onClick={() => goTo('almacen')} />
                     )}
                 </ul>
             </nav>
