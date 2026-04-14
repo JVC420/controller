@@ -23,6 +23,9 @@ const baseState = {
   unidadMedida: '',
   batchNumber: '',
   expirationDate: '',
+  motivo: '',
+  responsable: '',
+  observacionesTrazabilidad: '',
   diasValid: '',
   estadoVto: '',
   cum: '',
@@ -40,6 +43,14 @@ const baseState = {
 };
 
 const inputClasses = 'w-full bg-dark-900 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-blue-500';
+const MAX_LENGTH_DEFAULT = 50;
+const FIELD_MAX_LENGTHS = {
+  responsable: 100,
+  observacionesTrazabilidad: 250,
+};
+const NUMERIC_ONLY_FIELDS = new Set(['vidaUtil']);
+
+const getFieldMaxLength = (name) => FIELD_MAX_LENGTHS[name] ?? MAX_LENGTH_DEFAULT;
 
 export default function ProductForm({ onClose, onProductCreated, initialData = null }) {
   const [formData, setFormData] = useState(baseState);
@@ -84,7 +95,19 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const nextValue = type === 'checkbox' ? checked : value;
+    let nextValue = type === 'checkbox' ? checked : value;
+
+    if (type !== 'checkbox' && typeof nextValue === 'string') {
+      if (NUMERIC_ONLY_FIELDS.has(name)) {
+        nextValue = nextValue.replace(/\D/g, '');
+      }
+
+      const maxLength = getFieldMaxLength(name);
+      if (nextValue.length > maxLength) {
+        nextValue = nextValue.slice(0, maxLength);
+      }
+    }
+
     setFormData((prev) => {
       if (name === 'category' && !initialData) {
         // Reset code so each category gets its own sequential namespace.
@@ -102,6 +125,18 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
     try {
       if (!formData.code || !formData.name) {
         throw new Error('El codigo y el nombre son obligatorios.');
+      }
+
+      for (const [fieldName, fieldValue] of Object.entries(formData)) {
+        if (typeof fieldValue !== 'string') continue;
+        const maxLength = getFieldMaxLength(fieldName);
+        if (fieldValue.length > maxLength) {
+          throw new Error(`El campo ${fieldName} supera el maximo permitido (${maxLength}).`);
+        }
+      }
+
+      if (formData.vidaUtil && !/^\d+$/.test(String(formData.vidaUtil))) {
+        throw new Error('Vida util debe ser numerico.');
       }
 
       if (initialData) {
@@ -168,6 +203,11 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-400 mb-1.5">Nombre *</label>
                   <input name="name" required value={formData.name} onChange={handleChange} className={inputClasses} placeholder="Ej: Acetaminofen 500mg" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Stock inicial</label>
+                  <input name="stockCurrent" type="number" min="0" disabled={!!initialData} value={formData.stockCurrent} onChange={handleChange} className={`${inputClasses} ${initialData ? 'opacity-50' : ''}`} />
                 </div>
               </div>
             </div>
@@ -269,7 +309,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-400 mb-1.5">Vida util</label>
-                      <input name="vidaUtil" value={formData.vidaUtil} onChange={handleChange} className={inputClasses} />
+                      <input name="vidaUtil" type="number" min="0" value={formData.vidaUtil} onChange={handleChange} className={inputClasses} />
                     </div>
                   </>
                 )}
@@ -285,6 +325,37 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                     </div>
                   </>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Motivo</label>
+                  <select name="motivo" value={formData.motivo} onChange={handleChange} className={inputClasses}>
+                    <option value="">Seleccionar (opcional)</option>
+                    <option value="Compra">Compra</option>
+                    <option value="Reposición de stock">Reposición de stock</option>
+                    <option value="Devolución de ambulancia">Devolución de ambulancia</option>
+                    <option value="Inventario Inicial">Inventario Inicial</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Responsable</label>
+                  <input name="responsable" value={formData.responsable} onChange={handleChange} className={inputClasses} placeholder="Nombre del responsable" />
+                  <p className="text-[11px] text-slate-500 mt-1">{String(formData.responsable || '').length}/100</p>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Observaciones</label>
+                  <textarea
+                    name="observacionesTrazabilidad"
+                    value={formData.observacionesTrazabilidad}
+                    onChange={handleChange}
+                    rows={4}
+                    className={`${inputClasses} resize-y min-h-[96px]`}
+                    placeholder="Observaciones adicionales..."
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">{String(formData.observacionesTrazabilidad || '').length}/250</p>
+                </div>
               </div>
 
               {formData.category === 'Gas' && (
@@ -310,12 +381,12 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
                   <input name="proveedor" value={formData.proveedor} onChange={handleChange} className={inputClasses} />
                 </div>
                 <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Numero de factura</label>
+                  <input name="nFactura" value={formData.nFactura} onChange={handleChange} className={inputClasses} />
+                </div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-400 mb-1.5">Concepto recepcion</label>
                   <input name="conceptoRecepcion" value={formData.conceptoRecepcion} onChange={handleChange} className={inputClasses} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Stock inicial</label>
-                  <input name="stockCurrent" type="number" min="0" disabled={!!initialData} value={formData.stockCurrent} onChange={handleChange} className={`${inputClasses} ${initialData ? 'opacity-50' : ''}`} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-400 mb-1.5">Stock minimo</label>
