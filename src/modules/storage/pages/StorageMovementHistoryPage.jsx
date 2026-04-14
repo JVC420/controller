@@ -2,24 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { ClipboardList, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react';
 import { InventoryService } from '../services/inventory.service';
 
-const MOCK_MOVEMENTS = [
-  { id: '1', productName: 'Acetaminofen 500mg', type: 'OUT', quantity: 2, reason: 'Consumo Tripulacion', performedBy: 'Juan', timestamp: null },
-  { id: '2', productName: 'Adrenalina 1mg', type: 'IN', quantity: 50, reason: 'Compra #123', performedBy: 'Admin', timestamp: null },
-];
-
 export default function StorageMovementHistoryPage() {
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     async function loadMovements() {
       try {
         setLoading(true);
+        setError('');
         const data = await InventoryService.getMovements();
         setMovements(data);
       } catch (err) {
-        console.warn('Using mock movements for storage history', err);
-        setMovements(MOCK_MOVEMENTS);
+        console.error('Error loading storage movement history', err);
+        setMovements([]);
+        setError('No se pudo cargar el historial desde Firebase.');
       } finally {
         setLoading(false);
       }
@@ -51,6 +49,11 @@ export default function StorageMovementHistoryPage() {
         </div>
 
         <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-hidden">
+          {error && (
+            <div className="mx-4 mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              {error}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>

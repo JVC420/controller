@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Save, AlertCircle, Wand2, Info } from 'lucide-react';
 import { InventoryService } from '../services/inventory.service';
 
@@ -111,7 +112,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-overlay-enter">
       <div className="bg-dark-800 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden modal-panel-enter flex flex-col max-h-[90vh]">
         <div className="bg-dark-900/40 px-6 py-4 border-b border-slate-700/70 flex justify-between items-center shrink-0">
@@ -333,6 +334,7 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
