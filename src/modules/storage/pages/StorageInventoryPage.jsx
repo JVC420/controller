@@ -5,17 +5,14 @@ import InventoryList from '../components/InventoryList';
 import ProductForm from '../components/ProductForm';
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductDetailModal from '../components/ProductDetailModal';
+import { useStorageData } from '../context/StorageDataContext';
 
 export default function StorageInventoryPage() {
+  const { products, loadingProducts, errorProducts } = useStorageData();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [adjustingProduct, setAdjustingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
 
   return (
     <div className="flex-1 min-w-0 p-6 overflow-y-auto overflow-x-hidden bg-dark-900 h-screen">
@@ -46,7 +43,9 @@ export default function StorageInventoryPage() {
         </div>
 
         <InventoryList
-          key={refreshKey}
+          products={products}
+          loading={loadingProducts}
+          error={errorProducts}
           onEdit={(product) => setEditingProduct(product)}
           onAdjust={(product) => setAdjustingProduct(product)}
           onViewDetail={(product) => setViewingProduct(product)}
@@ -58,7 +57,7 @@ export default function StorageInventoryPage() {
               setShowCreateModal(false);
               setEditingProduct(null);
             }}
-            onProductCreated={handleRefresh}
+            onProductCreated={() => {}}
             initialData={editingProduct}
           />
         )}
@@ -67,7 +66,7 @@ export default function StorageInventoryPage() {
           <StockAdjustmentModal
             product={adjustingProduct}
             onClose={() => setAdjustingProduct(null)}
-            onAdjustmentComplete={handleRefresh}
+            onAdjustmentComplete={() => {}}
           />
         )}
 

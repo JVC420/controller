@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { AlertCircle, Package, Search, Pencil, ArrowRightLeft, Eye } from 'lucide-react';
-import { InventoryService } from '../services/inventory.service';
 
 function getStockColor(current, min) {
   if (current <= 0) return 'bg-red-500/15 text-red-400 border border-red-500/20';
@@ -20,31 +19,16 @@ function StatusBadge({ stock, min }) {
   return <span className="text-emerald-400 text-xs">Disponible</span>;
 }
 
-export default function InventoryList({ onEdit, onAdjust, onViewDetail }) {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function InventoryList({ products = [], loading = false, error = '', onEdit, onAdjust, onViewDetail }) {
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    async function loadInventory() {
-      try {
-        setLoading(true);
-        const data = await InventoryService.getProducts();
-        setProducts(data);
-      } catch (err) {
-        console.warn('Fallo al cargar inventario.', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadInventory();
-  }, []);
-
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = useMemo(() => {
+    const query = searchTerm.toLowerCase();
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(query) ||
+      p.code.toLowerCase().includes(query)
+    );
+  }, [products, searchTerm]);
 
   if (loading) {
     return (
@@ -57,6 +41,12 @@ export default function InventoryList({ onEdit, onAdjust, onViewDetail }) {
 
   return (
     <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-hidden">
+      {error && (
+        <div className="mx-4 mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
       <div className="p-4 border-b border-slate-700/70 flex flex-col sm:flex-row justify-between items-center gap-4">
         <h2 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
           <Package className="w-5 h-5 text-blue-400" /> Inventario general

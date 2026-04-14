@@ -1,26 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Package, AlertCircle, Clock, TrendingUp, ArrowRight, ArrowLeft, Activity, BarChart3 } from 'lucide-react';
+import React from 'react';
+import { Package, AlertCircle, Clock, TrendingUp, ArrowRight, Activity, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { InventoryService } from '../services/inventory.service';
+import { useStorageData } from '../context/StorageDataContext';
 
 export default function StorageDashboardPage() {
-  const [stats, setStats] = useState({ totalProducts: 0, lowStock: 0, expiringSoon: 0 });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const data = await InventoryService.getDashboardStats();
-        setStats(data);
-      } catch (error) {
-        console.error('Failed to load storage dashboard stats', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadStats();
-  }, []);
+  const { stats, loadingProducts, errorProducts } = useStorageData();
 
   const statCards = [
     {
@@ -68,7 +52,7 @@ export default function StorageDashboardPage() {
                 <div>
                   <p className="text-sm text-slate-400 font-medium">{card.title}</p>
                   <p className="text-4xl font-bold text-white mt-2">
-                    {loading ? <span className="inline-block w-12 h-8 bg-slate-700 rounded animate-pulse"></span> : card.value}
+                    {loadingProducts ? <span className="inline-block w-12 h-8 bg-slate-700 rounded animate-pulse"></span> : card.value}
                   </p>
                 </div>
                 <div className={`p-3 rounded-xl border ${card.bg}`}>
@@ -78,6 +62,12 @@ export default function StorageDashboardPage() {
             </div>
           ))}
         </div>
+
+        {errorProducts && (
+          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {errorProducts}
+          </div>
+        )}
 
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">

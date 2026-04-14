@@ -1,22 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, ShoppingCart, Trash2, CheckCircle, AlertTriangle, Activity, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { InventoryService } from '../services/inventory.service';
+import { useStorageData } from '../context/StorageDataContext';
 
 export default function StorageCrewConsumptionPage() {
   const { user } = useAuth();
-  const [products, setProducts] = useState([]);
+  const { products, loadingProducts, errorProducts } = useStorageData();
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
-
-  useEffect(() => {
-    InventoryService.getProducts().then(setProducts).catch((err) => {
-      console.warn('Error loading products for storage consumption', err);
-    });
-  }, []);
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
@@ -88,6 +83,18 @@ export default function StorageCrewConsumptionPage() {
             <p className="text-sm text-slate-400">Registra uso de insumos por tripulacion</p>
           </div>
         </div>
+
+        {errorProducts && (
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {errorProducts}
+          </div>
+        )}
+
+        {loadingProducts && (
+          <div className="mb-4 rounded-lg border border-slate-700 bg-dark-800 px-3 py-2 text-sm text-slate-300">
+            Cargando inventario desde Firebase...
+          </div>
+        )}
 
         <div className="mb-8 relative">
           <label className="block text-sm font-medium text-slate-400 mb-2">Buscar insumo</label>

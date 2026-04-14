@@ -1,33 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { ClipboardList, ArrowUpRight, ArrowDownLeft, Clock, ArrowLeft } from 'lucide-react';
-import { InventoryService } from '../services/inventory.service';
+import { useStorageData } from '../context/StorageDataContext';
 
 export default function StorageMovementHistoryPage() {
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { movements, loadingMovements, errorMovements } = useStorageData();
 
-  useEffect(() => {
-    async function loadMovements() {
-      try {
-        setLoading(true);
-        setError('');
-        const data = await InventoryService.getMovements();
-        setMovements(data);
-      } catch (err) {
-        console.error('Error loading storage movement history', err);
-        setMovements([]);
-        setError('No se pudo cargar el historial desde Firebase.');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadMovements();
-  }, []);
-
-  if (loading) {
+  if (loadingMovements) {
     return (
       <div className="p-8 flex flex-col items-center justify-center text-slate-500 gap-3">
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -60,9 +39,9 @@ export default function StorageMovementHistoryPage() {
         </div>
 
         <div className="bg-dark-800 border border-slate-700 rounded-xl overflow-hidden">
-          {error && (
+          {errorMovements && (
             <div className="mx-4 mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-              {error}
+              {errorMovements}
             </div>
           )}
           <div className="overflow-x-auto">
