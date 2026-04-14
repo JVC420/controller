@@ -26,7 +26,6 @@ const baseState = {
   motivo: '',
   responsable: '',
   observacionesTrazabilidad: '',
-  diasValid: '',
   estadoVto: '',
   cum: '',
   ium: '',
@@ -146,10 +145,13 @@ export default function ProductForm({ onClose, onProductCreated, initialData = n
         throw new Error('Vida util debe ser numerico.');
       }
 
+      const payload = { ...formData };
+      delete payload.diasValid;
+
       if (initialData) {
-        await InventoryService.updateProduct(initialData.id, formData);
+        await InventoryService.updateProduct(initialData.id, payload);
       } else {
-        await InventoryService.createProduct(formData);
+        await InventoryService.createProduct(payload);
       }
 
       onProductCreated();
