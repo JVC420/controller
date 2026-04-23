@@ -62,6 +62,8 @@ function AppLayout() {
     updateClient,
     createRealAmbulance,
     updateServiceChecklist,
+    saveServiceHistoriaClinicaFile,
+    clearServiceHistoriaClinicaFile,
     updateAmbulanceStatus,
     closeService,
     addEmpleado,
@@ -598,6 +600,8 @@ function AppLayout() {
                 historial={historialSolicitudes}
                 getClienteById={getClienteById}
                 updateServiceChecklist={updateServiceChecklist}
+                saveServiceHistoriaClinicaFile={saveServiceHistoriaClinicaFile}
+                clearServiceHistoriaClinicaFile={clearServiceHistoriaClinicaFile}
                 closeService={closeService}
               />
             )} />

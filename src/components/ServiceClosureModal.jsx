@@ -1,16 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, FileCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { storage } from '../firebase/config';
 
 const HISTORIA_CLINICA_URL = '/api/historia-clinica';
 
-const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServicio }) => {
+const ServiceClosureModal = ({
+    isOpen,
+    onClose,
+    servicio,
+    cliente,
+    onCerrarServicio,
+    onSaveHistoriaClinicaFile,
+    onClearHistoriaClinicaFile,
+}) => {
     const { user } = useAuth();
     const [checklistItems, setChecklistItems] = useState({});
     const [historiaClinicaChecked, setHistoriaClinicaChecked] = useState(false);
     const [historiaClinicaValidated, setHistoriaClinicaValidated] = useState(false);
     const [historiaClinicaLoading, setHistoriaClinicaLoading] = useState(false);
     const [historiaClinicaError, setHistoriaClinicaError] = useState('');
+    const [uploadingFile, setUploadingFile] = useState(false);
+    const [removingFile, setRemovingFile] = useState(false);
+    const [uploadedDoc, setUploadedDoc] = useState(null);
 
     // Initialize checklist state when modal opens or service changes
     useEffect(() => {
@@ -29,13 +42,19 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
             setHistoriaClinicaValidated(false);
             setHistoriaClinicaLoading(false);
             setHistoriaClinicaError('');
+            setUploadingFile(false);
+            setRemovingFile(false);
+            setUploadedDoc(servicio?.historiaClinicaArchivo || null);
         }
-    }, [isOpen, cliente]);
+    }, [isOpen, cliente, servicio]);
 
     if (!isOpen || !servicio || !cliente) return null;
 
     const allDocumentsChecked = Object.values(checklistItems).every(Boolean);
-    const allChecked = allDocumentsChecked && historiaClinicaValidated && historiaClinicaChecked;
+    const hasUploadedHistoriaClinica = Boolean(uploadedDoc?.url);
+    const historiaClinicaReady = hasUploadedHistoriaClinica || (historiaClinicaValidated && historiaClinicaChecked);
+    const allChecked = allDocumentsChecked && historiaClinicaReady;
+    const isFinalized = String(servicio?.estado || '').trim() === 'Finalizado';
 
     const handleToggle = (item) => {
         setChecklistItems(prev => ({
@@ -80,6 +99,100 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
             endDate,
             status: '7'
         };
+    };
+
+    const buildHistoriaClinicaStorageKey = () => {
+        const pacienteInfo = servicio?.pacienteInfo || {};
+        const idPaciente =
+            pacienteInfo.idPacienteHC ||
+            servicio?.solicitanteInfo?.idSolicitante ||
+            servicio?.idPacienteHC ||
+            servicio?.idSolicitante ||
+            'SINPACIENTE';
+
+        const raw = `${servicio?.id || 'SIN_SOLICITUD'}_${idPaciente}`;
+        return raw.replace(/[^a-zA-Z0-9_-]/g, '_');
+    };
+
+    const sanitizeFileName = (fileName) => String(fileName || 'historia_clinica').replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    const handleUploadHistoriaClinica = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        if (isFinalized) {
+            setHistoriaClinicaError('No se puede actualizar el documento porque el servicio ya está finalizado.');
+            return;
+        }
+
+        setUploadingFile(true);
+        setHistoriaClinicaError('');
+        let uploadedPath = '';
+
+        try {
+            const folderKey = buildHistoriaClinicaStorageKey();
+            const safeName = sanitizeFileName(file.name);
+            const filePath = `historias_clinicas/${folderKey}/${Date.now()}_${safeName}`;
+            uploadedPath = filePath;
+            const storageRef = ref(storage, filePath);
+
+            const uploadSnapshot = await uploadBytes(storageRef, file);
+            const downloadUrl = await getDownloadURL(uploadSnapshot.ref);
+
+            if (uploadedDoc?.path) {
+                try {
+                    await deleteObject(ref(storage, uploadedDoc.path));
+                } catch (cleanupErr) {
+                    console.warn('No se pudo eliminar el archivo anterior de historia clínica:', cleanupErr);
+                }
+            }
+
+            const metadata = {
+                path: filePath,
+                url: downloadUrl,
+                name: file.name,
+                contentType: file.type || 'application/octet-stream',
+                size: file.size || 0,
+                uploadedBy: user?.uid || 'anonymous',
+            };
+
+            await onSaveHistoriaClinicaFile?.(servicio.id, metadata);
+            setUploadedDoc(metadata);
+        } catch (err) {
+            if (uploadedPath) {
+                try {
+                    await deleteObject(ref(storage, uploadedPath));
+                } catch {
+                    // Ignore cleanup errors.
+                }
+            }
+            setHistoriaClinicaError(err?.message || 'No se pudo subir la historia clínica.');
+        } finally {
+            setUploadingFile(false);
+        }
+    };
+
+    const handleRemoveHistoriaClinica = async () => {
+        if (!uploadedDoc?.path) return;
+
+        if (isFinalized) {
+            setHistoriaClinicaError('No se puede eliminar el documento porque el servicio ya está finalizado.');
+            return;
+        }
+
+        setRemovingFile(true);
+        setHistoriaClinicaError('');
+
+        try {
+            await deleteObject(ref(storage, uploadedDoc.path));
+            await onClearHistoriaClinicaFile?.(servicio.id);
+            setUploadedDoc(null);
+        } catch (err) {
+            setHistoriaClinicaError(err?.message || 'No se pudo eliminar la historia clínica.');
+        } finally {
+            setRemovingFile(false);
+        }
     };
 
     const handleValidateHistoriaClinica = async () => {
@@ -207,12 +320,12 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <h4 className="text-sm font-semibold text-slate-300">Historia clínica</h4>
-                                <p className="text-xs text-slate-500 mt-1">Debe validar success=true para habilitar el cierre.</p>
+                                <p className="text-xs text-slate-500 mt-1">Puedes validar o subir archivo.</p>
                             </div>
                             <button
                                 type="button"
                                 onClick={handleValidateHistoriaClinica}
-                                disabled={historiaClinicaLoading}
+                                disabled={historiaClinicaLoading || isFinalized}
                                 className={`px-3 py-2 rounded-md text-xs font-bold transition-colors ${historiaClinicaLoading
                                     ? 'bg-slate-700 text-slate-400 cursor-wait'
                                     : 'bg-blue-600 hover:bg-blue-500 text-white'
@@ -222,13 +335,66 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                             </button>
                         </div>
 
+                        <div className="mt-3 rounded-lg border border-slate-700/70 bg-slate-800/20 p-3">
+                            <div className="flex items-center justify-between gap-3 flex-wrap">
+                                <div>
+                                    <p className="text-xs font-semibold text-slate-300">Documento de cierre</p>
+                                </div>
+
+                                {!isFinalized && (
+                                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer transition-colors">
+                                        {uploadingFile ? 'Subiendo...' : (uploadedDoc ? 'Subir nuevo archivo' : 'Subir archivo')}
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                            className="hidden"
+                                            disabled={uploadingFile || removingFile}
+                                            onChange={handleUploadHistoriaClinica}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+
+                            {uploadedDoc ? (
+                                <div className="mt-3">
+                                    <a
+                                        href={uploadedDoc.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-xs text-emerald-400 hover:text-emerald-300 underline break-all"
+                                    >
+                                        {uploadedDoc.name || 'Documento cargado'}
+                                    </a>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className="text-[11px] text-emerald-400">Archivo cargado correctamente.</span>
+                                        {!isFinalized && (
+                                            <button
+                                                type="button"
+                                                onClick={handleRemoveHistoriaClinica}
+                                                disabled={uploadingFile || removingFile}
+                                                className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30"
+                                            >
+                                                {removingFile ? 'Eliminando...' : 'Eliminar'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-[11px] text-slate-500 mt-3">No hay documento cargado.</p>
+                            )}
+
+                            {isFinalized && (
+                                <p className="text-[11px] text-amber-400 mt-2">Servicio finalizado: la historia clínica ya no se puede actualizar.</p>
+                            )}
+                        </div>
+
                         <label className="mt-3 flex items-start gap-3 cursor-pointer group">
                             <div className="relative flex items-center justify-center mt-0.5">
                                 <input
                                     type="checkbox"
                                     className="peer sr-only"
                                     checked={historiaClinicaChecked}
-                                    disabled={!historiaClinicaValidated}
+                                    disabled={!historiaClinicaValidated || hasUploadedHistoriaClinica}
                                     onChange={() => setHistoriaClinicaChecked(v => !v)}
                                 />
                                 <div className="w-5 h-5 rounded border-2 border-slate-600 bg-dark-900 peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-colors"></div>
@@ -238,6 +404,10 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                                 Confirmo validación de historia clínica
                             </span>
                         </label>
+
+                        {hasUploadedHistoriaClinica && (
+                            <p className="text-xs text-emerald-400 mt-2">Cierre habilitado por documento cargado en Storage.</p>
+                        )}
 
                         {historiaClinicaValidated && (
                             <p className="text-xs text-emerald-400 mt-2">Historia clínica validada correctamente (success=true).</p>
@@ -257,7 +427,7 @@ const ServiceClosureModal = ({ isOpen, onClose, servicio, cliente, onCerrarServi
                         </button>
                         <button
                             onClick={handleConfirm}
-                            disabled={!allChecked || historiaClinicaLoading}
+                            disabled={!allChecked || historiaClinicaLoading || uploadingFile || removingFile}
                             className={`flex-1 px-4 py-2.5 rounded-lg font-bold flex justify-center items-center gap-2 transition-all shadow-lg ${allChecked
                                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30'
                                 : 'bg-slate-700 text-slate-500 cursor-not-allowed border border-slate-600'

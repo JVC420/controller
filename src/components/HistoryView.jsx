@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import ServiceClosureModal from './ServiceClosureModal';
 import { ToastContainer, useToast } from './ui/Toast';
 
-const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeService }) => {
+const HistoryView = ({ historial, getClienteById, updateServiceChecklist, saveServiceHistoriaClinicaFile, clearServiceHistoriaClinicaFile, closeService }) => {
     const { toasts, show: showToast, dismiss: dismissToast } = useToast();
     const terminalStatusLabels = ['Cancelado', 'Negado', 'Fallido'];
     const closureBlockedLabels = ['Cancelado', 'Negado'];
@@ -407,6 +407,8 @@ const HistoryView = ({ historial, getClienteById, updateServiceChecklist, closeS
                     onClose={() => setClosureModalData({ isOpen: false, servicio: null, cliente: null })}
                     servicio={closureModalData.servicio}
                     cliente={closureModalData.cliente}
+                    onSaveHistoriaClinicaFile={saveServiceHistoriaClinicaFile}
+                    onClearHistoriaClinicaFile={clearServiceHistoriaClinicaFile}
                     onCerrarServicio={async (reqId, ambId) => {
                         try {
                             await closeService(reqId, ambId);

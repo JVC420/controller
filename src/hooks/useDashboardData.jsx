@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     collection, doc, getDoc, onSnapshot, query, where,
-    addDoc, updateDoc, setDoc, deleteDoc,
+    addDoc, updateDoc, setDoc, deleteDoc, deleteField,
     writeBatch, serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
@@ -482,6 +482,42 @@ export const useDashboardData = (activeRoute = '/') => {
         await updateDoc(doc(db, 'solicitudes', reqId), { checklist });
     };
 
+    const assertServiceNotFinalized = async (reqId) => {
+        const reqRef = doc(db, 'solicitudes', reqId);
+        const reqDoc = await getDoc(reqRef);
+        if (!reqDoc.exists()) {
+            throw new Error('La solicitud no existe.');
+        }
+
+        const status = String(reqDoc.data()?.estado || '').trim();
+        if (status === 'Finalizado') {
+            throw new Error('No se puede modificar la historia clínica porque el servicio ya está finalizado.');
+        }
+
+        return reqRef;
+    };
+
+    const saveServiceHistoriaClinicaFile = async (reqId, fileMeta) => {
+        const reqRef = await assertServiceNotFinalized(reqId);
+
+        await updateDoc(reqRef, {
+            historiaClinicaArchivo: {
+                ...fileMeta,
+                uploadedAt: serverTimestamp(),
+            },
+            actualizadoAt: serverTimestamp(),
+        });
+    };
+
+    const clearServiceHistoriaClinicaFile = async (reqId) => {
+        const reqRef = await assertServiceNotFinalized(reqId);
+
+        await updateDoc(reqRef, {
+            historiaClinicaArchivo: deleteField(),
+            actualizadoAt: serverTimestamp(),
+        });
+    };
+
     // Cambia estado a 'En revisión', guarda justificación y desasigna ambulancia si aplica
     const requestStatusToReview = async (reqId, justification) => {
         // Obtener la solicitud actual
@@ -714,6 +750,8 @@ export const useDashboardData = (activeRoute = '/') => {
         assignAmbulance,
         closeService,
         updateServiceChecklist,
+        saveServiceHistoriaClinicaFile,
+        clearServiceHistoriaClinicaFile,
         updateRequestStatus,
         updateRequestStatusDirect,
 
