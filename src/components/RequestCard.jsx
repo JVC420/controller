@@ -11,33 +11,25 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
     // Check if request is in review state
     const isEnRevision = request.estado === 'En revisión';
 
+    const toMs = (value) => {
+        if (!value) return null;
+        if (typeof value?.toDate === 'function') {
+            const ms = value.toDate().getTime();
+            return Number.isFinite(ms) ? ms : null;
+        }
+        const ms = new Date(value).getTime();
+        return Number.isFinite(ms) ? ms : null;
+    };
+
     // ── Live wait-time counter ────────────────────────────────────────────────
-    // For pending requests: use servicioProgramado - if not yet reached, show scheduled time
-    const programadoAt = request.programacionInfo?.servicioProgramado;
-    const programadoMs = programadoAt ? new Date(programadoAt).getTime() : null;
+    // For triage semaphore, waiting time is measured from request creation.
+    const programadoMs = toMs(request?.programacionInfo?.servicioProgramado);
+    const creadoAtMs = toMs(request?.creadoAt);
     const isProgramadoValid = Number.isFinite(programadoMs);
 
     const getElapsedMin = () => {
-        if (request.estado === 'Pendiente') {
-            // If we have a valid scheduled time
-            if (isProgramadoValid) {
-                const diff = Date.now() - programadoMs;
-                // If scheduled time hasn't arrived yet, return negative to signal "not yet"
-                if (diff < 0) return diff / 60000; // negative minutes
-                return Math.floor(diff / 60000);
-            }
-            // Fallback to creadoAt
-            if (request.creadoAt) {
-                const ms = new Date(request.creadoAt).getTime();
-                if (Number.isFinite(ms)) return Math.max(0, Math.floor((Date.now() - ms) / 60000));
-            }
-            return request.tiempoEsperaMin ?? 0;
-        }
-
-        // For other states (assigned/in service), use creadoAt as before
-        if (request.creadoAt) {
-            const ms = new Date(request.creadoAt).getTime();
-            if (Number.isFinite(ms)) return Math.max(0, Math.floor((Date.now() - ms) / 60000));
+        if (Number.isFinite(creadoAtMs)) {
+            return Math.max(0, Math.floor((Date.now() - creadoAtMs) / 60000));
         }
         return request.tiempoEsperaMin ?? 0;
     };
@@ -49,31 +41,26 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [request.creadoAt, request.tiempoEsperaMin, request.estado, request.programacionInfo?.servicioProgramado]);
 
-    // Is service scheduled for the future?
-    const isScheduledFuture = request.estado === 'Pendiente' && elapsedMin < 0;
+    const isPending = request.estado === 'Pendiente';
+    const isUnassigned = isPending && !request.ambulanciaAsignada && !request.asignadoAt;
+    const isProgramadoVencido = isUnassigned && isProgramadoValid && Date.now() > programadoMs;
 
-    // SLA breach: > 10 min waiting (only if past scheduled time), > 150 min in service
-    const isSlaBreached = request.estado === 'Pendiente'
-        ? !isScheduledFuture && elapsedMin > 10
-        : request.asignadoAt
-            ? (() => { const ms = new Date(request.asignadoAt).getTime(); return Number.isFinite(ms) ? Math.floor((Date.now() - ms) / 60000) > 150 : false; })()
-            : false;
+    let semaphore = 'neutral';
+    if (isEnRevision) {
+        semaphore = 'review';
+    } else if (isUnassigned) {
+        if (isProgramadoVencido) {
+            semaphore = 'red';
+        } else if (elapsedMin < 10) {
+            semaphore = 'green';
+        } else if (elapsedMin < 30) {
+            semaphore = 'yellow';
+        } else {
+            semaphore = 'red';
+        }
+    }
 
-    // Display
-    const formatScheduledDate = () => {
-        if (!isProgramadoValid) return '';
-        const date = new Date(programadoMs);
-        const today = new Date();
-        const isToday = date.toDateString() === today.toDateString();
-        const time = date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-        if (isToday) return `hoy ${time}`;
-        const dateStr = date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
-        return `${dateStr} ${time}`;
-    };
-
-    const displayTime = isScheduledFuture
-        ? `Prog. ${formatScheduledDate()}`
-        : elapsedMin >= 60
+    const displayTime = elapsedMin >= 60
             ? `${Math.floor(elapsedMin / 60)}h ${elapsedMin % 60}m`
             : `${Math.floor(elapsedMin)} min`;
 
@@ -82,8 +69,10 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
         compact ? "rounded-lg p-2 gap-1.5" : "rounded-xl p-4 gap-3",
         {
             "border-2 border-amber-500 animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.25)]": isEnRevision,
-            "border-2 border-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]": isSlaBreached && !isEnRevision,
-            "border border-slate-700 hover:border-slate-500": !isSlaBreached && !isEnRevision,
+            "border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.22)]": semaphore === 'green',
+            "border-2 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.22)]": semaphore === 'yellow',
+            "border-2 border-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]": semaphore === 'red',
+            "border border-slate-700 hover:border-slate-500": semaphore === 'neutral',
             "z-50 shadow-2xl opacity-90 scale-105 rotate-2 cursor-grabbing": isDragging,
             "cursor-grab": !isDragging && !isEnRevision,
             "cursor-not-allowed": isEnRevision,
@@ -103,11 +92,11 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 </div>
             )}
 
-            {/* SLA Breach Indicator */}
-            {isSlaBreached && !isEnRevision && (
+            {/* Semaphore red indicator */}
+            {semaphore === 'red' && !isEnRevision && (
                 <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-500 animate-ping"></div>
             )}
-            {isSlaBreached && !isEnRevision && (
+            {semaphore === 'red' && !isEnRevision && (
                 <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-red-600 border-2 border-dark-900 z-10 flex items-center justify-center">
                 </div>
             )}
@@ -122,12 +111,14 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 <div className={clsx("flex items-center gap-1 font-bold rounded-md",
                     compact ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1",
                     isEnRevision ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" :
-                    isScheduledFuture ? "bg-cyan-500/20 text-cyan-400 ring-1 ring-cyan-500/50" :
-                    isSlaBreached ? "bg-red-500/20 text-red-500 ring-1 ring-red-500" : "bg-slate-700/50 text-slate-300"
+                    semaphore === 'green' ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50" :
+                    semaphore === 'yellow' ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50" :
+                    semaphore === 'red' ? "bg-red-500/20 text-red-300 ring-1 ring-red-500/60" :
+                    "bg-slate-700/50 text-slate-300"
                 )}>
                     {isEnRevision ? <Hourglass size={12} /> :
-                     isScheduledFuture ? <CalendarClock size={12} /> :
-                     isSlaBreached && request.estado !== "Pendiente" ? <AlertTriangle size={12} className="animate-pulse" /> : <Clock size={12} />}
+                     semaphore === 'red' ? <AlertTriangle size={12} className="animate-pulse" /> :
+                     isProgramadoValid ? <CalendarClock size={12} /> : <Clock size={12} />}
                     <span>{isEnRevision ? 'Cambio pendiente por  aprobar' : displayTime}</span>
                 </div>
             </div>

@@ -415,6 +415,7 @@ export const useDashboardData = (activeRoute = '/') => {
         const { id, ...data } = requestObj;
         if (!id) return;
         assertValidRequestPayload(data);
+        delete data.creadoAt;
         data.actualizadoAt = serverTimestamp();
         await updateDoc(doc(db, 'solicitudes', id), data);
     };

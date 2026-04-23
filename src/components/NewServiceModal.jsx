@@ -1946,7 +1946,6 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
         const newRequest = {
             id,
             estado: isEditing ? (initialData?.estado ?? 'Pendiente') : 'Pendiente',
-            creadoAt: Timestamp.now(),
             tiempoEsperaMin: 0,
 
             // Keep summary fields at root for compatibility with current UI.
@@ -2028,6 +2027,10 @@ const NewServiceModal = ({ isOpen, onClose, clientes = [], onSubmit, getNextReqI
             } : null,
             observaciones: sanitized.observaciones,
         };
+
+        if (!isEditing) {
+            newRequest.creadoAt = Timestamp.now();
+        }
 
         setSubmitting(true);
         Promise.resolve(onSubmit(newRequest))
