@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Clock, MapPin, GripVertical, AlertTriangle, Pencil, CalendarClock, Hourglass } from 'lucide-react';
+import { Clock, MapPin, GripVertical, AlertTriangle, Pencil, CalendarClock, Hourglass, ChevronDown, ChevronUp } from 'lucide-react';
 import { clsx } from 'clsx';
 
 // The visual representation of the card
 export const RequestCardUI = ({ request, client, isDragging, style, attributes, listeners, setNodeRef, onEdit, compact = false }) => {
     const patientName = request?.pacienteInfo?.nombre || request?.paciente || 'Sin paciente';
+    const [expanded, setExpanded] = useState(false);
 
     // Check if request is in review state
     const isEnRevision = request.estado === 'En revisión';
@@ -123,8 +124,8 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 </div>
             </div>
 
-            {onEdit && (
-                <div className={compact ? "" : "-mt-1"}>
+            <div className={clsx('flex items-center justify-between gap-2', compact ? '' : '-mt-1')}>
+                {onEdit && (
                     <button
                         type="button"
                         onClick={(e) => {
@@ -140,10 +141,41 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                     >
                         <Pencil size={12} /> {compact ? '' : 'Editar solicitud'}
                     </button>
+                )}
+
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setExpanded((prev) => !prev);
+                    }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className={clsx(
+                        'inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/40 text-slate-200 hover:bg-slate-700/50 transition-colors',
+                        compact ? 'text-[10px] px-2 py-1' : 'text-[11px] px-2.5 py-1.5'
+                    )}
+                    title={expanded ? 'Ocultar detalles' : 'Ver detalles'}
+                >
+                    {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    {compact ? '' : (expanded ? 'Ocultar' : 'Detalles')}
+                </button>
+            </div>
+
+            {!expanded && (
+                <div className={clsx('rounded-lg border border-slate-800 bg-dark-900/40', compact ? 'px-2 py-1.5' : 'px-3 py-2')}>
+                    {client && (
+                        <div className="mb-1">
+                            <span className={clsx("uppercase font-bold px-2 py-0.5 rounded-sm text-white tracking-wider glow-sm", compact ? "text-[9px]" : "text-[10px]", client.colorBadge)}>
+                                {client.ranking} (Pri: {client.nivelPrioridad})
+                            </span>
+                        </div>
+                    )}
+                    <p className={clsx('text-slate-100 font-semibold truncate', compact ? 'text-[11px]' : 'text-sm')}>{patientName}</p>
+                    <p className={clsx('text-slate-400 truncate', compact ? 'text-[10px]' : 'text-xs')}>{client?.nombre || 'Cliente sin definir'}</p>
                 </div>
             )}
 
-            {client && (
+            {expanded && client && (
                 <div className={clsx("flex flex-col", compact ? "gap-0.5" : "gap-1")}>
                     <div className="flex gap-2 items-center">
                         <span className={clsx("uppercase font-bold px-2 py-0.5 rounded-sm text-white tracking-wider glow-sm", compact ? "text-[9px]" : "text-[10px]", client.colorBadge)}>
@@ -155,29 +187,32 @@ export const RequestCardUI = ({ request, client, isDragging, style, attributes, 
                 </div>
             )}
 
-            <div className={clsx("rounded-lg border border-slate-800 bg-dark-900/40", compact ? "px-2 py-1" : "px-3 py-2")}>
-                <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Paciente</span>
-                <p className={clsx("text-slate-100 font-medium leading-tight mt-1 truncate", compact ? "text-[11px]" : "text-sm")}>{patientName}</p>
-            </div>
-
-            {/* Locations */}
-            <div className={clsx("space-y-1.5 bg-dark-900/50 rounded-lg border border-slate-800", compact ? "mt-0.5 p-2" : "mt-2 p-3 space-y-2")}>
-                <div className="flex items-start gap-2 min-w-0">
-                    <MapPin size={compact ? 12 : 14} className="text-emerald-500 mt-0.5 shrink-0" />
-                    <div className="flex flex-col min-w-0">
-                        <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Origen</span>
-                        <span className={clsx("text-slate-200 leading-tight whitespace-normal break-all", compact ? "text-[11px]" : "text-sm")}>{request.origen}</span>
+            {expanded && (
+                <>
+                    <div className={clsx("rounded-lg border border-slate-800 bg-dark-900/40", compact ? "px-2 py-1" : "px-3 py-2")}>
+                        <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Paciente</span>
+                        <p className={clsx("text-slate-100 font-medium leading-tight mt-1 truncate", compact ? "text-[11px]" : "text-sm")}>{patientName}</p>
                     </div>
-                </div>
 
-                <div className="flex items-start gap-2 min-w-0">
-                    <MapPin size={compact ? 12 : 14} className="text-blue-500 mt-0.5 shrink-0" />
-                    <div className="flex flex-col min-w-0">
-                        <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Destino</span>
-                        <span className={clsx("text-slate-200 leading-tight whitespace-normal break-all", compact ? "text-[11px]" : "text-sm")}>{request.destino}</span>
+                    <div className={clsx("space-y-1.5 bg-dark-900/50 rounded-lg border border-slate-800", compact ? "mt-0.5 p-2" : "mt-2 p-3 space-y-2")}>
+                        <div className="flex items-start gap-2 min-w-0">
+                            <MapPin size={compact ? 12 : 14} className="text-emerald-500 mt-0.5 shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                                <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Origen</span>
+                                <span className={clsx("text-slate-200 leading-tight whitespace-normal break-all", compact ? "text-[11px]" : "text-sm")}>{request.origen}</span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-2 min-w-0">
+                            <MapPin size={compact ? 12 : 14} className="text-blue-500 mt-0.5 shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                                <span className={clsx("uppercase font-bold text-slate-500", compact ? "text-[9px]" : "text-[10px]")}>Destino</span>
+                                <span className={clsx("text-slate-200 leading-tight whitespace-normal break-all", compact ? "text-[11px]" : "text-sm")}>{request.destino}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
+                </>
+            )}
         </div>
     );
 };
