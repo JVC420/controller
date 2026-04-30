@@ -105,11 +105,15 @@ service cloud.firestore {
       allow read, create, update, delete: if isRHOrAdmin();
     }
 
-    // TURNOS
+    // ─── turnos ───────────────────────────────────────────────────────────────
+    // Lectura: oficina + el propio tripulante (para ver su turno).
+    // Escritura desde cliente: SOLO oficina (mantiene flujo actual).
+    // Tripulantes NUNCA escriben directo: el check-in pasa por Cloud Function.
     match /turnos/{docId} {
-      allow read, create, update, delete: if isRHOrAdmin();
+        allow read: if isRHOrAdmin()|| (isTripulante() && resource.data.email == request.auth.token.email);
+        allow create, update, delete: if isRHOrAdmin();
     }
-
+    
     // FLOTA
     match /flota/{docId} {
       allow read: if isControladorOrAdmin() || isRHOrAdmin() || isRoleAlmacen();
@@ -146,8 +150,8 @@ service cloud.firestore {
     // Una vez creados son inmutables desde cliente; la Cloud Function (admin)
     // marca status='consumed' o 'expired' cuando aplica.
     match /qr_activos/{tokenId} {
-      allow read: if isSignedIn();
-
+      allow read: if isTripulante();
+      
       allow create: if isLeader()
         && request.resource.data.leaderUid == request.auth.uid
         && request.resource.data.mobileId is string
@@ -157,27 +161,15 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.expiresAt is timestamp
         && request.resource.data.expiresAt > request.time
-        && request.resource.data.expiresAt < request.time + duration.value(15, 's')
+        && request.resource.data.expiresAt < request.time + duration.value(120, 's')
         && request.resource.data.leaderLocation.latitude is number
         && request.resource.data.leaderLocation.longitude is number
         && request.resource.data.leaderLocation.latitude >= -90
         && request.resource.data.leaderLocation.latitude <= 90
         && request.resource.data.leaderLocation.longitude >= -180
         && request.resource.data.leaderLocation.longitude <= 180;
-
       // Inmutables desde el cliente; la CF actualiza con privilegios admin.
       allow update, delete: if false;
-    }
-
-		// ─── turnos ───────────────────────────────────────────────────────────────
-    // Lectura: oficina + el propio tripulante (para ver su turno).
-    // Escritura desde cliente: SOLO oficina (mantiene flujo actual).
-    // Tripulantes NUNCA escriben directo: el check-in pasa por Cloud Function.
-    match /turnos/{turnoId} {
-      allow read: if isOfficeStaff()
-        || (isTripulante() && resource.data.email == request.auth.token.email);
-
-      allow create, update, delete: if isAdminGeneral();
     }
     
     // Denegar todo lo no definido
