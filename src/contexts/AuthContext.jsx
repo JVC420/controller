@@ -6,7 +6,9 @@ const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
 
-// Role definitions — maps claim value to allowed route paths
+// Role definitions — maps claim value to allowed route paths.
+// `tripulante` and `lider_movil` are kiosk-style roles authenticated via Google.
+// They use a minimal layout (no sidebar) and live on dedicated routes.
 export const ROLES = {
   administrador_general: {
     label: 'Administrador General',
@@ -24,11 +26,22 @@ export const ROLES = {
     label: 'Almacen',
     routes: ['/almacen'],
   },
+  tripulante: {
+    label: 'Tripulante',
+    routes: ['/checkin', '/ingreso'],
+  },
+  lider_movil: {
+    label: 'Líder de Móvil',
+    routes: ['/lider'],
+  },
 };
+
+export const KIOSK_ROLES = new Set(['tripulante', 'lider_movil']);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
+  const [mobileId, setMobileId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,10 +49,12 @@ export const AuthProvider = ({ children }) => {
       if (firebaseUser) {
         const tokenResult = await firebaseUser.getIdTokenResult();
         setRole(tokenResult.claims.role || null);
+        setMobileId(tokenResult.claims.mobileId || null);
         setUser(firebaseUser);
       } else {
         setUser(null);
         setRole(null);
+        setMobileId(null);
       }
       setLoading(false);
     });
@@ -54,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, logout, hasAccess }}>
+    <AuthContext.Provider value={{ user, role, mobileId, loading, logout, hasAccess }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return isSignedIn() && request.auth.token.role != null
+        ? request.auth.token.role
+        : null;
+    }
+
+    function isAdminGeneral() {
+      return role() == "administrador_general";
+    }
+
+    function isRH() {
+      return role() == "recurso_humano";
+    }
+
+    function isControlador() {
+      return role() == "controlador";
+    }
+
+    function isRHOrAdmin() {
+      return isRH() || isAdminGeneral();
+    }
+    
+    function isRoleAlmacen() {
+      return role() == "almacen";
+    }
+
+    function isControladorOrAdmin() {
+      return isControlador() || isAdminGeneral();
+    }
+    
+    function isLeader() { 
+    	return isSignedIn() && role() == 'lider_movil'; 
+    }
+    
+    function isTripulante() { 
+    	return isSignedIn() && role() == 'tripulante'; 
+    }
+    
+    // ALMACEN
+    
+    // MOVIMIENTOS
+    match /movements/{docId} 
+    {
+       allow read,create,update: if isAdminGeneral() || isRoleAlmacen();
+    }
+    
+    // PRODUCTOS
+    match /products/{docId} 
+    {
+       allow read,create,update: if isAdminGeneral() || isRoleAlmacen();
+    }
+    
+    // COUNTERS DE PRODUCTOS
+    match /counters/{docId} 
+    {
+       allow read,create,update: if isAdminGeneral() || isRoleAlmacen();
+    }
+    
+    // FLOTA STATUS LOG
+    match /flotaStatusLog/{docId} 
+    {
+       allow read: if isAdminGeneral();
+    }
+    
+    // ORIGENES
+    match /origenes/{docId} 
+    {
+       allow read: if isControlador() || isAdminGeneral();
+    }
+    
+    // SERVICE TYPES
+    match /ServiceTypes/{docId} 
+    {
+       allow read: if isControlador() || isAdminGeneral();
+    }
+    
+    // CIE
+  	match /CIE/{docId} 
+    {
+       allow read: if isControlador() || isAdminGeneral();
+    }
+    
+    // CLIENTES/DOC
+    match /clientes/{docId} {
+       allow read: if isControladorOrAdmin();
+       allow create, update, delete: if isAdminGeneral();
+    }
+    
+    // CLIENTES
+    match /clientes {
+      allow read: if isControladorOrAdmin();
+      allow create, update, delete: if isAdminGeneral();
+    }
+
+    // EMPLEADOS
+    match /empleados/{docId} {
+      allow read, create, update, delete: if isRHOrAdmin();
+    }
+
+    // TURNOS
+    match /turnos/{docId} {
+      allow read, create, update, delete: if isRHOrAdmin();
+    }
+
+    // FLOTA
+    match /flota/{docId} {
+      allow read: if isControladorOrAdmin() || isRHOrAdmin() || isRoleAlmacen();
+      allow create, delete: if false;
+      allow update: if isControladorOrAdmin();
+      allow create, update, delete: if isAdminGeneral();
+    }
+
+    // SOLICITUDES
+    match /solicitudes/{docId} {
+      allow read: if isControladorOrAdmin() || isRHOrAdmin();
+      allow create, update: if isControladorOrAdmin() &&  
+     			!request.resource.data.keys().hasAny(['changeStatusApproval']);
+    }
+    
+    // CACHE DE PACIENTES
+    match /pacientes_cache/{docId} {
+      allow read: if isControladorOrAdmin();
+      allow create, update: if isControladorOrAdmin();
+    }
+    
+    // KPI / METRICAS / DASHBOARD PRIVADO
+    match /kpi/{docId} {
+      allow read, write: if isAdminGeneral();
+    }
+
+    match /metricas/{docId} {
+      allow read, write: if isAdminGeneral();
+    }
+    
+    // ─── qr_activos ───────────────────────────────────────────────────────────
+    // Documentos efímeros de QR. Cualquier usuario autenticado puede leerlos
+    // (para que el tripulante pueda verlos al escanear). Solo el líder los crea.
+    // Una vez creados son inmutables desde cliente; la Cloud Function (admin)
+    // marca status='consumed' o 'expired' cuando aplica.
+    match /qr_activos/{tokenId} {
+      allow read: if isSignedIn();
+
+      allow create: if isLeader()
+        && request.resource.data.leaderUid == request.auth.uid
+        && request.resource.data.mobileId is string
+        && request.resource.data.mobileId == request.auth.token.mobileId
+        && request.resource.data.status == 'active'
+        && request.resource.data.purpose == 'shift_check_in'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt < request.time + duration.value(120, 's');
+
+      // Inmutables desde el cliente; la CF actualiza con privilegios admin.
+      allow update, delete: if false;
+    }
+
+		// ─── turnos ───────────────────────────────────────────────────────────────
+    // Lectura: oficina + el propio tripulante (para ver su turno).
+    // Escritura desde cliente: SOLO oficina (mantiene flujo actual).
+    // Tripulantes NUNCA escriben directo: el check-in pasa por Cloud Function.
+    match /turnos/{turnoId} {
+      allow read: if isOfficeStaff()
+        || (isTripulante() && resource.data.email == request.auth.token.email);
+
+      allow create, update, delete: if isAdminGeneral();
+    }
+    
+    // Denegar todo lo no definido
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -3,6 +3,9 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, pointerWithin, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import LeaderQrPage from './pages/LeaderQrPage';
+import CheckInHomePage from './pages/CheckInHomePage';
+import CheckInPage from './pages/CheckInPage';
 import Sidebar from './components/Sidebar';
 import TriageBoard from './components/TriageBoard';
 import FleetMonitor from './components/FleetMonitor';
@@ -16,7 +19,8 @@ import SupportChatbot from './components/SupportChatbot';
 import ManualPage from './components/ManualPage';
 import StorageModulePage from './components/storage/StorageModulePage';
 import { useDashboardData } from './hooks/useDashboardData';
-import { useAuth, ROLES } from './contexts/AuthContext';
+import { useAuth, ROLES, KIOSK_ROLES } from './contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 import UnauthorizedPage from './components/UnauthorizedPage';
 import { ToastContainer, useToast } from './components/ui/Toast';
 import { Menu, CircleHelp, Eye, EyeOff } from 'lucide-react';
@@ -698,12 +702,42 @@ function AppLayout() {
   );
 }
 
+// Routes for kiosk-style roles (tripulante / líder de móvil): no sidebar, no dashboard.
+function KioskRoutes() {
+  const { role } = useAuth();
+  if (role === 'lider_movil') {
+    return (
+      <Routes>
+        <Route path="/lider" element={<LeaderQrPage />} />
+        <Route path="*" element={<Navigate to="/lider" replace />} />
+      </Routes>
+    );
+  }
+  if (role === 'tripulante') {
+    return (
+      <Routes>
+        <Route path="/checkin" element={<CheckInHomePage />} />
+        <Route path="/ingreso" element={<CheckInPage />} />
+        <Route path="*" element={<Navigate to="/checkin" replace />} />
+      </Routes>
+    );
+  }
+  return null;
+}
+
+function RoleRouter() {
+  const { role, loading } = useAuth();
+  if (loading) return null;
+  if (KIOSK_ROLES.has(role)) return <KioskRoutes />;
+  return <AppLayout />;
+}
+
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
-        <Route path="/*" element={<AppLayout />} />
+        <Route path="/*" element={<RoleRouter />} />
       </Route>
     </Routes>
   );
