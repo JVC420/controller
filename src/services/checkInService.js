@@ -13,6 +13,7 @@ const ERROR_MESSAGES = {
   'shift-already-checked-in': 'Ya registraste ingreso para este turno.',
   'leader-cannot-check-in': 'El líder no puede registrarse a sí mismo con su propio código.',
   'mobile-mismatch': 'El código no corresponde a este móvil.',
+  'out-of-range': 'Estás demasiado lejos del móvil para registrar ingreso.',
   'invalid-location': 'No pudimos validar tu ubicación.',
 };
 
@@ -24,7 +25,12 @@ export const validateAndCheckIn = async ({ tokenId, location }) => {
   } catch (err) {
     // err.code is 'functions/<httpsError-code>' for HttpsError
     const detailsCode = err?.details?.code;
-    const friendly = ERROR_MESSAGES[detailsCode] || err?.message || 'No pudimos registrar tu ingreso.';
+    // Para códigos cuyo mensaje del servidor incluye datos dinámicos
+    // (p.ej. distancia en metros), preferimos el mensaje del servidor.
+    const dynamicCodes = new Set(['out-of-range']);
+    const friendly = dynamicCodes.has(detailsCode) && err?.message
+      ? err.message
+      : (ERROR_MESSAGES[detailsCode] || err?.message || 'No pudimos registrar tu ingreso.');
     const wrapped = new Error(friendly);
     wrapped.code = detailsCode || err?.code || 'unknown';
     throw wrapped;

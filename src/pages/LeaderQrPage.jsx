@@ -1,12 +1,37 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { LogOut, Truck, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { LogOut, Truck, AlertTriangle, RefreshCw, MapPin, Loader2 } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { generateQrToken } from '../services/qrService';
 import QrDisplay from '../components/checkin/QrDisplay';
 
-// Kiosk view rendered on the tablet inside the ambulance.
-// Auto-regenerates QR shortly before expiration so it is always fresh.
+// Refresca la ubicación del móvil (tablet) cada 5 minutos.
+const LEADER_LOCATION_REFRESH_MS = 5 * 60 * 1000;
+
+const captureLeaderLocation = () => new Promise((resolve, reject) => {
+  if (!('geolocation' in navigator)) {
+    reject(new Error('Esta tablet no soporta geolocalización.'));
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => resolve({
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      capturedAt: pos.timestamp || Date.now(),
+    }),
+    (err) => {
+      const map = {
+        1: 'Permiso de ubicación denegado en la tablet.',
+        2: 'GPS no disponible en la tablet.',
+        3: 'No se pudo obtener la ubicación a tiempo.',
+      };
+      reject(new Error(map[err.code] || 'Error de geolocalización en la tablet.'));
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 60000 }
+  );
+});
+
 const LeaderQrPage = () => {
   const { user, mobileId, logout } = useAuth();
   const [tokenId, setTokenId] = useState(null);
@@ -15,9 +40,44 @@ const LeaderQrPage = () => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [debugClaims, setDebugClaims] = useState(null);
+  const [leaderLocation, setLeaderLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const locationRef = useRef(null);
+
+  const fetchLocation = useCallback(async () => {
+    setLocating(true);
+    setLocationError(null);
+    try {
+      const loc = await captureLeaderLocation();
+      locationRef.current = loc;
+      setLeaderLocation(loc);
+      return loc;
+    } catch (err) {
+      setLocationError(err.message);
+      throw err;
+    } finally {
+      setLocating(false);
+    }
+  }, []);
+
+  // First location fetch + periodic refresh while mounted.
+  useEffect(() => {
+    fetchLocation().catch(() => { /* surfaced via state */ });
+    const id = setInterval(() => {
+      fetchLocation().catch(() => { /* keep last good location on transient errors */ });
+    }, LEADER_LOCATION_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [fetchLocation]);
 
   const regenerate = useCallback(async () => {
-    if (!user || !mobileId) return; // Guarded by the missing-claim UI below.
+    if (!user || !mobileId) return;
+    const loc = locationRef.current;
+    if (!loc) {
+      setStatus('error');
+      setError('Esperando ubicación de la tablet…');
+      return;
+    }
     setStatus('generating');
     setError(null);
     try {
@@ -25,6 +85,7 @@ const LeaderQrPage = () => {
         leaderUid: user.uid,
         leaderName: user.displayName || user.email || null,
         mobileId,
+        leaderLocation: loc,
       });
       setTokenId(id);
       setExpiresAtMs(exp);
@@ -36,20 +97,21 @@ const LeaderQrPage = () => {
     }
   }, [user, mobileId]);
 
+  // Trigger first generation as soon as we have user + mobileId + leaderLocation.
   useEffect(() => {
-    regenerate();
-  }, [regenerate]);
+    if (user && mobileId && leaderLocation && !tokenId) {
+      regenerate();
+    }
+  }, [user, mobileId, leaderLocation, tokenId, regenerate]);
 
-  // Auto-refresh: schedule a new QR 2s before current expires.
+  // Auto-refresh: schedule a new QR 1s before current expires.
   useEffect(() => {
     if (status !== 'ready' || !expiresAtMs) return undefined;
-    const ms = Math.max(0, expiresAtMs - Date.now() - 2000);
+    const ms = Math.max(0, expiresAtMs - Date.now() - 1000);
     const t = setTimeout(() => regenerate(), ms);
     return () => clearTimeout(t);
   }, [status, expiresAtMs, regenerate]);
 
-  // Forces a fresh ID token, useful right after the admin assigns custom claims.
-  // Shows what claims actually arrived so we can diagnose mismatches.
   const forceTokenRefresh = async () => {
     setRefreshing(true);
     try {
@@ -116,6 +178,34 @@ const LeaderQrPage = () => {
     );
   }
 
+  // Block QR generation until we have a leader location.
+  if (!leaderLocation) {
+    return (
+      <div className="min-h-screen bg-dark-900 flex flex-col items-center justify-center p-6 gap-4 text-center">
+        <div className="w-16 h-16 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-300">
+          {locating ? <Loader2 size={28} className="animate-spin" /> : <MapPin size={28} />}
+        </div>
+        <h1 className="text-xl font-bold text-white">Capturando ubicación del móvil</h1>
+        <p className="text-slate-400 text-sm max-w-sm">
+          Esta tablet necesita conocer la ubicación del móvil para emitir códigos válidos.
+          Acepta el permiso de ubicación en el navegador.
+        </p>
+        {locationError && (
+          <p className="text-red-400 text-sm max-w-sm">{locationError}</p>
+        )}
+        <button
+          type="button"
+          onClick={() => fetchLocation().catch(() => {})}
+          disabled={locating}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700/50 text-white text-sm font-semibold"
+        >
+          <RefreshCw size={16} className={locating ? 'animate-spin' : ''} />
+          Reintentar ubicación
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-dark-900 flex flex-col">
       <header className="flex items-center justify-between p-4 md:p-6 border-b border-slate-800">
@@ -128,14 +218,20 @@ const LeaderQrPage = () => {
             <p className="text-lg md:text-xl font-bold text-white">{mobileId}</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm"
-        >
-          <LogOut size={16} />
-          Cerrar sesión
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="hidden md:inline-flex items-center gap-1 text-[11px] text-slate-500">
+            <MapPin size={12} />
+            ±{Math.round(leaderLocation.accuracy || 0)}m
+          </span>
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm"
+          >
+            <LogOut size={16} />
+            Cerrar sesión
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 gap-6">
@@ -150,7 +246,7 @@ const LeaderQrPage = () => {
           onRegenerate={regenerate}
         />
         <p className="text-slate-600 text-xs text-center">
-          El código se renueva automáticamente cada 90 segundos.
+          El código se renueva automáticamente cada 10 segundos.
         </p>
       </main>
     </div>

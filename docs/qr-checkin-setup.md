@@ -10,18 +10,15 @@ npm i qrcode.react html5-qrcode
 
 ## 2. Cloud Function
 
+La función `validateAndCheckIn` vive en el repo de Functions ya existente,
+en `../functions/functions/src/index.ts` (TypeScript, firebase-functions v7).
+
+Para desplegar:
+
 ```bash
-cd functions
-npm install
+cd ../functions/functions
+npm run build
 firebase deploy --only functions:validateAndCheckIn
-```
-
-Si aún no tienes `functions/` registrado en `firebase.json`, agrega:
-
-```json
-"functions": [
-  { "source": "functions", "codebase": "default", "runtime": "nodejs20" }
-]
 ```
 
 ## 3. Firestore Rules

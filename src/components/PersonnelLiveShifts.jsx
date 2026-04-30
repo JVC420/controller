@@ -160,7 +160,7 @@ const PersonnelLiveShifts = ({
                                         <td className="py-2.5 px-2.5 2xl:px-3 min-w-[170px] max-[1860px]:min-w-[150px]">
                                             <ShiftTimeInput
                                                 value={dtVal(turno.inicioReal, turno.fecha)}
-                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
+                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado' || turno.checkInSource === 'ephemeral_qr'}
                                                 label="Inicio real"
                                                 onSave={val => {
                                                     if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
@@ -313,7 +313,7 @@ const PersonnelLiveShifts = ({
                                             <p className="text-[9px] text-slate-500 uppercase font-semibold mb-1 tracking-wider">Inicio Real</p>
                                             <ShiftTimeInput
                                                 value={dtVal(turno.inicioReal, turno.fecha)}
-                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
+                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado' || turno.checkInSource === 'ephemeral_qr'}
                                                 label="Inicio real"
                                                 onSave={val => {
                                                     if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {
@@ -392,7 +392,7 @@ const PersonnelLiveShifts = ({
                                             <p className="text-[10px] text-slate-500 uppercase font-bold mb-1 tracking-wider">Inicio (Prog: {fmtDT(turno.inicioProgramado)})</p>
                                             <ShiftTimeInput
                                                 value={dtVal(turno.inicioReal, turno.fecha)}
-                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
+                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado' || turno.checkInSource === 'ephemeral_qr'}
                                                 label="Inicio real"
                                                 onSave={val => {
                                                     if (turno.inicioProgramado && toMs(val, turno.fecha) < toMs(turno.inicioProgramado, turno.fecha)) {

@@ -9,13 +9,21 @@ export const QR_TTL_SECONDS = 90;
 //   - request.resource.data.mobileId == request.auth.token.mobileId
 //   - status == 'active', purpose == 'shift_check_in'
 //   - createdAt == request.time, expiresAt is bounded.
-export const generateQrToken = async ({ leaderUid, leaderName, mobileId }) => {
+export const generateQrToken = async ({ leaderUid, leaderName, mobileId, leaderLocation }) => {
   if (!leaderUid || !mobileId) throw new Error('Datos del líder incompletos.');
+  if (!leaderLocation || !Number.isFinite(leaderLocation.latitude) || !Number.isFinite(leaderLocation.longitude)) {
+    throw new Error('Ubicación del móvil no disponible. Espera a que el GPS responda.');
+  }
   const expiresAt = Timestamp.fromMillis(Date.now() + QR_TTL_SECONDS * 1000);
   const ref = await addDoc(collection(db, 'qr_activos'), {
     mobileId,
     leaderUid,
     leaderName: leaderName || null,
+    leaderLocation: {
+      latitude: leaderLocation.latitude,
+      longitude: leaderLocation.longitude,
+      accuracy: Number.isFinite(leaderLocation.accuracy) ? leaderLocation.accuracy : null,
+    },
     createdAt: serverTimestamp(),
     expiresAt,
     status: 'active',

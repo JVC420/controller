@@ -11,7 +11,14 @@ const CheckInPage = () => {
   const [searchParams] = useSearchParams();
   const tokenId = searchParams.get('token');
   const { user, role, loading: authLoading } = useAuth();
-  const { status: geoStatus, coords, error: geoError, requestLocation } = useGeolocation();
+  // NOTE: 100km es laxo a propósito para permitir pruebas en escritorio
+  // (geolocalización por IP suele dar accuracy ~50km). En producción móvil
+  // el GPS reporta ±5–50m, así que la mayoría pasará. La validación dura
+  // está en el geofence del backend, que rechaza si el tripulante no está
+  // dentro del radio respecto al móvil.
+  const { status: geoStatus, coords, error: geoError, requestLocation } = useGeolocation({
+    minAccuracyMeters: 100000,
+  });
 
   const [stage, setStage] = useState('auth');
   const [error, setError] = useState(null);
@@ -20,44 +27,54 @@ const CheckInPage = () => {
 
   // 1) Auth check
   useEffect(() => {
+    console.log('[CheckIn] auth-stage tick', { authLoading, hasUser: !!user, role, tokenId });
     if (authLoading) return;
     if (!user) {
+      console.warn('[CheckIn] no user → fail');
       setError('Debes iniciar sesión con Google.');
       setStage('failed');
       return;
     }
     const provider = user.providerData?.[0]?.providerId;
+    console.log('[CheckIn] provider:', provider);
     if (provider && provider !== 'google.com') {
       setError('Debes iniciar sesión con Google.');
       setStage('failed');
       return;
     }
     if (role !== 'tripulante') {
+      console.warn('[CheckIn] wrong role:', role);
       setError('Tu cuenta no está autorizada para registrar ingreso.');
       setStage('failed');
       return;
     }
     if (!tokenId || tokenId === 'invalid') {
+      console.warn('[CheckIn] invalid token:', tokenId);
       setError('Código inválido.');
       setStage('failed');
       return;
     }
+    console.log('[CheckIn] auth OK → stage=geo');
     setStage('geo');
   }, [authLoading, user, role, tokenId]);
 
   // 2) Geo request — kicks off automatically when entering 'geo'
   useEffect(() => {
     if (stage === 'geo' && geoStatus === 'idle') {
+      console.log('[CheckIn] geo: requesting location…');
       requestLocation();
     }
   }, [stage, geoStatus, requestLocation]);
 
   useEffect(() => {
     if (stage !== 'geo') return;
+    console.log('[CheckIn] geo-status tick', { geoStatus, coords, geoError });
     if (geoStatus === 'error') {
+      console.warn('[CheckIn] geo error:', geoError);
       setError(geoError?.message || 'No pudimos obtener tu ubicación.');
       setStage('failed');
     } else if (geoStatus === 'success' && coords) {
+      console.log('[CheckIn] geo OK', coords);
       setStage('register');
     }
   }, [stage, geoStatus, geoError, coords]);
@@ -69,8 +86,10 @@ const CheckInPage = () => {
     submittedRef.current = true;
 
     (async () => {
+      console.log('[CheckIn] register: calling validateAndCheckIn', { tokenId, coords });
       try {
         const result = await validateAndCheckIn({ tokenId, location: coords });
+        console.log('[CheckIn] register OK', result);
         setSuccess({
           userName: result?.userName || user.displayName || user.email,
           mobileId: result?.mobileId,
@@ -78,6 +97,7 @@ const CheckInPage = () => {
         });
         setStage('done');
       } catch (err) {
+        console.error('[CheckIn] register failed', { code: err?.code, message: err?.message, raw: err });
         setError(err?.message || 'No pudimos registrar tu ingreso.');
         setStage('failed');
       }
