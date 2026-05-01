@@ -97,7 +97,7 @@ const AmbulanceCard = ({ ambulance, turnosHoy = [], onStatusChange, serviceReque
                     </div>
                     <div className="min-w-0">
                         <h3 className="text-lg font-bold text-white tracking-wide truncate">{ambulance.id}</h3>
-                        <p className="text-xs text-slate-400 font-medium truncate">{ambulance.tipo.toUpperCase()}</p>
+                        <p className="text-xs text-slate-400 font-medium truncate">{ambulance.tipo?.toUpperCase() || 'N/A'}</p>
                     </div>
                 </div>
                 {/* Modifiable Status */}
