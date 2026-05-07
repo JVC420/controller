@@ -28,7 +28,7 @@ export const ROLES = {
   },
   tripulante: {
     label: 'Tripulante',
-    routes: ['/checkin', '/ingreso'],
+    routes: ['/checkin', '/ingreso', '/salida'],
   },
   lider_movil: {
     label: 'Líder de Móvil',

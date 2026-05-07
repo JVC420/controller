@@ -33,11 +33,12 @@ export const useGeolocation = ({ minAccuracyMeters = 200, options = DEFAULT_OPTI
       (pos) => {
         if (cancelledRef.current) return;
         const { latitude, longitude, accuracy } = pos.coords;
-        if (accuracy && accuracy > minAccuracyMeters) {
-          setStatus('error');
-          setError({ code: 'low-accuracy', message: `Precisión insuficiente (${Math.round(accuracy)}m). Sal a un área abierta.` });
-          return;
-        }
+        // TESTING: Temporalmente deshabilitada la restricción de precisión
+        // if (accuracy && accuracy > minAccuracyMeters) {
+        //   setStatus('error');
+        //   setError({ code: 'low-accuracy', message: `Precisión insuficiente (${Math.round(accuracy)}m). Sal a un área abierta.` });
+        //   return;
+        // }
         const payload = {
           latitude,
           longitude,

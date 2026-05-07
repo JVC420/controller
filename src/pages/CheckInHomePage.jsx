@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, ScanLine, UserCircle2 } from 'lucide-react';
+import { LogOut, ScanLine, UserCircle2, LogIn, LogOut as LogOutShift } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import QrScanner from '../components/checkin/QrScanner';
 
-// Welcome screen shown to a tripulante after Google login.
-// One primary action: open scanner → on detect → navigate to /ingreso?token=...
+// Welcome screen for tripulantes. Two actions, both share the same QR;
+// the chosen action (in/out) determines which Cloud Function gets called.
 const CheckInHomePage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [showScanner, setShowScanner] = useState(false);
+  const [scannerFor, setScannerFor] = useState(null); // 'in' | 'out' | null
 
   const handleDetected = (decodedText) => {
-    setShowScanner(false);
+    const action = scannerFor;
+    setScannerFor(null);
     try {
       const url = new URL(decodedText);
       const token = url.searchParams.get('token');
       if (!token) throw new Error('QR sin token');
-      navigate(`/ingreso?token=${encodeURIComponent(token)}`);
+      const target = action === 'out' ? '/salida' : '/ingreso';
+      navigate(`${target}?token=${encodeURIComponent(token)}`);
     } catch {
-      // If the QR isn't a URL we recognize, surface a soft error via query
-      navigate('/ingreso?token=invalid');
+      const target = action === 'out' ? '/salida' : '/ingreso';
+      navigate(`${target}?token=invalid`);
     }
   };
 
@@ -52,23 +54,33 @@ const CheckInHomePage = () => {
           <p className="text-slate-300 mt-1">{user?.displayName || user?.email}</p>
         </div>
         <p className="text-slate-400 text-sm max-w-sm">
-          Para registrar tu ingreso al turno, escanea el código QR que está en la tablet de tu móvil.
+          Escanea el código QR de la tablet del móvil para registrar tu ingreso o tu salida del turno.
         </p>
 
-        <button
-          type="button"
-          onClick={() => setShowScanner(true)}
-          className="w-full max-w-sm inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-2xl transition-colors shadow-lg shadow-blue-900/30"
-        >
-          <ScanLine size={20} />
-          Registrar asistencia
-        </button>
+        <div className="w-full max-w-sm flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setScannerFor('in')}
+            className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-2xl transition-colors shadow-lg shadow-blue-900/30"
+          >
+            <LogIn size={20} />
+            Registrar ingreso
+          </button>
+          <button
+            type="button"
+            onClick={() => setScannerFor('out')}
+            className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-4 rounded-2xl transition-colors shadow-lg shadow-emerald-900/30"
+          >
+            <LogOutShift size={20} />
+            Registrar salida
+          </button>
+        </div>
       </main>
 
-      {showScanner && (
+      {scannerFor && (
         <QrScanner
           onDetected={handleDetected}
-          onClose={() => setShowScanner(false)}
+          onClose={() => setScannerFor(null)}
         />
       )}
     </div>

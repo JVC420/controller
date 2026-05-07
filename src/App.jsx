@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LeaderQrPage from './pages/LeaderQrPage';
 import CheckInHomePage from './pages/CheckInHomePage';
 import CheckInPage from './pages/CheckInPage';
+import CheckOutPage from './pages/CheckOutPage';
 import Sidebar from './components/Sidebar';
 import TriageBoard from './components/TriageBoard';
 import FleetMonitor from './components/FleetMonitor';
@@ -718,6 +719,7 @@ function KioskRoutes() {
       <Routes>
         <Route path="/checkin" element={<CheckInHomePage />} />
         <Route path="/ingreso" element={<CheckInPage />} />
+        <Route path="/salida" element={<CheckOutPage />} />
         <Route path="*" element={<Navigate to="/checkin" replace />} />
       </Routes>
     );

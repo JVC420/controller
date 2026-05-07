@@ -175,7 +175,7 @@ const PersonnelLiveShifts = ({
                                             <div className="flex items-center gap-1.5">
                                                 <ShiftTimeInput
                                                     value={dtVal(turno.horaFinReal, turno.fecha)}
-                                                    disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
+                                                    disabled={isCancelled || isAbsent || status.label === 'Finalizado' || turno.checkOutSource === 'ephemeral_qr'}
                                                     overtime={overtime}
                                                     label="Salida real"
                                                     onSave={val => {
@@ -331,7 +331,7 @@ const PersonnelLiveShifts = ({
                                             </p>
                                             <ShiftTimeInput
                                                 value={dtVal(turno.horaFinReal, turno.fecha)}
-                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
+                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado' || turno.checkOutSource === 'ephemeral_qr'}
                                                 overtime={overtime}
                                                 label="Salida real"
                                                 onSave={val => {
@@ -410,7 +410,7 @@ const PersonnelLiveShifts = ({
                                             </p>
                                             <ShiftTimeInput
                                                 value={dtVal(turno.horaFinReal, turno.fecha)}
-                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado'}
+                                                disabled={isCancelled || isAbsent || status.label === 'Finalizado' || turno.checkOutSource === 'ephemeral_qr'}
                                                 overtime={overtime}
                                                 label="Salida real"
                                                 onSave={val => {
