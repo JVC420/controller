@@ -50,7 +50,14 @@ export default function StorageCrewConsumptionPage() {
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return [];
-    return products.filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const term = searchTerm.toLowerCase();
+    return products.filter((p) => {
+      const name = (p.name || '').toLowerCase();
+      const marca = (p.marca || '').toLowerCase();
+      const batch = (p.batchNumber || '').toLowerCase();
+      const code = (p.code || '').toLowerCase();
+      return name.includes(term) || marca.includes(term) || batch.includes(term) || code.includes(term);
+    });
   }, [products, searchTerm]);
 
   const addToCart = (product) => {
@@ -234,11 +241,24 @@ export default function StorageCrewConsumptionPage() {
                     onClick={() => addToCart(product)}
                     className="w-full text-left px-4 py-3 hover:bg-slate-800/80 flex justify-between items-center border-b border-slate-700/40 last:border-0 transition-colors"
                   >
-                    <div>
-                      <div className="font-medium text-slate-200">{product.name}</div>
-                      <div className="text-xs text-slate-500">{product.presentation}</div>
+                    <div className="min-w-0 flex-1 pr-3">
+                      <div className="font-medium text-slate-200 truncate">{product.name}</div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                        {product.code && (
+                          <span className="text-xs font-mono text-slate-300">{product.code}</span>
+                        )}
+                        {product.marca && (
+                          <span className="text-xs text-blue-300">{product.marca}</span>
+                        )}
+                        {product.batchNumber && (
+                          <span className="text-xs text-amber-300/90">Lote: {product.batchNumber}</span>
+                        )}
+                        {product.presentation && (
+                          <span className="text-xs text-slate-500">{product.presentation}</span>
+                        )}
+                      </div>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-xs border ${product.stockCurrent > 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-red-500/15 text-red-400 border-red-500/20'}`}>
+                    <span className={`shrink-0 px-2 py-0.5 rounded text-xs border ${product.stockCurrent > 0 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-red-500/15 text-red-400 border-red-500/20'}`}>
                       Stock: {product.stockCurrent}
                     </span>
                   </button>
@@ -270,7 +290,18 @@ export default function StorageCrewConsumptionPage() {
                 <div key={item.product.id} className="p-4 flex items-center justify-between hover:bg-slate-800/30 transition-colors">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-slate-200 truncate">{item.product.name}</h3>
-                    <p className="text-xs text-slate-500">Disponible: {item.product.stockCurrent}</p>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                      {item.product.code && (
+                        <span className="text-xs font-mono text-slate-300">{item.product.code}</span>
+                      )}
+                      {item.product.marca && (
+                        <span className="text-xs text-blue-300">{item.product.marca}</span>
+                      )}
+                      {item.product.batchNumber && (
+                        <span className="text-xs text-amber-300/90">Lote: {item.product.batchNumber}</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">Disponible: {item.product.stockCurrent}</p>
                   </div>
 
                   <div className="flex items-center gap-4 ml-4">
