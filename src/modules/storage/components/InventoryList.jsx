@@ -1,5 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { AlertCircle, Package, Search, Pencil, ArrowRightLeft, Eye } from 'lucide-react';
+import { AlertCircle, Package, Search, Pencil, ArrowRightLeft, Eye, X } from 'lucide-react';
+
+const CATEGORY_OPTIONS = ['Medicamento', 'Dispositivo', 'Reactivo', 'Gas'];
+const STATUS_OPTIONS = [
+  { value: 'available', label: 'Disponible' },
+  { value: 'low', label: 'Bajo stock' },
+  { value: 'out', label: 'Agotado' },
+];
+
+function getStatusValue(stock, min) {
+  if (stock <= 0) return 'out';
+  if (stock <= min) return 'low';
+  return 'available';
+}
 
 function getStockColor(current, min) {
   if (current <= 0) return 'bg-red-500/15 text-red-400 border border-red-500/20';
@@ -21,14 +34,46 @@ function StatusBadge({ stock, min }) {
 
 export default function InventoryList({ products = [], loading = false, error = '', onEdit, onAdjust, onViewDetail }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+
+  const availableCategories = useMemo(() => {
+    const set = new Set();
+    products.forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    CATEGORY_OPTIONS.forEach((c) => set.add(c));
+    return Array.from(set).sort();
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     const query = searchTerm.toLowerCase();
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(query) ||
-      p.code.toLowerCase().includes(query)
-    );
-  }, [products, searchTerm]);
+    return products.filter((p) => {
+      const matchesQuery =
+        (p.name || '').toLowerCase().includes(query) ||
+        (p.code || '').toLowerCase().includes(query);
+      if (!matchesQuery) return false;
+
+      if (categoryFilter !== 'all') {
+        const productCategory = p.category || 'Medicamento';
+        if (productCategory !== categoryFilter) return false;
+      }
+
+      if (statusFilter !== 'all') {
+        const status = getStatusValue(p.stockCurrent, p.minStock);
+        if (status !== statusFilter) return false;
+      }
+
+      return true;
+    });
+  }, [products, searchTerm, statusFilter, categoryFilter]);
+
+  const hasActiveFilters = statusFilter !== 'all' || categoryFilter !== 'all' || searchTerm.length > 0;
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setCategoryFilter('all');
+    setSearchTerm('');
+  };
 
   if (loading) {
     return (
@@ -47,19 +92,62 @@ export default function InventoryList({ products = [], loading = false, error = 
         </div>
       )}
 
-      <div className="p-4 border-b border-slate-700/70 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h2 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
-          <Package className="w-5 h-5 text-blue-400" /> Inventario general
-        </h2>
-        <div className="relative w-full sm:w-72">
-          <input
-            type="text"
-            placeholder="Buscar por nombre o codigo..."
-            className="w-full bg-dark-900 border border-slate-700 rounded-lg py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-blue-500"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+      <div className="p-4 border-b border-slate-700/70 flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <h2 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-400" /> Inventario general
+            <span className="text-xs font-normal text-slate-400 bg-dark-900 px-2 py-0.5 rounded-full border border-slate-700">
+              {filteredProducts.length}
+            </span>
+          </h2>
+          <div className="relative w-full sm:w-72">
+            <input
+              type="text"
+              placeholder="Buscar por nombre o codigo..."
+              className="w-full bg-dark-900 border border-slate-700 rounded-lg py-2.5 pl-10 pr-3 text-sm text-white focus:outline-none focus:border-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1 min-w-0">
+            <label className="block text-xs font-medium text-slate-400 mb-1">Estado</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full bg-dark-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">Todos los estados</option>
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-0">
+            <label className="block text-xs font-medium text-slate-400 mb-1">Categoria</label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full bg-dark-900 border border-slate-700 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="all">Todas las categorias</option>
+              {availableCategories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-700 bg-dark-900 text-slate-300 hover:bg-slate-700/70 hover:text-white transition-colors text-sm"
+            >
+              <X className="w-4 h-4" /> Limpiar
+            </button>
+          )}
         </div>
       </div>
 

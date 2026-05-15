@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Package, ArrowLeft } from 'lucide-react';
 import InventoryList from '../components/InventoryList';
+import InventoryAlertsPanel from '../components/InventoryAlertsPanel';
 import ProductForm from '../components/ProductForm';
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductDetailModal from '../components/ProductDetailModal';
@@ -41,6 +42,11 @@ export default function StorageInventoryPage() {
             <Plus className="w-5 h-5" /> Nuevo producto
           </button>
         </div>
+
+        <InventoryAlertsPanel
+          products={products}
+          onViewDetail={(product) => setViewingProduct(product)}
+        />
 
         <InventoryList
           products={products}
