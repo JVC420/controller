@@ -200,13 +200,15 @@ export default function InventoryList({ products = [], loading = false, error = 
                       >
                         <ArrowRightLeft className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => onEdit(product)}
-                        className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-lg transition-all"
-                        title="Editar producto"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      {onEdit && (
+                        <button
+                          onClick={() => onEdit(product)}
+                          className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded-lg transition-all"
+                          title="Editar producto"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

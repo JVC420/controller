@@ -53,9 +53,15 @@ service cloud.firestore {
     }
     
     // PRODUCTOS
-    match /products/{docId} 
+    // Almacen puede crear productos y registrar movimientos (que ajustan stockCurrent),
+    // pero NO puede editar metadatos del producto. Solo administrador_general puede
+    // actualizar cualquier otro campo.
+    match /products/{docId}
     {
-       allow read,create,update: if isAdminGeneral() || isRoleAlmacen();
+       allow read, create: if isAdminGeneral() || isRoleAlmacen();
+       allow update: if isAdminGeneral()
+          || (isRoleAlmacen()
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockCurrent', 'updatedAt']));
     }
     
     // COUNTERS DE PRODUCTOS

@@ -7,8 +7,11 @@ import ProductForm from '../components/ProductForm';
 import StockAdjustmentModal from '../components/StockAdjustmentModal';
 import ProductDetailModal from '../components/ProductDetailModal';
 import { useStorageData } from '../context/StorageDataContext';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function StorageInventoryPage() {
+  const { role } = useAuth();
+  const canEditInventory = role === 'administrador_general';
   const { products, loadingProducts, errorProducts } = useStorageData();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -52,7 +55,7 @@ export default function StorageInventoryPage() {
           products={products}
           loading={loadingProducts}
           error={errorProducts}
-          onEdit={(product) => setEditingProduct(product)}
+          onEdit={canEditInventory ? (product) => setEditingProduct(product) : null}
           onAdjust={(product) => setAdjustingProduct(product)}
           onViewDetail={(product) => setViewingProduct(product)}
         />
