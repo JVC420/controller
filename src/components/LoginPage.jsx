@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/a
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase/config';
 import { useAuth, ROLES } from '../contexts/AuthContext';
+import { logEvent } from '../services/auditService';
 import { Activity, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
 const GoogleIcon = ({ size = 20 }) => (
@@ -35,7 +36,15 @@ const LoginPage = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      await logEvent({ action: 'login', entity: 'session', metadata: { method: 'password', email } });
     } catch (err) {
+      await logEvent({
+        action: 'login',
+        entity: 'session',
+        success: false,
+        errorMessage: err?.code || err?.message || 'unknown',
+        metadata: { method: 'password', email },
+      });
       switch (err.code) {
         case 'auth/invalid-credential':
           setError('Correo o contraseña incorrectos.');
@@ -63,6 +72,13 @@ const LoginPage = () => {
       const userEmail = (cred.user.email || '').toLowerCase();
 
       if (claimRole !== 'tripulante' && claimRole !== 'lider_movil') {
+        await logEvent({
+          action: 'login',
+          entity: 'session',
+          success: false,
+          errorMessage: 'unauthorized_role',
+          metadata: { method: 'google', email: userEmail, claimRole: claimRole || null },
+        });
         await signOut(auth);
         setError('Esta cuenta de Google no está autorizada. Contacta al administrador.');
         return;
@@ -73,11 +89,24 @@ const LoginPage = () => {
           query(collection(db, 'empleados'), where('email', '==', userEmail), limit(1))
         );
         if (snap.empty) {
+          await logEvent({
+            action: 'login',
+            entity: 'session',
+            success: false,
+            errorMessage: 'no_empleado_record',
+            metadata: { method: 'google', email: userEmail, claimRole },
+          });
           await signOut(auth);
           setError('No encontramos tu registro de empleado. Contacta a Recursos Humanos.');
           return;
         }
       }
+
+      await logEvent({
+        action: 'login',
+        entity: 'session',
+        metadata: { method: 'google', email: userEmail, claimRole },
+      });
 
       // Para lider_movil sin mobileId NO hacemos signOut: dejamos pasar al /lider,
       // donde se muestra una pantalla de diagnóstico con los claims actuales y un

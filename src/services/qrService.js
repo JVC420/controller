@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, getDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { logEvent } from './auditService';
 
 export const QR_TTL_SECONDS = 90;
 
@@ -28,6 +29,17 @@ export const generateQrToken = async ({ leaderUid, leaderName, mobileId, leaderL
     expiresAt,
     status: 'active',
     purpose: 'shift_check_in',
+  });
+  await logEvent({
+    action: 'create',
+    entity: 'qr_token',
+    entityId: ref.id,
+    metadata: {
+      purpose: 'shift_check_in',
+      mobileId,
+      leaderUid,
+      ttlSeconds: QR_TTL_SECONDS,
+    },
   });
   return { tokenId: ref.id, expiresAtMs: expiresAt.toMillis() };
 };

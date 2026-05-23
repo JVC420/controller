@@ -178,6 +178,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     
+    // AUDIT LOGS
+    // Solo administrador_general puede leer.
+    // Cualquier usuario autenticado puede crear su propio registro (auditoría
+    // append-only). Nadie puede editar ni borrar desde el cliente.
+    match /audit_logs/{docId} {
+      allow read: if isAdminGeneral();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     // Denegar todo lo no definido
     match /{document=**} {
       allow read, write: if false;

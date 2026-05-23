@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase/config';
+import { logEvent } from './auditService';
 
 const ERROR_MESSAGES = {
   'token-not-found': 'Código inválido o no encontrado.',
@@ -20,6 +21,16 @@ export const validateAndCheckOut = async ({ tokenId, location }) => {
   const callable = httpsCallable(functions, 'validateAndCheckOut');
   try {
     const result = await callable({ tokenId, location });
+    await logEvent({
+      action: 'business',
+      entity: 'check_out',
+      entityId: result?.data?.turnoId || tokenId,
+      metadata: {
+        event: 'check_out_success',
+        tokenId,
+        mobileId: result?.data?.mobileId || null,
+      },
+    });
     return result.data;
   } catch (err) {
     const detailsCode = err?.details?.code;
@@ -27,6 +38,14 @@ export const validateAndCheckOut = async ({ tokenId, location }) => {
     const friendly = dynamicCodes.has(detailsCode) && err?.message
       ? err.message
       : (ERROR_MESSAGES[detailsCode] || err?.message || 'No pudimos registrar tu salida.');
+    await logEvent({
+      action: 'business',
+      entity: 'check_out',
+      entityId: tokenId,
+      success: false,
+      errorMessage: detailsCode || err?.code || 'unknown',
+      metadata: { event: 'check_out_failure', tokenId },
+    });
     const wrapped = new Error(friendly);
     wrapped.code = detailsCode || err?.code || 'unknown';
     throw wrapped;

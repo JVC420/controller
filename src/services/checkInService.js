@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase/config';
+import { logEvent } from './auditService';
 
 // Maps Cloud Function error codes / messages to user-friendly text.
 const ERROR_MESSAGES = {
@@ -21,16 +22,31 @@ export const validateAndCheckIn = async ({ tokenId, location }) => {
   const callable = httpsCallable(functions, 'validateAndCheckIn');
   try {
     const result = await callable({ tokenId, location });
+    await logEvent({
+      action: 'business',
+      entity: 'check_in',
+      entityId: result?.data?.turnoId || tokenId,
+      metadata: {
+        event: 'check_in_success',
+        tokenId,
+        mobileId: result?.data?.mobileId || null,
+      },
+    });
     return result.data; // { ok: true, turnoId, mobileId, checkInAtMs, userName }
   } catch (err) {
-    // err.code is 'functions/<httpsError-code>' for HttpsError
     const detailsCode = err?.details?.code;
-    // Para códigos cuyo mensaje del servidor incluye datos dinámicos
-    // (p.ej. distancia en metros), preferimos el mensaje del servidor.
     const dynamicCodes = new Set(['out-of-range']);
     const friendly = dynamicCodes.has(detailsCode) && err?.message
       ? err.message
       : (ERROR_MESSAGES[detailsCode] || err?.message || 'No pudimos registrar tu ingreso.');
+    await logEvent({
+      action: 'business',
+      entity: 'check_in',
+      entityId: tokenId,
+      success: false,
+      errorMessage: detailsCode || err?.code || 'unknown',
+      metadata: { event: 'check_in_failure', tokenId },
+    });
     const wrapped = new Error(friendly);
     wrapped.code = detailsCode || err?.code || 'unknown';
     throw wrapped;

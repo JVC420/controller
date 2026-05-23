@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
+import { logEvent } from '../services/auditService';
 import {
     AMBULANCE_OPERATIONAL_STATUS,
     canAssignRequestToAmbulance,
@@ -320,17 +321,22 @@ export const useDashboardData = (activeRoute = '/') => {
     // ── CLIENT Operations ─────────────────────────────────────────────────────
     const createClient = async (clientObj) => {
         const { id, ...data } = clientObj;
+        let newId = id;
         if (id) {
             await setDoc(doc(db, 'clientes', id), data);
         } else {
-            await addDoc(collection(db, 'clientes'), data);
+            const ref = await addDoc(collection(db, 'clientes'), data);
+            newId = ref.id;
         }
+        await logEvent({ action: 'create', entity: 'client', entityId: newId, after: data });
     };
 
     const updateClient = async (clientObj) => {
         const { id, ...data } = clientObj;
         if (!id) return;
+        const before = clientesMap.get(id) || null;
         await updateDoc(doc(db, 'clientes', id), data);
+        await logEvent({ action: 'update', entity: 'client', entityId: id, before, after: data });
     };
 
     // ── FLEET Operations ──────────────────────────────────────────────────────
@@ -343,15 +349,20 @@ export const useDashboardData = (activeRoute = '/') => {
         data.estadoOperativoActualizadoAt = serverTimestamp();
         data.tripulacionIncompletaDesde = serverTimestamp();
         data.listaAsignacionDesde = null;
+        let newId = id;
         if (id) {
             await setDoc(doc(db, 'flota', id), data);
         } else {
-            await addDoc(collection(db, 'flota'), data);
+            const ref = await addDoc(collection(db, 'flota'), data);
+            newId = ref.id;
         }
+        await logEvent({ action: 'create', entity: 'ambulance', entityId: newId, after: data });
     };
 
     const updateAmbulanceStatus = async (ambulanceId, newStatus) => {
         const ref = doc(db, 'flota', ambulanceId);
+        const beforeAmb = flota.find((a) => a.id === ambulanceId) || null;
+        const before = beforeAmb ? { estado: beforeAmb.estado } : null;
         const update = { estado: newStatus };
         if (newStatus === 'Disponible') {
             update.destino = null;
@@ -368,6 +379,14 @@ export const useDashboardData = (activeRoute = '/') => {
             update.tripulacionIncompletaDesde = null;
         }
         await updateDoc(ref, update);
+        await logEvent({
+            action: 'update',
+            entity: 'ambulance',
+            entityId: ambulanceId,
+            before,
+            after: { estado: newStatus },
+            changes: ['estado'],
+        });
     };
 
     // ── Sequential REQ-ID generator ────────────────────────────────────────────
@@ -409,6 +428,17 @@ export const useDashboardData = (activeRoute = '/') => {
         } catch (error) {
             console.warn('No se pudo actualizar pacientes_cache:', error);
         }
+
+        await logEvent({
+            action: 'create',
+            entity: 'request',
+            entityId: solicitudId,
+            redactPayload: true,
+            metadata: {
+                estado: data?.estado || 'Pendiente',
+                clienteId: data?.entidadInfo?.idEntidad || data?.clienteId || null,
+            },
+        });
     };
 
     const updateRealRequest = async (requestObj) => {
@@ -418,6 +448,13 @@ export const useDashboardData = (activeRoute = '/') => {
         delete data.creadoAt;
         data.actualizadoAt = serverTimestamp();
         await updateDoc(doc(db, 'solicitudes', id), data);
+        await logEvent({
+            action: 'update',
+            entity: 'request',
+            entityId: id,
+            redactPayload: true,
+            metadata: { estado: data?.estado || null },
+        });
     };
 
     const assignAmbulance = async (reqId, ambulanceId) => {
@@ -444,6 +481,12 @@ export const useDashboardData = (activeRoute = '/') => {
             tripulacionIncompletaDesde: null,
         });
         await batch.commit();
+        await logEvent({
+            action: 'business',
+            entity: 'request',
+            entityId: reqId,
+            metadata: { event: 'assign_ambulance', ambulanceId, placa: ambulance?.placa || null },
+        });
     };
 
     const closeService = async (reqId, ambulanceId) => {
@@ -476,10 +519,24 @@ export const useDashboardData = (activeRoute = '/') => {
                 finalizadoAt: new Date().toISOString()
             }]);
         }
+
+        await logEvent({
+            action: 'business',
+            entity: 'request',
+            entityId: reqId,
+            metadata: { event: 'close_service', ambulanceId: ambulanceId || null },
+        });
     };
 
     const updateServiceChecklist = async (reqId, checklist) => {
         await updateDoc(doc(db, 'solicitudes', reqId), { checklist });
+        await logEvent({
+            action: 'update',
+            entity: 'request',
+            entityId: reqId,
+            changes: ['checklist'],
+            metadata: { event: 'checklist_update' },
+        });
     };
 
     const assertServiceNotFinalized = async (reqId) => {
@@ -507,6 +564,14 @@ export const useDashboardData = (activeRoute = '/') => {
             },
             actualizadoAt: serverTimestamp(),
         });
+        await logEvent({
+            action: 'update',
+            entity: 'request',
+            entityId: reqId,
+            changes: ['historiaClinicaArchivo'],
+            redactPayload: true,
+            metadata: { event: 'historia_clinica_upload' },
+        });
     };
 
     const clearServiceHistoriaClinicaFile = async (reqId) => {
@@ -515,6 +580,14 @@ export const useDashboardData = (activeRoute = '/') => {
         await updateDoc(reqRef, {
             historiaClinicaArchivo: deleteField(),
             actualizadoAt: serverTimestamp(),
+        });
+        await logEvent({
+            action: 'update',
+            entity: 'request',
+            entityId: reqId,
+            changes: ['historiaClinicaArchivo'],
+            redactPayload: true,
+            metadata: { event: 'historia_clinica_clear' },
         });
     };
 
@@ -552,6 +625,15 @@ export const useDashboardData = (activeRoute = '/') => {
 
         batch.update(doc(db, 'solicitudes', reqId), solicitudUpdate);
         await batch.commit();
+        await logEvent({
+            action: 'business',
+            entity: 'request',
+            entityId: reqId,
+            metadata: {
+                event: 'status_to_review',
+                releasedAmbulanceId: req.ambulanciaAsignada || null,
+            },
+        });
     };
 
     // Marca solicitud como fallida.
@@ -586,20 +668,34 @@ export const useDashboardData = (activeRoute = '/') => {
 
         batch.update(doc(db, 'solicitudes', reqId), solicitudUpdate);
         await batch.commit();
+        await logEvent({
+            action: 'business',
+            entity: 'request',
+            entityId: reqId,
+            metadata: {
+                event: 'mark_failed',
+                releasedAmbulanceId: hasAssignedAmbulance ? req.ambulanciaAsignada : null,
+            },
+        });
     };
 
     // ── EMPLOYEE Operations ───────────────────────────────────────────────────
     const addEmpleado = async (empObj) => {
         const { id, ...data } = empObj;
+        let newId = id;
         if (id) {
             await setDoc(doc(db, 'empleados', id), data);
         } else {
-            await addDoc(collection(db, 'empleados'), data);
+            const ref = await addDoc(collection(db, 'empleados'), data);
+            newId = ref.id;
         }
+        await logEvent({ action: 'create', entity: 'empleado', entityId: newId, after: data });
     };
 
     const updateEmpleado = async (empId, changes) => {
+        const before = empleados.find((e) => e.id === empId) || null;
         await updateDoc(doc(db, 'empleados', empId), changes);
+        await logEvent({ action: 'update', entity: 'empleado', entityId: empId, before, after: changes });
     };
 
     // ── SHIFT Operations ──────────────────────────────────────────────────────
@@ -618,6 +714,8 @@ export const useDashboardData = (activeRoute = '/') => {
             const ref = await addDoc(collection(db, 'turnos'), data);
             turnoId = ref.id;
         }
+
+        await logEvent({ action: 'create', entity: 'turno', entityId: turnoId, after: data });
 
         const movilId = data.movil;
         if (movilId && movilId !== 'Sin Asignar') {
@@ -647,6 +745,13 @@ export const useDashboardData = (activeRoute = '/') => {
         };
 
         await updateDoc(doc(db, 'turnos', turnoId), enrichedChanges);
+        await logEvent({
+            action: 'update',
+            entity: 'turno',
+            entityId: turnoId,
+            before: existingTurno || null,
+            after: enrichedChanges,
+        });
 
         // Only re-evaluate operational fleet state when crew composition can change.
         const crewAffectingFields = [
@@ -686,15 +791,27 @@ export const useDashboardData = (activeRoute = '/') => {
     };
 
     const updateFlota = async (flotaId, changes) => {
+        const before = flota.find((a) => a.id === flotaId) || null;
         await updateDoc(doc(db, 'flota', flotaId), changes);
+        await logEvent({ action: 'update', entity: 'ambulance', entityId: flotaId, before, after: changes });
     };
 
     // ── Simple status update (no full payload validation) ─────────────────────
     const updateRequestStatusDirect = async (reqId, newStatus, extraFields = {}) => {
+        const beforeSol = solicitudes.find((s) => s.id === reqId);
+        const before = beforeSol ? { estado: beforeSol.estado } : null;
         await updateDoc(doc(db, 'solicitudes', reqId), {
             estado: newStatus,
             actualizadoAt: serverTimestamp(),
             ...extraFields,
+        });
+        await logEvent({
+            action: 'update',
+            entity: 'request',
+            entityId: reqId,
+            before,
+            after: { estado: newStatus, ...extraFields },
+            changes: ['estado', ...Object.keys(extraFields)],
         });
     };
 

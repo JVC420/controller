@@ -13,6 +13,7 @@ import {
   getCountFromServer,
 } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
+import { logEvent } from '../../../services/auditService';
 
 export const InventoryService = {
   getCategoryCodeMeta(category) {
@@ -140,6 +141,20 @@ export const InventoryService = {
       });
     }
 
+    await logEvent({
+      action: 'create',
+      entity: 'inventory_product',
+      entityId: docRef.id,
+      after: {
+        code: newProduct.code,
+        name: newProduct.name,
+        category: newProduct.category,
+        stockCurrent: newProduct.stockCurrent,
+        minStock: newProduct.minStock,
+      },
+      metadata: { initialStock },
+    });
+
     return { id: docRef.id, ...newProduct };
   },
 
@@ -152,6 +167,12 @@ export const InventoryService = {
       code: String(updates.code || '').trim(),
       updatedAt: serverTimestamp(),
     });
+    await logEvent({
+      action: 'update',
+      entity: 'inventory_product',
+      entityId: productId,
+      after: updates,
+    });
   },
 
   async registerMovement(productId, type, quantity, reason, userId, extraData = null) {
@@ -159,6 +180,7 @@ export const InventoryService = {
 
     const productRef = doc(db, 'products', productId);
     const movementsRef = collection(db, 'movements');
+    let movementSummary = null;
 
     await runTransaction(db, async (transaction) => {
       const productDoc = await transaction.get(productRef);
@@ -202,7 +224,26 @@ export const InventoryService = {
       }
 
       transaction.set(newMovementRef, payload);
+      movementSummary = {
+        productId,
+        productName,
+        type,
+        quantity,
+        reason,
+        stockBefore: currentStock,
+        stockAfter: newStock,
+      };
     });
+
+    if (movementSummary) {
+      await logEvent({
+        action: 'business',
+        entity: 'inventory_product',
+        entityId: productId,
+        changes: ['stockCurrent'],
+        metadata: { event: 'movement', ...movementSummary },
+      });
+    }
 
     return { success: true, message: 'Inventario actualizado correctamente.' };
   },

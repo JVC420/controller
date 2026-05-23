@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../firebase/config';
+import { logEvent, setAuditRole } from '../services/auditService';
 
 const AuthContext = createContext(null);
 
@@ -48,12 +49,15 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         const tokenResult = await firebaseUser.getIdTokenResult();
-        setRole(tokenResult.claims.role || null);
+        const nextRole = tokenResult.claims.role || null;
+        setRole(nextRole);
+        setAuditRole(nextRole);
         setMobileId(tokenResult.claims.mobileId || null);
         setUser(firebaseUser);
       } else {
         setUser(null);
         setRole(null);
+        setAuditRole(null);
         setMobileId(null);
       }
       setLoading(false);
@@ -66,7 +70,14 @@ export const AuthProvider = ({ children }) => {
     return ROLES[role].routes.includes(path);
   };
 
-  const logout = () => signOut(auth);
+  const logout = async () => {
+    await logEvent({
+      action: 'logout',
+      entity: 'session',
+      metadata: { email: auth.currentUser?.email || null },
+    });
+    return signOut(auth);
+  };
 
   return (
     <AuthContext.Provider value={{ user, role, mobileId, loading, logout, hasAccess }}>
