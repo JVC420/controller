@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, pointerWithin, useSensor, useSensors, PointerS
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import LeaderQrPage from './pages/LeaderQrPage';
+import LeaderInventoryPage from './pages/LeaderInventoryPage';
 import CheckInHomePage from './pages/CheckInHomePage';
 import CheckInPage from './pages/CheckInPage';
 import CheckOutPage from './pages/CheckOutPage';
@@ -710,6 +711,7 @@ function KioskRoutes() {
     return (
       <Routes>
         <Route path="/lider" element={<LeaderQrPage />} />
+        <Route path="/lider/inventario" element={<LeaderInventoryPage />} />
         <Route path="*" element={<Navigate to="/lider" replace />} />
       </Routes>
     );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, AlertCircle, Clock, TrendingUp, ArrowRight, Activity, BarChart3 } from 'lucide-react';
+import { Package, AlertCircle, Clock, TrendingUp, ArrowRight, Activity, BarChart3, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStorageData } from '../context/StorageDataContext';
 
@@ -113,6 +113,19 @@ export default function StorageDashboardPage() {
               </div>
             </div>
             <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
+          </Link>
+
+          <Link to="/almacen/moviles" className="bg-dark-800 border border-slate-700 rounded-xl p-5 hover:border-blue-500/40 transition-all group flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                <Truck className="w-5 h-5 text-blue-300" />
+              </div>
+              <div>
+                <p className="font-medium text-slate-200">Inventarios por móvil</p>
+                <p className="text-xs text-slate-500">Stock actual de cada ambulancia</p>
+              </div>
+            </div>
+            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-blue-300 transition-colors" />
           </Link>
         </div>
       </div>

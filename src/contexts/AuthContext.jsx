@@ -33,7 +33,7 @@ export const ROLES = {
   },
   lider_movil: {
     label: 'Líder de Móvil',
-    routes: ['/lider'],
+    routes: ['/lider', '/lider/inventario'],
   },
 };
 

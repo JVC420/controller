@@ -122,10 +122,38 @@ service cloud.firestore {
     
     // FLOTA
     match /flota/{docId} {
-      allow read: if isControladorOrAdmin() || isRHOrAdmin() || isRoleAlmacen();
+      allow read: if isControladorOrAdmin() || isRHOrAdmin() || isRoleAlmacen() || isLeader() || isTripulante();
       allow create, delete: if false;
       allow update: if isControladorOrAdmin();
       allow create, update, delete: if isAdminGeneral();
+    }
+
+    // INVENTARIO POR MÓVIL (subcolección de flota)
+    // Cada ambulancia mantiene su propio stock. Almacén puede sembrar/ajustar
+    // (despachos); el líder de su propio móvil puede consumir; admin puede todo.
+    match /flota/{movilId}/inventario/{productId} {
+      allow read: if isAdminGeneral()
+        || isRoleAlmacen()
+        || (isLeader() && request.auth.token.mobileId == movilId)
+        || (isTripulante() && request.auth.token.mobileId == movilId);
+      allow create, update: if isAdminGeneral()
+        || isRoleAlmacen()
+        || (isLeader() && request.auth.token.mobileId == movilId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stockCurrent', 'updatedAt']));
+      allow delete: if isAdminGeneral();
+    }
+
+    // MOVIMIENTOS POR MÓVIL (append-only)
+    match /flota/{movilId}/movements/{docId} {
+      allow read: if isAdminGeneral()
+        || isRoleAlmacen()
+        || (isLeader() && request.auth.token.mobileId == movilId)
+        || (isTripulante() && request.auth.token.mobileId == movilId);
+      allow create: if isAdminGeneral()
+        || isRoleAlmacen()
+        || (isLeader() && request.auth.token.mobileId == movilId
+            && request.resource.data.type == 'OUT');
+      allow update, delete: if false;
     }
 
     // SOLICITUDES

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LogOut, Truck, AlertTriangle, RefreshCw, MapPin, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogOut, Truck, AlertTriangle, RefreshCw, MapPin, Loader2, Package } from 'lucide-react';
 import { auth } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { generateQrToken } from '../services/qrService';
@@ -223,13 +224,20 @@ const LeaderQrPage = () => {
             <MapPin size={12} />
             ±{Math.round(leaderLocation.accuracy || 0)}m
           </span>
+          <Link
+            to="/lider/inventario"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold"
+          >
+            <Package size={16} />
+            <span className="hidden md:inline">Inventario</span>
+          </Link>
           <button
             type="button"
             onClick={logout}
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm"
           >
             <LogOut size={16} />
-            Cerrar sesión
+            <span className="hidden md:inline">Cerrar sesión</span>
           </button>
         </div>
       </header>

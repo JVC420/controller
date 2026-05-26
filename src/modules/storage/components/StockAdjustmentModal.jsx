@@ -1,34 +1,84 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, AlertCircle, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { X, Save, AlertCircle, ArrowUpRight, ArrowDownLeft, Truck } from 'lucide-react';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db } from '../../../firebase/config';
 import { useAuth } from '../../../contexts/AuthContext';
 import { InventoryService } from '../services/inventory.service';
+import { MobileInventoryService } from '../services/mobileInventory.service';
+
+const OUT_REASONS = ['Vencimiento', 'Perdida / Robo', 'Averia', 'Ajuste de inventario', 'Consumo interno'];
+const IN_REASONS = ['Compra / Reabastecimiento', 'Devolucion', 'Ajuste de inventario', 'Donacion'];
+const DISPATCH_REASONS = ['Reposición de móvil', 'Despacho inicial', 'Solicitud del líder', 'Ajuste por turno'];
 
 export default function StockAdjustmentModal({ product, onClose, onAdjustmentComplete }) {
   const { user } = useAuth();
-  const [type, setType] = useState('IN');
+  const [mode, setMode] = useState('IN'); // 'IN' | 'OUT' | 'DISPATCH'
   const [quantity, setQuantity] = useState(1);
-  const [reason, setReason] = useState('Compra / Reabastecimiento');
+  const [reason, setReason] = useState(IN_REASONS[0]);
+  const [destinationMobileId, setDestinationMobileId] = useState('');
+  const [fleet, setFleet] = useState([]);
+  const [fleetLoading, setFleetLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const reasons = type === 'IN'
-    ? ['Compra / Reabastecimiento', 'Devolucion', 'Ajuste de inventario', 'Donacion']
-    : ['Vencimiento', 'Perdida / Robo', 'Averia', 'Ajuste de inventario', 'Consumo interno'];
+  useEffect(() => {
+    let cancelled = false;
+    const loadFleet = async () => {
+      setFleetLoading(true);
+      try {
+        const snap = await getDocs(query(collection(db, 'flota'), orderBy('placa')));
+        if (!cancelled) {
+          setFleet(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        }
+      } catch {
+        // ignore — el modo dispatch simplemente quedará sin móviles disponibles
+      } finally {
+        if (!cancelled) setFleetLoading(false);
+      }
+    };
+    loadFleet();
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectMode = (next) => {
+    setMode(next);
+    if (next === 'IN') setReason(IN_REASONS[0]);
+    else if (next === 'OUT') setReason(OUT_REASONS[0]);
+    else setReason(DISPATCH_REASONS[0]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    const qty = parseInt(quantity, 10);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError('Cantidad inválida.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await InventoryService.registerMovement(
-        product.id,
-        type,
-        parseInt(quantity, 10),
-        reason,
-        user?.uid || 'admin'
-      );
+      if (mode === 'DISPATCH') {
+        if (!destinationMobileId) throw new Error('Selecciona el móvil destino.');
+        await MobileInventoryService.dispatchFromWarehouseToMobile({
+          productId: product.id,
+          mobileId: destinationMobileId,
+          quantity: qty,
+          reason,
+          dispatchedBy: user?.email || user?.uid || 'almacen',
+        });
+      } else {
+        await InventoryService.registerMovement(
+          product.id,
+          mode,
+          qty,
+          reason,
+          user?.uid || 'admin'
+        );
+      }
       onAdjustmentComplete();
       onClose();
     } catch (err) {
@@ -37,6 +87,14 @@ export default function StockAdjustmentModal({ product, onClose, onAdjustmentCom
       setLoading(false);
     }
   };
+
+  const reasons = mode === 'IN' ? IN_REASONS : mode === 'OUT' ? OUT_REASONS : DISPATCH_REASONS;
+  const submitColor = mode === 'IN'
+    ? 'bg-emerald-600 hover:bg-emerald-500'
+    : mode === 'OUT'
+      ? 'bg-red-600 hover:bg-red-500'
+      : 'bg-blue-600 hover:bg-blue-500';
+  const submitLabel = mode === 'DISPATCH' ? 'Despachar a móvil' : 'Guardar ajuste';
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 modal-overlay-enter">
@@ -60,36 +118,60 @@ export default function StockAdjustmentModal({ product, onClose, onAdjustmentCom
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 p-1 bg-dark-900 rounded-xl border border-slate-700/50">
+          <div className="grid grid-cols-3 gap-2 p-1 bg-dark-900 rounded-xl border border-slate-700/50">
             <button
               type="button"
-              onClick={() => {
-                setType('IN');
-                setReason('Compra / Reabastecimiento');
-              }}
-              className={`py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                type === 'IN'
+              onClick={() => selectMode('IN')}
+              className={`py-2.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                mode === 'IN'
                   ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <ArrowDownLeft className="w-4 h-4" /> Entrada (+)
+              <ArrowDownLeft className="w-4 h-4" /> Entrada
             </button>
             <button
               type="button"
-              onClick={() => {
-                setType('OUT');
-                setReason('Vencimiento');
-              }}
-              className={`py-2.5 px-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                type === 'OUT'
+              onClick={() => selectMode('OUT')}
+              className={`py-2.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                mode === 'OUT'
                   ? 'bg-red-500/15 text-red-400 border border-red-500/20'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <ArrowUpRight className="w-4 h-4" /> Salida (-)
+              <ArrowUpRight className="w-4 h-4" /> Salida
+            </button>
+            <button
+              type="button"
+              onClick={() => selectMode('DISPATCH')}
+              className={`py-2.5 px-3 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
+                mode === 'DISPATCH'
+                  ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Truck className="w-4 h-4" /> A móvil
             </button>
           </div>
+
+          {mode === 'DISPATCH' && (
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">Móvil destino</label>
+              <select
+                value={destinationMobileId}
+                onChange={(e) => setDestinationMobileId(e.target.value)}
+                required
+                className="w-full bg-dark-900 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="">{fleetLoading ? 'Cargando móviles...' : 'Selecciona un móvil'}</option>
+                {fleet.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.placa || f.id} — {f.tipo || 'Ambulancia'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-400 mb-1.5">Cantidad</label>
@@ -121,13 +203,9 @@ export default function StockAdjustmentModal({ product, onClose, onAdjustmentCom
             <button
               type="submit"
               disabled={loading}
-              className={`px-5 py-2.5 text-white rounded-lg flex items-center gap-2 font-medium transition-all disabled:opacity-50 ${
-                type === 'IN'
-                  ? 'bg-emerald-600 hover:bg-emerald-500'
-                  : 'bg-red-600 hover:bg-red-500'
-              }`}
+              className={`px-5 py-2.5 text-white rounded-lg flex items-center gap-2 font-medium transition-all disabled:opacity-50 ${submitColor}`}
             >
-              <Save className="w-4 h-4" /> {loading ? 'Procesando...' : 'Guardar ajuste'}
+              <Save className="w-4 h-4" /> {loading ? 'Procesando...' : submitLabel}
             </button>
           </div>
         </form>
