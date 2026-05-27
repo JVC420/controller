@@ -405,12 +405,12 @@ const PersonnelView = ({
                 </div>
                 <div className="flex w-full md:w-auto gap-3">
                     {activeTab === 'live' && (
-                        <button onClick={() => setIsShiftModalOpen(true)} className="flex-1 md:flex-none justify-center bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/30">
+                        <button data-tour="rh-add-shift" onClick={() => setIsShiftModalOpen(true)} className="flex-1 md:flex-none justify-center bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/30">
                             <Calendar size={18} /> Programar Turno
                         </button>
                     )}
                     {activeTab === 'employees' && (
-                        <button onClick={openNewEmp} className="flex-1 md:flex-none justify-center bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg shadow-emerald-900/30">
+                        <button data-tour="rh-add-employee" onClick={openNewEmp} className="flex-1 md:flex-none justify-center bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-lg shadow-emerald-900/30">
                             <Plus size={18} /> Añadir Empleado
                         </button>
                     )}
@@ -419,7 +419,7 @@ const PersonnelView = ({
 
             {/* Fleet Crew Status */}
             {activeTab === 'live' && flota.length > 0 && (
-                <div className="mb-4 shrink-0">
+                <div data-tour="rh-crew-status" className="mb-4 shrink-0">
                     <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
                             <Truck size={16} className="text-blue-400" />
@@ -510,7 +510,7 @@ const PersonnelView = ({
             )}
 
             {/* Tabs */}
-            <div className="flex gap-1 mb-6 border-b border-slate-700/50 pb-px overflow-x-auto hide-scrollbar shrink-0">
+            <div data-tour="rh-tabs" className="flex gap-1 mb-6 border-b border-slate-700/50 pb-px overflow-x-auto hide-scrollbar shrink-0">
                 {[
                     { id: 'live', icon: <Clock size={15} />, label: 'Turnos en Vivo' },
                     { id: 'employees', icon: <User size={15} />, label: 'Directorio' },

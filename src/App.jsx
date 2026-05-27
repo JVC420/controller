@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { DndContext, DragOverlay, pointerWithin, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import LoginPage from './components/LoginPage';
+import DemoLoginPage from './components/DemoLoginPage';
+import DemoBanner from './components/DemoBanner';
+import { DEMO_MODE } from './firebase/config';
 import ProtectedRoute from './components/ProtectedRoute';
 import LeaderQrPage from './pages/LeaderQrPage';
 import LeaderInventoryPage from './pages/LeaderInventoryPage';
@@ -21,6 +24,7 @@ import SupportChatbot from './components/SupportChatbot';
 import ManualPage from './components/ManualPage';
 import StorageModulePage from './components/storage/StorageModulePage';
 import { useDashboardData } from './hooks/useDashboardData';
+import { useDemoTour } from './hooks/useDemoTour';
 import { useAuth, ROLES, KIOSK_ROLES } from './contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import UnauthorizedPage from './components/UnauthorizedPage';
@@ -43,6 +47,7 @@ const pathToTab = {
 function AppLayout() {
   const location = useLocation();
   const activeRoute = location.pathname;
+  useDemoTour();
   const {
     sesionActual,
     metricas,
@@ -350,7 +355,7 @@ function AppLayout() {
           />
         )}
 
-        <div className={`fixed inset-y-0 left-0 z-[60] transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 shrink-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div data-tour="sidebar" className={`fixed inset-y-0 left-0 z-[60] transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 shrink-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <Sidebar
             activeTab={activeTab}
             onMobileClose={() => setIsMobileMenuOpen(false)}
@@ -578,13 +583,15 @@ function AppLayout() {
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col lg:flex-row h-full overflow-hidden">
-                    <TriageBoard
-                      solicitudes={solicitudesPendientes}
-                      getClienteById={getClienteById}
-                      onEditRequest={handleEditRequest}
-                      className="flex-none lg:h-full overflow-y-auto"
-                    />
-                    <main className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
+                    <div data-tour="triage" className="contents">
+                      <TriageBoard
+                        solicitudes={solicitudesPendientes}
+                        getClienteById={getClienteById}
+                        onEditRequest={handleEditRequest}
+                        className="flex-none lg:h-full overflow-y-auto"
+                      />
+                    </div>
+                    <main data-tour="fleet" className="flex-1 min-w-0 bg-[#0B1121] shadow-inner lg:h-full overflow-y-auto hidden lg:block">
                       <FleetMonitor
                         flota={flota}
                         solicitudes={solicitudesActivas}
@@ -707,6 +714,7 @@ function AppLayout() {
 // Routes for kiosk-style roles (tripulante / líder de móvil): no sidebar, no dashboard.
 function KioskRoutes() {
   const { role } = useAuth();
+  useDemoTour();
   if (role === 'lider_movil') {
     return (
       <Routes>
@@ -738,12 +746,15 @@ function RoleRouter() {
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="/*" element={<RoleRouter />} />
-      </Route>
-    </Routes>
+    <>
+      <DemoBanner />
+      <Routes>
+        <Route path="/login" element={DEMO_MODE ? <DemoLoginPage /> : <LoginPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/*" element={<RoleRouter />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

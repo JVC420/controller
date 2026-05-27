@@ -161,7 +161,7 @@ export default function StorageCrewConsumptionPage() {
           </div>
         )}
 
-        <div className="mb-6 rounded-xl border border-slate-700 bg-dark-800 p-4 space-y-4">
+        <div data-tour="consumption-mode" className="mb-6 rounded-xl border border-slate-700 bg-dark-800 p-4 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-slate-200">Tipo de consumo</h2>
             <p className="text-xs text-slate-500 mt-1">Selecciona si el consumo corresponde a una ambulancia o a uso personal.</p>
@@ -219,7 +219,7 @@ export default function StorageCrewConsumptionPage() {
           )}
         </div>
 
-        <div className="mb-8 relative">
+        <div data-tour="consumption-search" className="mb-8 relative">
           <label className="block text-sm font-medium text-slate-400 mb-2">Buscar insumo</label>
           <div className="relative">
             <input
@@ -334,6 +334,7 @@ export default function StorageCrewConsumptionPage() {
           )}
 
           <button
+            data-tour="consumption-confirm"
             onClick={handleSubmit}
             disabled={cart.length === 0 || loading}
             className={`w-full py-4 rounded-xl font-bold text-base transition-all ${

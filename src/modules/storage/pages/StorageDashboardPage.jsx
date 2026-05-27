@@ -45,7 +45,7 @@ export default function StorageDashboardPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <div data-tour="storage-stats" className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           {statCards.map((card, idx) => (
             <div key={idx} className="bg-dark-800 border border-slate-700 rounded-xl p-6 hover:border-slate-600 transition-colors">
               <div className="flex items-center justify-between">
@@ -76,7 +76,7 @@ export default function StorageDashboardPage() {
           </h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link to="/almacen/inventario" className="bg-dark-800 border border-slate-700 rounded-xl p-5 hover:border-blue-500/40 transition-all group flex items-center justify-between">
+          <Link data-tour="storage-inventory" to="/almacen/inventario" className="bg-dark-800 border border-slate-700 rounded-xl p-5 hover:border-blue-500/40 transition-all group flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-2.5 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
                 <Package className="w-5 h-5 text-blue-300" />
@@ -115,7 +115,7 @@ export default function StorageDashboardPage() {
             <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
           </Link>
 
-          <Link to="/almacen/moviles" className="bg-dark-800 border border-slate-700 rounded-xl p-5 hover:border-blue-500/40 transition-all group flex items-center justify-between">
+          <Link data-tour="storage-mobile-overview" to="/almacen/moviles" className="bg-dark-800 border border-slate-700 rounded-xl p-5 hover:border-blue-500/40 transition-all group flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-2.5 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
                 <Truck className="w-5 h-5 text-blue-300" />

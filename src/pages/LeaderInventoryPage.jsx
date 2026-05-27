@@ -243,6 +243,7 @@ const LeaderInventoryPage = () => {
           </div>
         </div>
         <button
+          data-tour="leader-consume"
           type="button"
           onClick={() => setShowConsumption(true)}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"

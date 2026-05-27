@@ -7,7 +7,16 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "demo:emulators": "firebase emulators:start --project demo-lma --only auth,firestore",
+    "demo:seed": "node demo/seed.js",
+    "demo": "concurrently -k -n emu,app -c blue,red \"npm:demo:emulators\" \"wait-on tcp:127.0.0.1:8080 tcp:127.0.0.1:9099 && npm run demo:seed && vite --mode demo\"",
+    "build:demo": "vite build --mode demo.production",
+    "preview:demo": "vite preview --mode demo.production",
+    "demo:deploy:hosting": "npm run build:demo && firebase deploy --only hosting --project $npm_config_demo_project",
+    "demo:deploy:functions": "firebase deploy --only functions --project $npm_config_demo_project",
+    "demo:deploy:rules": "firebase deploy --only firestore:rules --project $npm_config_demo_project",
+    "demo:deploy": "npm run demo:deploy:rules --demo-project=$npm_config_demo_project && npm run demo:deploy:functions --demo-project=$npm_config_demo_project && npm run demo:deploy:hosting --demo-project=$npm_config_demo_project"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -15,6 +24,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/typography": "^0.5.19",
     "clsx": "^2.1.1",
+    "driver.js": "^1.4.0",
     "firebase": "^12.10.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.577.0",
@@ -33,12 +43,16 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "firebase-admin": "^13.10.0",
+    "firebase-tools": "^15.18.0",
     "globals": "^16.5.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wait-on": "^9.0.10"
   }
 }
