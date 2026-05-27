@@ -30,7 +30,7 @@ const Sidebar = ({ activeTab, onMobileClose, stats }) => {
                 <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-red-900/50">
                     <Activity size={24} />
                 </div>
-                <span className="hidden lg:block ml-3 font-bold text-xl tracking-tight text-white mt-1">LMA</span>
+                <span className="hidden lg:block ml-3 font-bold text-xl tracking-tight text-white mt-1">Pulso</span>
             </div>
 
             <nav className="flex-1 w-full">

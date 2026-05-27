@@ -137,7 +137,7 @@ const LoginPage = () => {
           <div className="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-red-900/50 mb-4">
             <Activity size={36} />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">LMA Control</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Pulso</h1>
           <p className="text-slate-400 text-sm mt-1">Centro de operaciones ambulancias</p>
         </div>
 
@@ -228,7 +228,7 @@ const LoginPage = () => {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          © {new Date().getFullYear()} LMA — Logística Médica de Ambulancias
+          © {new Date().getFullYear()} Pulso — Centro de operaciones de flota médica
         </p>
       </div>
     </div>

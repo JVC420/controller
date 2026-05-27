@@ -338,7 +338,7 @@ function AppLayout() {
             <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center text-white shadow-lg">
               <span className="font-bold text-lg leading-none">R</span>
             </div>
-            <span className="font-bold text-lg text-white tracking-tight">LMA</span>
+            <span className="font-bold text-lg text-white tracking-tight">Pulso</span>
           </div>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

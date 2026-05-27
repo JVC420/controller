@@ -42,11 +42,11 @@ const ImageCarousel = ({ images }) => {
                     <div className="flex items-end justify-between gap-6">
                         <div className="flex-1 text-left">
                             <h4 className="text-white font-black text-xl tracking-tight leading-none mb-2">
-                                {images[currentIndex].alt || 'Guía Visual LMA'}
+                                {images[currentIndex].alt || 'Guía Visual Pulso'}
                             </h4>
                             <div className="flex items-center gap-3">
                                 <span className="h-1 w-6 bg-blue-500 rounded-full"></span>
-                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Operaciones LMA</p>
+                                <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">Operaciones Pulso</p>
                             </div>
                         </div>
                         {images.length > 1 && (
@@ -154,7 +154,7 @@ const ManualPage = () => {
                     <div className="flex items-center gap-6">
                         <button onClick={() => navigate('/')} className="h-10 w-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-all active:scale-95 shadow-lg"><ChevronLeft size={20} /></button>
                         <div>
-                            <h1 className="text-xl font-black text-white italic tracking-tighter">LMA <span className="text-blue-500">CENTER</span></h1>
+                            <h1 className="text-xl font-black text-white italic tracking-tighter">PULSO <span className="text-blue-500">CENTER</span></h1>
                             <p className="text-[9px] text-slate-500 font-black tracking-widest uppercase mt-0.5">Centro de Operaciones</p>
                         </div>
                     </div>

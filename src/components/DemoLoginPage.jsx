@@ -90,7 +90,7 @@ export default function DemoLoginPage() {
           <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 text-[11px] font-bold uppercase tracking-widest border border-amber-500/30 mb-3">
             Demo · Datos ficticios
           </span>
-          <h1 className="text-3xl font-bold text-white tracking-tight">LMA Control</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Pulso</h1>
           <p className="text-slate-400 text-sm mt-1">Selecciona un rol para entrar al demo</p>
         </div>
 

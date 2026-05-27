@@ -4,7 +4,7 @@ import { Bot, Loader2, MessageCircle, Send, User, X } from 'lucide-react';
 
 const SUPPORT_WEBHOOK_URL = '/api/support-webhook';
 
-const INITIAL_BOT_MESSAGE = `Hola 👋, soy tu asistente de LMA.
+const INITIAL_BOT_MESSAGE = `Hola 👋, soy tu asistente de Pulso.
 
 Cuéntame qué problema estás teniendo en la plataforma y te ayudo a solucionarlo.
 Si puedes, inclúyeme algunos detalles como:
@@ -180,7 +180,7 @@ const SupportChatbot = () => {
                                 <Bot size={16} />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-white">Asistente LMA</p>
+                                <p className="text-sm font-bold text-white">Asistente Pulso</p>
                                 <p className="text-[11px] text-slate-400">Soporte operativo</p>
                             </div>
                         </div>
